@@ -212,9 +212,10 @@ class SimAudio(BaseAudio):
 class BroadcastAudio(BaseAudio):
     """Real speech through pygame (the same player SimCoach uses)."""
 
-    def __init__(self, cfg_fn, on_line=None, log=print, openai_client=None):
+    def __init__(self, cfg_fn, on_line=None, log=print, openai_client=None, link=None):
         super().__init__(on_line)
         self.cfg_fn, self.log = cfg_fn, log
+        self.link = link                                 # SimCoachLink: drop under SimCoach while it talks
         self.openai_client = openai_client
         self.q: "queue.Queue" = queue.Queue()
         self.pool = ThreadPoolExecutor(max_workers=3, thread_name_prefix="tts")
@@ -441,6 +442,15 @@ class BroadcastAudio(BaseAudio):
             self.log(f"No audio output: {e}")
         return self._mixer
 
+    def _volume(self):
+        """The booth's volume right now: the setting, lowered while SimCoach's coach is talking (simcast/link.py)."""
+        cfg = self.cfg_fn()
+        vol = float(cfg.get("volume", 0.9))
+        if self.link is not None:
+            from .link import DUCK_LEVELS
+            vol *= self.link.gain(DUCK_LEVELS.get(cfg.get("simcoach_duck"), 0.3))
+        return max(0.0, min(1.0, vol))
+
     def _sapi_say(self, text):
         if sys.platform != "win32":
             return False
@@ -450,7 +460,7 @@ class BroadcastAudio(BaseAudio):
                 import win32com.client
                 pythoncom.CoInitialize()
                 self._sapi = win32com.client.Dispatch("SAPI.SpVoice")
-            self._sapi.Volume = int(float(self.cfg_fn().get("volume", 0.9)) * 100)
+            self._sapi.Volume = int(self._volume() * 100)
             self._sapi.Speak(text)
             return True
         except Exception:
@@ -483,13 +493,15 @@ class BroadcastAudio(BaseAudio):
                 elif path and self._init_mixer():
                     import pygame
                     pygame.mixer.music.load(path)
-                    pygame.mixer.music.set_volume(float(self.cfg_fn().get("volume", 0.9)))
+                    pygame.mixer.music.set_volume(self._volume())
                     pygame.mixer.music.play()
                     t0 = time.monotonic()
                     while pygame.mixer.music.get_busy() and time.monotonic() - t0 < 30:
                         if gen != self._gen:
                             break
                         time.sleep(0.03)
+                        if self.link is not None:
+                            pygame.mixer.music.set_volume(self._volume())
                 elif not self._sapi_say(ln.text):
                     self._wait(duration(ln.text), gen)
             except Exception as e:

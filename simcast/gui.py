@@ -11,6 +11,7 @@ from tkinter import ttk
 
 from . import providers
 from .app import APP_DIR, APP_NAME, APP_VERSION, DEFAULTS
+from .link import DUCK_LABELS
 from .audio import VOICE_LABEL, VOICES
 from .guide import TOPICS as GUIDE
 
@@ -630,7 +631,10 @@ class SettingsWindow:
         self.row(f, r + 1, "Volume", ttk.Scale(f, from_=0, to=1, variable=self.v["volume"]))
         self.v["speech_rate"] = tk.DoubleVar(value=float(cfg.get("speech_rate", 0)))
         self.row(f, r + 2, "Speed", ttk.Scale(f, from_=-20, to=20, variable=self.v["speech_rate"]))
-        self.note(f, r + 3, "Microsoft and Google voices need the internet. Kokoro voices run on this PC (a one-time "
+        self.row(f, r + 3, "When SimCoach talks", self.combo(f, "simcoach_duck", list(DUCK_LABELS), DUCK_LABELS, cfg))
+        self.note(f, r + 4, "With SimCoach running too, both keep talking: the booth drops under the coach and crew "
+                            "while they speak, then comes back up.")
+        self.note(f, r + 5, "Microsoft and Google voices need the internet. Kokoro voices run on this PC (a one-time "
                             "download of about 115 MB). OpenAI voices use your OpenAI key and are the most lifelike. "
                             "If a voice can't be reached, the line is spoken by Kokoro, Google or Windows instead.")
 

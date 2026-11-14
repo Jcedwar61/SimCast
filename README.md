@@ -8,7 +8,9 @@ trouble, the final lap and the finish. It covers **the whole race**, not just yo
 way a broadcast follows a driver in the story. Rally stages get rally coverage, against the clock.
 
 SimCast is a standalone Windows app. It's built on the foundation of [SimCoach](https://github.com/Jcedwar61/SimCoach)
-(the live voice coach), but **doesn't need SimCoach installed** (the two can run side by side).
+(the live voice coach), but **doesn't need SimCoach installed**. The two run side by side without talking over
+each other: while SimCoach's coach or crew speaks, the booth drops under them and comes back up after
+(*Settings → Voices → When SimCoach talks*; SimCoach 6.13 or later).
 
 ### Download
 * **[Download SimCast-Setup.exe](https://github.com/Jcedwar61/SimCast/releases/latest/download/SimCast-Setup.exe)**
