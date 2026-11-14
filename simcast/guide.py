@@ -80,6 +80,9 @@ The booth never goes silent: a line the chosen voice can't speak (no internet, n
 
 ## Speed and volume
 Settings > Voices: Volume, and Speed (how briskly the booth talks).
+
+## With SimCoach
+Run SimCoach (the live voice coach) at the same time and both keep talking: while the coach or crew speaks, or a braking tone sounds, the booth drops under them, then comes back up. Settings > Voices > When SimCoach talks sets how far it drops (or not at all). SimCoach 6.13 or later; nothing leaves your PC.
 """),
     ("AI commentary", """
 ## What it adds

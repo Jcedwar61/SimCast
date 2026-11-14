@@ -10,6 +10,7 @@ import traceback
 from collections import deque
 
 from .audio import BroadcastAudio, SimAudio
+from .link import DUCK_LEVELS, SimCoachLink
 from .demo import DemoRace
 from .director import Director
 from .race import RaceTracker
@@ -43,7 +44,7 @@ DEFAULTS = {
     "lead_name": "Ben", "analyst_name": "Kate", "pit_name": "Mia",
     "lead_voice": "en-GB-RyanNeural", "analyst_voice": "en-GB-SoniaNeural", "pit_voice": "en-AU-NatashaNeural",
     "tts": "on", "speech_rate": 0,
-    "volume": 0.9, "audio_out": "",
+    "volume": 0.9, "audio_out": "", "simcoach_duck": "under",
     "chatter": "normal", "focus": "balanced", "pit_reporter": True, "ai_colour": True,
     "driver_name": "", "ai_provider": "openai", "ai_fallback": True,
     "openai_api_key": "", "gemini_api_key": "", "deepseek_api_key": "",
@@ -52,7 +53,8 @@ DEFAULTS = {
     "demo_laps": 8, "captions": False, "captions_pos": None, "window": None,
 }
 CHOICES = {"tts": ("on", "off"), "chatter": ("quiet", "normal", "chatty"),
-           "focus": ("field", "balanced", "me"), "ai_provider": ("openai", "gemini", "deepseek")}
+           "focus": ("field", "balanced", "me"), "ai_provider": ("openai", "gemini", "deepseek"),
+           "simcoach_duck": tuple(DUCK_LEVELS)}
 SECRET_KEYS = ("openai_api_key", "gemini_api_key", "deepseek_api_key")
 ROLE_LABEL = {"lead": "lead", "analyst": "analyst", "pit": "pit lane"}
 
@@ -120,7 +122,8 @@ class SimCast:
         self._mode_cand, self._mode_n = "field", 0
         self.tracker = RaceTracker(log=log)
         if audio is None:
-            audio = BroadcastAudio(self.config, on_line=self._on_line, log=log, openai_client=self._openai_client)
+            audio = BroadcastAudio(self.config, on_line=self._on_line, log=log, openai_client=self._openai_client,
+                                   link=SimCoachLink(log=log))
         else:
             audio.on_line = self._on_line
         self.audio = audio
@@ -360,6 +363,7 @@ class SimCast:
             "ai": self.booth.label() if self.booth else "", "ai_error": self.booth.last_error if self.booth else "",
             "demo": self.demo is not None, "settings": public, "errors": list(self.errors),
             "voice_note": getattr(self.audio, "engine_note", ""),
+            "simcoach": bool(getattr(self.audio, "link", None) and self.audio.link.connected()),
             "sims": [{"key": s.key, "name": s.name, "status": s.status, "ok": s.ok, "where": s.where}
                      for s in self.sims if s.found],
         }

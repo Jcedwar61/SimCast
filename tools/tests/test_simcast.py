@@ -475,4 +475,63 @@ check('udp enabled="true"' in open(os.path.join(f1dir, "hardware_settings_config
       'format="2025"' in open(os.path.join(f1dir, "hardware_settings_config.xml")).read(), "sims set up: F1 25 UDP on, format kept")
 check("Found 4" in detect.summary(list(found.values())), "sims found: a summary for the log")
 check(os.path.exists(os.path.join(REPO, "SimCast.ico")), "SimCast.ico in the repo")
+
+# ---------------------------------------------------------------- SimCoach link: the booth drops under the coach
+import socket  # noqa: E402
+import time  # noqa: E402
+from simcast import link as lk  # noqa: E402
+
+d = lk.DuckGain()
+check(d.value(0.0, 0.3) == 1.0, "SimCoach link: full volume when the coach is quiet")
+d.talk(1.0)
+g = [d.value(1.0 + i * 0.03, 0.3) for i in range(8)]
+check(g[-1] == 0.3 and g[1] < 1.0, f"SimCoach link: drops to the lowered level within {lk.ATTACK}s ({g[-1]:.2f})")
+for i in range(10):                                     # the coach keeps talking: packets every 100 ms
+    d.talk(1.3 + i * 0.1)
+    held = d.value(1.3 + i * 0.1, 0.3)
+check(held == 0.3, "SimCoach link: stays down while the coach talks")
+d.quiet(2.3)
+check(d.value(2.3 + lk.HANG * 0.8, 0.3) == 0.3, "SimCoach link: holds down for a moment between the coach's lines")
+check(0.3 < d.value(2.3 + lk.HANG + 0.3, 0.3) < 1.0, "SimCoach link: then comes back up gently")
+check(d.value(2.3 + lk.HANG + lk.RELEASE + 0.5, 0.3) == 1.0, "SimCoach link: back to full volume")
+d2 = lk.DuckGain()
+d2.talk(0.0)
+check(d2.value(0.0, 0.3) == 1.0 and d2.value(0.5, 1.0) == 1.0, "SimCoach link: 'don't lower it' leaves the volume alone")
+
+msgs = []
+port = None
+for p_ in range(47400, 47500):
+    try:
+        probe = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        probe.bind(("127.0.0.1", p_))
+        probe.close()
+        port = p_
+        break
+    except OSError:
+        continue
+L = lk.SimCoachLink(log=msgs.append, port=port)
+for _ in range(50):
+    if L.sock is not None:
+        break
+    time.sleep(0.02)
+tx = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+check(not L.connected() and not L.coach_talking(), "SimCoach link: nothing heard before SimCoach starts")
+tx.sendto(lk.TALK, ("127.0.0.1", port))
+for _ in range(50):
+    if L.coach_talking():
+        break
+    time.sleep(0.02)
+check(L.connected() and L.coach_talking(), "SimCoach link: a 'talking' packet from SimCoach is heard over UDP")
+check(any("SimCoach is running" in m for m in msgs), "SimCoach link: says once that SimCoach was found")
+tx.sendto(b"something else", ("127.0.0.1", port))
+tx.sendto(lk.QUIET, ("127.0.0.1", port))
+for _ in range(50):
+    if not L.coach_talking():
+        break
+    time.sleep(0.02)
+check(not L.coach_talking(), "SimCoach link: 'quiet' ends it; other packets are ignored")
+check(DEFAULTS["simcoach_duck"] == "under" and set(lk.DUCK_LEVELS) == set(lk.DUCK_LABELS),
+      "SimCoach link: lowered to 30% by default, every level has a label")
+check(SimCast(cfg={"simcoach_duck": "nonsense"}, audio=SimAudio(), booth=False, save=False).config()["simcoach_duck"]
+      == "under", "SimCoach link: a bad setting falls back to the default")
 done()
