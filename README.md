@@ -22,6 +22,12 @@ each other: while SimCoach's coach or crew speaks, the booth drops under them an
 * **Linux / Steam Deck:** [install-simcast-wine.sh](install-simcast-wine.sh) installs SimCast into the sim's
   own Proton prefix (see below).
 
+### What's new in 1.1
+* **Runs alongside SimCoach:** with [SimCoach](https://github.com/Jcedwar61/SimCoach) 6.13 or later running at the same
+  time, the booth drops under the coach and crew while they talk (braking tones too) and comes back up after, so
+  both can talk without talking over each other. *Settings → Voices → When SimCoach talks*: don't lower it, a
+  little (60%), well under (30%, the default) or almost silent (12%). Nothing leaves your PC.
+
 ### The booth
 * **Ben, the lead commentator**, calls the action: *"And Okafor takes the lead! Past Moretti, and into first place!"*
 * **Kate, the analyst**, explains it: *"That's been coming. Okafor has looked the quicker of the two."*
