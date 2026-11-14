@@ -11,9 +11,12 @@ SimCast is a standalone Windows app. It's built on the foundation of [SimCoach](
 (the live voice coach), but **doesn't need SimCoach installed** (the two can run side by side).
 
 ### Download
-* **[SimCast-Setup.exe](SimCast-Setup.exe)**: a standard setup wizard. No admin rights needed. It installs
-  SimCast for your Windows account, then gets Python and SimCast's packages (a few minutes, once). Start menu
-  and desktop shortcuts; uninstall from *Settings → Apps* (your settings are kept).
+* **[Download SimCast-Setup.exe](https://github.com/Jcedwar61/SimCast/releases/latest/download/SimCast-Setup.exe)**
+  (Windows 10/11, 64-bit): a standard setup wizard. No admin rights needed. It installs SimCast for your
+  Windows account, then gets Python and SimCast's packages (a few minutes, once). Start menu and desktop
+  shortcuts; uninstall from *Settings → Apps* (your settings are kept). If Windows SmartScreen appears,
+  choose *More info → Run anyway* (the app isn't code-signed).
+* **[Latest release and checksums](https://github.com/Jcedwar61/SimCast/releases/latest)**
 * **Linux / Steam Deck:** [install-simcast-wine.sh](install-simcast-wine.sh) installs SimCast into the sim's
   own Proton prefix (see below).
 
