@@ -126,4 +126,6 @@ installer-source/            SimCast-Setup.exe (NSIS, 64-bit): tools/installer/b
 Tests: `tools/run_tests.sh` (add `--gui` for the real window under Xvfb);
 `tools/installer/wine_check.sh` installs, runs and uninstalls SimCast under Wine.
 
-Build: `tools/launcher/build_launcher.sh` (Go and go-winres), then `tools/installer/build_installer.sh` (NSIS and 7-Zip).
+Build: `tools/launcher/build_launcher.sh` (Go and go-winres), then `tools/installer/build_installer.sh` (NSIS and
+7-Zip). On Windows, `tools/installer/nsis64.ps1` fetches a 64-bit NSIS (the setup and the winget package are x86-only)
+and prints the folder for PATH.
