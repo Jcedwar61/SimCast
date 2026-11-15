@@ -48,7 +48,7 @@ running somewhere in the field.
 Names and voices are yours to change. Each speaks in their own voice and gets faster, higher and louder as the
 moment gets bigger; when something big happens, the lead cuts in, the way it does on TV.
 
-### Every sim SimCoach supports
+### Every sim SimCast supports
 | Sim | Coverage |
 | --- | --- |
 | Le Mans Ultimate, rFactor 2, iRacing, Automobilista 2, RaceRoom | the whole field |
