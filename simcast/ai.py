@@ -21,8 +21,13 @@ commentate it exactly like real TV). Voices:
 - LEAD: {lead}, the play-by-play commentator. Calls the action, keeps the story moving.
 - ANALYST: {analyst}, a former racing driver. Explains why things happen and what to watch for.
 {pit_line}
-Style: British TV motorsport commentary. Natural, warm, spoken English, short sentences, some energy. The booth \
-talks to each other by first name now and then, never every line.
+Style: British TV motorsport commentary. Natural, warm, spoken English, short sentences, some energy. This is a \
+two-man booth, not two monologues: the voices bounce off each other. Things that make it sound like a real booth: \
+- Answer what the other one just said. Pick up their exact point (a driver, a gap, a place) and add to it.
+- Ask each other the obvious question ("can they hold that?"), hand a thought over, correct a detail, disagree \
+  mildly, finish each other's idea. Use the other's first name now and then, never every line.
+- The lead opens a thought; the analyst answers it; then they trade the next line back.
+- Never both say the same thing in different words. No "yes, exactly" every time.
 
 Hard rules:
 - Only state facts that are in the RACE DATA. Never invent contact, damage, penalties, team radio, weather, tyre \
@@ -103,8 +108,10 @@ def race_brief(tr, writer, events, transcript, max_cars=14):
     if events:
         lines.append("RECENT EVENTS (oldest first): " + "; ".join(events[-8:]))
     if transcript:
-        lines.append("RECENT COMMENTARY:")
-        lines += [f"{w}: {t}" for w, t in transcript[-8:]]
+        lines.append("RECENT COMMENTARY (last line is the most recent; the booth talks to itself, so pick up "
+                     "whatever the other one has just said and answer it):")
+        lines += [f"{writer.lead_name if w == LEAD else writer.analyst_name if w == ANALYST else 'pit'}: {t}"
+                  for w, t in transcript[-8:]]
     return "\n".join(lines)
 
 
@@ -151,12 +158,12 @@ def describe(e, writer):
     return k.replace("_", " ") + (f": {', '.join(n(x) for x in c)}" if c else "")
 
 
-def parse_lines(raw, json_reply, pit=True):
+def parse_lines(raw, json_reply, pit=True, opener=LEAD):
     d = json_reply(raw) if raw else None
     if not d or not isinstance(d.get("lines"), list):
         return []
     out = []
-    for item in d["lines"][:4]:
+    for item in d["lines"][:5]:
         if not isinstance(item, dict):
             continue
         who = str(item.get("who", "")).lower().strip()
@@ -171,7 +178,20 @@ def parse_lines(raw, json_reply, pit=True):
         except (TypeError, ValueError):
             energy = 1
         out.append(Line(who, text, energy))
+    _alternate(out, opener)
     return out
+
+
+def _alternate(lines, opener=LEAD):
+    """Two voices hand over to each other: the booth's talkers are put in strict alternation from the opener, so
+    the booth answers itself instead of delivering two statements in a row. Pit-lane lines keep their place, and a
+    lone line keeps the voice that wrote it."""
+    other = ANALYST if opener == LEAD else LEAD
+    talkers = [ln for ln in lines if ln.who != PIT]
+    if len(talkers) < 2:
+        return                                            # a lone line keeps the voice that wrote it
+    for k, ln in enumerate(talkers):
+        ln.who = opener if k % 2 == 0 else other
 
 
 class AIBooth:
@@ -210,7 +230,7 @@ class AIBooth:
         return (not self.busy and now - self.last_req >= MIN_INTERVAL and now >= self.disabled_until
                 and self.available())
 
-    def request(self, task, brief, on_lines, info=None, max_tokens=350):
+    def request(self, task, brief, on_lines, info=None, max_tokens=350, opener=LEAD):
         if not self.ready():
             return False
         self.busy, self.last_req = True, self.clock()
@@ -230,7 +250,7 @@ class AIBooth:
             lines = []
             try:
                 raw = self.chat_fn(cfg, msgs, max_tokens=max_tokens, timeout=TIMEOUT)
-                lines = parse_lines(raw, self.json_reply, pit)
+                lines = parse_lines(raw, self.json_reply, pit, opener)
                 self.failures = 0
                 self.last_error = ""
             except Exception as e:
@@ -256,10 +276,13 @@ class AIBooth:
 
 # Task wording for each kind of request -------------------------------------------------------------------
 
-def react_task(event_text, said):
-    return (f"This just happened: {event_text}. The lead has already said: \"{said}\". "
-            "Now give the ANALYST's reaction: one or two lines of insight about what it means for the race, "
-            "using the data. Don't repeat the call itself.")
+def react_task(event_text, said, speaker="Ben", other="Kate"):
+    """The other voice answers what was just said on air, and the first one comes back to that: a short exchange,
+    not a remark. Returns (task, who opens the reply)."""
+    return (f"This just happened: {event_text}. {speaker} has just said on air: \"{said}\". "
+            f"Carry the conversation on from there: {other} answers that line directly, using the data "
+            f"(what it means, who gains, who has it all to do now), then {speaker} comes back to the answer in a few "
+            f"words. Two lines, {other} first, then {speaker}. Don't repeat the line itself.")
 
 
 def filler_task(writer, now, focus):
@@ -269,21 +292,27 @@ def filler_task(writer, now, focus):
     me = tr.player()
     focus_txt = {"me": f"Focus on {writer.n(me.id)}'s race." if me else "",
                  "field": "Pick a story from anywhere in the field."}.get(focus, "Pick an interesting story from the race.")
-    return (f"It's a quiet moment in the race. Fill it with a short, natural exchange between LEAD and ANALYST "
-            f"(2 or 3 lines). {focus_txt} Good topics: a close battle, who is quickest right now, gaps growing "
-            f"or shrinking, pit stops made and still to come, someone who has gained or lost a lot since the start. "
-            f"Drivers who haven't had a mention for a while: {names}.")
+    lead = writer.lead_name
+    analyst = writer.analyst_name
+    seen = getattr(writer, "thread_hint", lambda: "")()
+    carry = f" You are already on this, so carry it on rather than starting elsewhere: {seen}" if seen else ""
+    return (f"It's a quiet moment in the race. Fill it with a short, natural back-and-forth between {lead} (LEAD) "
+            f"and {analyst} (ANALYST), 3 lines, strictly alternating: {lead} raises a story, {analyst} answers it, "
+            f"{lead} comes back to that answer.{carry} {focus_txt} Good topics: a close battle, who is quickest "
+            "right now, gaps growing or shrinking, pit stops made and still to come, someone who has gained or lost "
+            f"a lot since the start. Drivers who haven't had a mention for a while: {names}.")
 
 
-def wrap_task():
-    return ("The race is over. Give a closing exchange (3 or 4 lines) between LEAD and ANALYST: the winner, the "
-            "podium, the viewer's driver's result compared to their grid slot, and one standout moment from "
-            "RECENT EVENTS. Then sign off.")
+def wrap_task(lead_name="Ben", analyst_name="Kate"):
+    return (f"The race is over. Give a closing exchange (4 lines, alternating) between {lead_name} (LEAD) and "
+            f"{analyst_name} (ANALYST): the winner, the podium, the viewer's driver's result compared to their grid "
+            "slot, and one standout moment from RECENT EVENTS. Then sign off to each other and to the viewers.")
 
 
-def intro_task():
-    return ("We're coming on air. Give the opening (2 or 3 lines): LEAD welcomes viewers to the circuit and sets "
-            "the scene, ANALYST picks out what to watch, including the viewer's driver.")
+def intro_task(lead_name="Ben", analyst_name="Kate"):
+    return (f"We're coming on air. Give the opening (3 lines, alternating): {lead_name} (LEAD) welcomes viewers to "
+            f"the circuit and sets the scene, {analyst_name} (ANALYST) answers with what to watch, including the "
+            f"viewer's driver, and {lead_name} hands over to the start.")
 
 
 __all__ = ["AIBooth", "race_brief", "describe", "parse_lines", "react_task", "filler_task", "wrap_task",

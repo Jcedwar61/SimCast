@@ -640,9 +640,9 @@ class SettingsWindow:
 
         # ---------------------------------------------------------------- AI
         f = page("AI")
-        self.note(f, 0, "Without AI the booth calls every moment from its own lines. With a key, the analyst reacts "
-                        "with real analysis, quiet spells become conversation, and there's a sign-off at the end. "
-                        "Keys stay on this PC.", span=3)
+        self.note(f, 0, "Without AI the booth calls every moment from its own lines. With a key, the two commentators "
+                        "talk to each other: the analyst answers the calls, quiet spells become a back-and-forth, "
+                        "and there's a sign-off at the end. Keys stay on this PC.", span=3)
         self.row(f, 1, "AI commentary", self.check(f, "ai_colour", "On", cfg))
         self.row(f, 2, "Use first", self.combo(f, "ai_provider", list(PROVIDERS), PROVIDERS, cfg))
         self.row(f, 3, "", self.check(f, "ai_fallback", "If it's down or out of credit, use another provider with a key", cfg))

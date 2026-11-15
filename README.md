@@ -22,16 +22,28 @@ each other: while SimCoach's coach or crew speaks, the booth drops under them an
 * **Linux / Steam Deck:** [install-simcast-wine.sh](install-simcast-wine.sh) installs SimCast into the sim's
   own Proton prefix (see below).
 
-### What's new in 1.1
-* **Runs alongside SimCoach:** with [SimCoach](https://github.com/Jcedwar61/SimCoach) 6.13 or later running at the same
-  time, the booth drops under the coach and crew while they talk (braking tones too) and comes back up after, so
-  both can talk without talking over each other. *Settings → Voices → When SimCoach talks*: don't lower it, a
-  little (60%), well under (30%, the default) or almost silent (12%). Nothing leaves your PC.
+### What's new in 1.2
+* **A booth that talks to itself, and to the race:** Ben and Kate pick a story up between them, work it, and put it
+  down when it breaks, the way a television pair does. They follow a fight lap by lap, a driver coming through the
+  field, the pit cycle, and your own afternoon.
+* **Much less dead air:** the quiet spells are a back-and-forth now, not the odd remark into silence (longest gap
+  in a demo race is about nine seconds, from nearly seventy).
+* **Nobody hogs the microphone:** three lines is the most one voice gets before the other breaks in on what was
+  just said.
+* **No repeats:** a fight that has just been called isn't called again a few corners later, and lines already said
+  are held back.
+* **Runs alongside SimCoach** (1.1): while the coach or crew talk, the booth drops under them and comes back up
+  after. *Settings → Voices → When SimCoach talks*.
 
 ### The booth
 * **Ben, the lead commentator**, calls the action: *"And Okafor takes the lead! Past Moretti, and into first place!"*
-* **Kate, the analyst**, explains it: *"That's been coming. Okafor has looked the quicker of the two."*
+* **Kate, the analyst**, answers: *"That's been coming. Okafor has looked the quicker of the two."* — and Ben comes
+  straight back at her: *"And now Moretti has to fight it back. What a race this has become."*
 * **Mia, the pit-lane reporter**, brings you every stop: *"Moretti is back out, in fifth, thirty-one seconds in the pit lane."*
+
+They work a story the way a television booth does: it gets opened, kicked around between the two of them, followed
+while it lasts and paid off when it breaks. Nobody holds the floor for long, and there is always another thread
+running somewhere in the field.
 
 Names and voices are yours to change. Each speaks in their own voice and gets faster, higher and louder as the
 moment gets bigger; when something big happens, the lead cuts in, the way it does on TV.
@@ -65,9 +77,10 @@ own voice: the booth never goes silent.
 
 ### AI commentary (optional)
 The booth calls every moment from its own lines, instantly. Add an **OpenAI, Google Gemini or DeepSeek** key
-(Settings → AI) and the analyst reacts to big moments with real analysis, quiet spells become conversation
-about the stories in the race, and there's a proper sign-off. **The model is picked automatically**: SimCast
-asks the provider which models your key can use and takes the best one for live commentary; you can choose
+(Settings → AI) and the two of them talk to each other: the analyst answers the lead's calls, he answers her
+back, quiet spells become a real back-and-forth about the stories in the race, and there's a proper sign-off. **The
+model is picked automatically**: SimCast asks the provider which models your key can use and takes the best one for
+live commentary; you can choose
 another from the list. With more than one key, it moves to another provider if one is down. The AI only gets
 the race data, and strict rules: no invented facts, drivers by name, no repeats.
 

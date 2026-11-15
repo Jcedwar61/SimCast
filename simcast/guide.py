@@ -23,8 +23,10 @@ Press Demo race at the top of the window. Twelve cars, a standing start, battles
     ("What the booth covers", """
 ## The commentators
 - The lead commentator calls the action: overtakes, the start, the finish.
-- The analyst explains it: why it happened, what it means, who's quick.
+- The analyst answers: why it happened, what it means, who's quick. The lead comes back to that.
 - The pit-lane reporter brings you every pit stop (switch it off in Settings if you prefer two voices).
+
+They talk to each other, and to the race: a fight or a driver on the move is opened between them, followed a beat at a time, and paid off when it breaks, so the coverage carries on rather than falling back on a list of facts. Nobody holds the floor for long.
 
 ## Three kinds of coverage
 SimCast picks the right one by itself and shows it at the top of the window.
@@ -87,8 +89,8 @@ Run SimCoach (the live voice coach) at the same time and both keep talking: whil
     ("AI commentary", """
 ## What it adds
 Without AI, the booth calls every moment from its own lines, instantly. With an AI key:
-- the analyst reacts to big moments with real analysis of the race data,
-- quiet spells become a natural conversation between the two commentators about the stories in the race,
+- the analyst answers the lead's calls with real analysis of the race data, and the lead answers her back,
+- quiet spells become a natural back-and-forth between the two of them about the stories in the race,
 - there's a proper sign-off at the end.
 The AI gets the live standings, gaps, lap times, battles and recent events, and strict rules: only facts from the data, nothing invented, no repeats.
 

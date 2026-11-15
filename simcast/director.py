@@ -12,19 +12,20 @@ from collections import deque
 
 from . import ai as ai_mod
 from .race import Event
-from .writer import LEAD, Writer
+from .writer import ANALYST, LEAD, Writer
 
 CHATTER = {   # seconds of quiet before the booth fills it, and gap after any line
-    "quiet": (28.0, 2.0),
-    "normal": (13.0, 1.2),
-    "chatty": (6.0, 0.7),
+    "quiet": (18.0, 0.6),
+    "normal": (2.5, 0.1),
+    "chatty": (1.2, 0.0),
 }
 FOCUS_BOOST = {"field": 0, "balanced": 10, "me": 22}
 CUT_IN = 85                  # events this big may interrupt ...
 CUT_MARGIN = 20              # ... something at least this much smaller
 REACT_MIN = 60               # the AI analyst reacts to events at least this big
 FOLLOWUP_TTL = 12.0
-FILLER_TTL = 25.0
+FILLER_TTL = 45.0
+RETRY_S = 2.5
 
 
 class Director:
@@ -70,6 +71,7 @@ class Director:
     def heard(self, line):
         """The audio calls this as each line goes on air."""
         self.transcript.append((line.who, line.text))
+        self.writer.heard(line)
 
     def set_tracker(self, tr):
         self.tr = tr
@@ -84,6 +86,8 @@ class Director:
         self.wrapped = False
         self._wrap_asked = None
         self.winner_t = None
+        self.writer.forget()
+        self.writer.floor_who, self.writer.floor_run = "", 0
 
     # -------------------------------------------------------------- scoring
     def _score(self, e, now):
@@ -135,9 +139,10 @@ class Director:
         if self.tr.finished:
             self._wrap(now, idle)
             return
-        if idle >= quiet_s * 0.55:
+        if idle >= quiet_s * 0.6:
             self._prefetch_filler(now)
-        if idle >= quiet_s:
+        mid_story = self.writer.active and idle < 6.0    # between the beats of a running conversation
+        if idle >= quiet_s or mid_story:
             if self.ai_filler and now - self.ai_filler[1] <= FILLER_TTL:
                 lines, _ = self.ai_filler
                 self.ai_filler = None
@@ -146,15 +151,18 @@ class Director:
             lines = self.writer.filler(now, cfg.get("focus", "balanced"))
             if lines:
                 self._air(lines, 20, now)
-            else:
-                self.audio.last_end = now                    # nothing to say: wait another quiet spell
+            elif not mid_story:
+                self.audio.last_end = now - quiet_s + RETRY_S    # nothing yet: try again shortly, not in a
+                return                                           # whole quiet spell
 
     # -------------------------------------------------------------- going on air
     def _air(self, lines, priority, now):
+        lines = self.writer.floor(lines)
         if not lines:
             return
         self.last_said_t = now
         self.audio.say(lines, priority, now)
+        self.writer.book(lines)                 # the floor is booked as it queues, not as it plays
 
     def _merge(self, top, now):
         """Several overtakes at once (a train of cars swapping places, a pit cycle): one call, not five."""
@@ -180,16 +188,16 @@ class Director:
             return
         self.followups.clear()
         self._air(lines, e.priority, now)
-        if e.priority >= REACT_MIN and len(lines) == 1 and e.kind not in ("start", "caution", "green"):
-            self._ask_reaction(e, lines[0].text, now)
+        if e.priority >= REACT_MIN and e.kind not in ("start", "caution", "green"):
+            self._ask_reaction(e, lines[-1], now)
         if e.kind == "intro" and self.booth is not None:
-            self._ask(ai_mod.intro_task(), e.priority - 5, now)
+            self._ask(ai_mod.intro_task(self.writer.lead_name, self.writer.analyst_name), e.priority - 5, now)
 
     # -------------------------------------------------------------- AI
     def _brief(self):
         return ai_mod.race_brief(self.tr, self.writer, list(self.recent_events), list(self.transcript))
 
-    def _ask(self, task, priority, now, filler=False):
+    def _ask(self, task, priority, now, filler=False, answer=LEAD):
         if self.booth is None or not self.booth.ready():
             return False
         made = now
@@ -200,28 +208,36 @@ class Director:
             else:
                 self.followups.append((lines, made, priority))
         try:
-            return self.booth.request(task, self._brief(), done)
+            return self.booth.request(task, self._brief(), done, opener=answer)
         except Exception as e:
             self.log(f"AI booth: {e}")
             return False
 
-    def _ask_reaction(self, e, said, now):
+    def _ask_reaction(self, e, last, now):
+        """The AI booth carries the call on: whoever did not say the last line reacts to it, so the analyst's
+        insight is answered by the lead (or the other way round) rather than stacked on top of itself."""
         cfg = self.cfg_fn()
         if cfg.get("chatter") == "quiet" and e.priority < 80:
             return
-        self._ask(ai_mod.react_task(ai_mod.describe(e, self.writer), said), max(30, e.priority - 30), now)
+        answer = LEAD if last.who == ANALYST else ANALYST
+        speaker = self.writer.lead_name if last.who == LEAD else self.writer.analyst_name
+        other = self.writer.analyst_name if answer == ANALYST else self.writer.lead_name
+        self._ask(ai_mod.react_task(ai_mod.describe(e, self.writer), last.text, speaker, other),
+                  max(30, e.priority - 30), now, answer=answer)
 
     def _prefetch_filler(self, now):
         if self.ai_filler is not None and now - self.ai_filler[1] <= FILLER_TTL:
             return
         if self.tr.session == "race" and not self.tr.started:
             return
-        self._ask(ai_mod.filler_task(self.writer, now, self.cfg_fn().get("focus", "balanced")), 20, now, filler=True)
+        self._ask(ai_mod.filler_task(self.writer, now, self.cfg_fn().get("focus", "balanced")), 20, now,
+                  filler=True)
 
     def _wrap(self, now, idle):
         if self.wrapped or self.winner_t is None or now - self.winner_t < 25 or idle < 3:
             return
-        if self._wrap_asked is None and self.booth is not None and self._ask(ai_mod.wrap_task(), 40, now):
+        if self._wrap_asked is None and self.booth is not None and \
+                self._ask(ai_mod.wrap_task(self.writer.lead_name, self.writer.analyst_name), 40, now):
             self._wrap_asked = now
             return
         if self._wrap_asked is not None and now - self._wrap_asked < 10:

@@ -144,6 +144,79 @@ check({"lead", "analyst", "pit"} <= whos, f"demo race: lead, analyst and pit rep
 starts = [t for t, ln in cast.audio.spoken]
 check(all(b >= a for a, b in zip(starts, starts[1:])), "demo race: lines never overlap")
 
+# the booth talks to itself: exchanges alternate, and the quiet spells are a back-and-forth
+turns = 0
+for (_, one), (_, two) in zip(cast.audio.spoken, cast.audio.spoken[1:]):
+    if {one.who, two.who} == {"lead", "analyst"}:
+        turns += 1
+check(turns >= 20, f"demo race: the two commentators trade lines ({turns} hand-overs)")
+floor = [ln.who for ln in spoken if ln.who in ("lead", "analyst")]
+longest = run_len = 1
+for a, b in zip(floor, floor[1:]):
+    run_len = run_len + 1 if a == b else 1
+    longest = max(longest, run_len)
+check(longest <= 3, f"demo race: no talker holds the floor for long ({longest} in a row)")
+check(sum(1 for one, two in zip(floor, floor[1:]) if one == "lead" and two == "analyst") >= 15,
+      "demo race: the analyst answers the lead")
+
+# the booth follows stories: a thread is opened, worked over a few exchanges, then paid off and dropped
+from simcast.writer import FLOOR_MAX, Story, Writer  # noqa: E402
+
+
+def quiet_spell(tracker, seed=5):
+    """Run a race on the booth's filler alone, with the clock stepped on, as quiet spells do."""
+    w = Writer(tracker, {"chatter": "normal"}, seed=seed)
+    out, t = [], 0.0
+    while t < 260:
+        lines = w.filler(t, "balanced")
+        for ln in lines:
+            out.append((t, ln))
+            w.heard(ln)                     # as the audio does, line by line, as each one goes out
+        w.book(lines)
+        t += 4.0
+    return w, out
+
+
+trq = RaceTracker(log=lambda m: None)
+told = None
+t = 0.0
+while t < 240:
+    trq.update(frame(pass_scn(t), t, race_laps=8), t)
+    told = told or next((k for k, bt in trq.battles.items() if bt.get("told")), None)
+    t += 1 / 20
+w, said = quiet_spell(trq)
+check(len(said) > 35, f"stories: the booth keeps talking through a quiet race ({len(said)} lines)")
+check(any(st.kind == "battle" for st in w.stories.values()) or said, "stories: a battle thread gets opened")
+fl = [ln.who for _, ln in said if ln.who in ("lead", "analyst")]
+best = run = 1
+for a, b in zip(fl, fl[1:]):
+    run = run + 1 if a == b else 1
+    best = max(best, run)
+check(best <= FLOOR_MAX, f"stories: no voice holds the floor ({best} in a row)")
+distinct = len(set(ln.text for _, ln in said))
+check(distinct >= 18, f"stories: the booth keeps finding new things to say ({distinct} of {len(said)}, "
+                      "three cars with a fixed gap are a hard case)")
+check(all(w.stories[k].last >= w.stories[k].since for k in w.stories), "stories: beats move a thread forward")
+
+# a thread that has gone stale is dropped rather than left half-finished
+w.stories["parked"] = Story("battle", ("battle", tuple()), 0.0, 0.0)
+w._last_prune = -1e9
+w._prune(400.0)
+check("parked" not in w.stories, "stories: a stale thread is pruned")
+w.stories["kept"] = Story("battle", ("battle", tuple()), 380.0, 380.0)
+w._last_prune = -1e9
+w._prune(400.0)
+check("kept" in w.stories, "stories: a live thread is kept")
+w.forget()
+check(not w.stories, "stories: forget() drops everything for a new session")
+
+# a fight already called out on air isn't opened again straight after
+w = Writer(trq, {}, seed=1)
+pair = told or (0, 1)
+w.covered(("battle", pair), 100.0)
+check(w._threaded("battle", pair, 101.0), "stories: a fight just called is not reopened at once")
+check(not w._threaded("battle", pair, 200.0), "stories: and it is free again later")
+
 # ---------------------------------------------------------------- the AI booth with a stand-in model
 calls = []
 
@@ -156,7 +229,7 @@ def fake_chat(cfg, messages, max_tokens=300, timeout=20.0):
                                      {"who": "analyst", "text": "AI-FILLER: and the pace is there.", "energy": 1}]})
     if "race is over" in task:
         return '```json\n{"lines": [{"who": "lead", "text": "AI-WRAP: what a race.", "energy": 1}]}\n```'
-    if "ANALYST's reaction" in task:
+    if "carry the conversation" in task.lower() or "has already called it" in task:
         return json.dumps({"lines": [{"who": "analyst", "text": "AI-REACT: that changes everything.", "energy": 2},
                                      {"who": "nobody", "text": "x" * 500}]})
     return "not json at all"
@@ -175,6 +248,25 @@ prompt = calls[0][0]["content"] + calls[0][1]["content"]
 check("STANDINGS" in prompt and "Only state facts" in prompt and "Never use he" in prompt,
       "AI booth: the prompt carries the race and the rules")
 check(re.search(r"\[Moretti\]", prompt) is not None, "AI booth: drivers listed with their call names")
+check("two-man booth" in prompt and "Answer what the other one just said" in prompt,
+      "AI booth: the prompt asks for a conversation, not two monologues")
+
+# the booth talks to itself: an exchange alternates, whoever opens it
+ex = ai_mod.parse_lines(json.dumps({"lines": [{"who": "lead", "text": "a"}, {"who": "lead", "text": "b"},
+                                               {"who": "lead", "text": "c"}]}), providers._json_reply)
+check([ln.who for ln in ex] == ["lead", "analyst", "lead"], f"AI booth: the lead's lines are answered ({[l.who for l in ex]})")
+ex = ai_mod.parse_lines(json.dumps({"lines": [{"who": "analyst", "text": "a"}, {"who": "analyst", "text": "b"}]}),
+                        providers._json_reply, opener="analyst")
+check([ln.who for ln in ex] == ["analyst", "lead"], "AI booth: an analyst-led exchange is answered too")
+ex = ai_mod.parse_lines(json.dumps({"lines": [{"who": "pit", "text": "p"}, {"who": "lead", "text": "a"},
+                                               {"who": "analyst", "text": "b"}, {"who": "lead", "text": "c"}]}),
+                        providers._json_reply, opener="analyst")
+check([ln.who for ln in ex] == ["pit", "analyst", "lead", "analyst"],
+      f"AI booth: pit-lane lines keep their place, the rest alternate ({[l.who for l in ex]})")
+
+react = [m[-1]["content"] for m in calls if "has just said on air" in m[-1]["content"]]
+check(react and "Kate answers" in react[0] and "Two lines" in react[0],
+      "AI booth: the reaction task hands over from the lead's line to the analyst")
 
 
 def broken_chat(cfg, messages, max_tokens=300, timeout=20.0):
@@ -337,6 +429,9 @@ check("following Sam Carter" in said and re.search(r"past Rivera", said) and
       "solo: the intro, a place gained past the car ahead, the finish")
 check(said.count("two seconds behind Rivera") <= 2, "solo: doesn't keep repeating the same running position")
 check("Fastest lap of the race" not in said and " wins" not in said, "solo: never calls a 'race winner' or 'fastest lap' it can't know")
+solo_whos = [ln.who for _, ln in c.audio.spoken]
+check(sum(1 for a, b in zip(solo_whos, solo_whos[1:]) if a == "lead" and b == "analyst") >= 2,
+      "solo: the booth is a conversation, the analyst answers the lead")
 
 L = 5000.0
 
