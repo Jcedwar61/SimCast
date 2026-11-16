@@ -14,6 +14,8 @@ os.environ["APPDATA"] = tempfile.mkdtemp(prefix="simcast-gui-test-")
 sys.path.insert(0, REPO)
 from simcast.app import DEFAULTS, SimCast   # noqa: E402
 from simcast.gui import SimCastWindow       # noqa: E402
+from simcast import update as _update       # noqa: E402
+_update.check_latest_release = lambda current, timeout=8.0: None    # the start-up check stays off the network
 
 SHOTS = os.environ.get("SIMCAST_SHOTS")
 from simcast import detect  # noqa: E402
@@ -134,6 +136,65 @@ if SHOTS:
     except Exception as e:
         print(f"(screenshot failed: {e})")
 g.win.destroy()
+
+# updates: a newer release shows a bar; Not now remembers it; Settings > About has the switch and Check now
+from simcast import update as up  # noqa: E402
+newer = {"tag": "v9.0", "version": "9.0", "url": "https://example.invalid/r", "notes": "", "installer_url": "u",
+         "sha256": "0" * 64}
+up.check_latest_release = lambda current, timeout=8.0: newer
+check(win.update_bar is None, "updates: no bar while there's nothing newer")
+win.check_for_updates()
+pump(1.5)
+bar = win.update_bar
+texts = [w.cget("text") for w in bar.winfo_children()] if bar is not None else []
+check(bar is not None and bar.winfo_ismapped() and "SimCast 9.0 is available" in texts and "What's new" in texts,
+      f"updates: the bar offers the new version ({texts})")
+check(win.update_btn.cget("text") == "Download", "updates: a copy that wasn't installed by the wizard gets a link")
+shot("simcast-update.png")
+up.can_install = lambda info, here=None: True
+ran = []
+up.download_installer = lambda url, dest, sha, progress=None, timeout=30.0, current="": (progress(50, 100), dest)[1]
+up.start_installer = ran.append
+win._show_update(newer)
+check(win.update_btn.cget("text") == "Install update", "updates: an installed copy gets Install update")
+win.update_btn.invoke()
+pump(1.5)
+check(len(ran) == 1 and ran[0].endswith("SimCast-Setup-v9.0.exe") and "Setup started" in win.update_msg.cget("text"),
+      "updates: Install update downloads the wizard and starts it")
+
+
+def _boom(*a, **k):
+    raise ValueError("no")
+
+
+up.download_installer = _boom
+win._show_update(newer)
+win.update_btn.invoke()
+pump(1.5)
+check("couldn't be downloaded" in win.update_msg.cget("text") and str(win.update_btn.cget("state")) == "normal"
+      and len(ran) == 1, "updates: a failed download says so and starts nothing")
+win._skip_update()
+pump(0.3)
+check(win.update_bar is None and cast.cfg["update_skip"] == "v9.0", "updates: Not now hides the bar and remembers it")
+win.check_for_updates()
+pump(1.5)
+check(win.update_bar is None, "updates: a skipped version isn't offered again by itself")
+win.check_for_updates(manual=True)
+pump(1.5)
+check(win.update_bar is not None and "9.0 is available" in win.update_status.get(), "updates: Check now still finds it")
+win._skip_update()
+up.check_latest_release = lambda current, timeout=8.0: None
+win.check_for_updates(manual=True)
+pump(1.5)
+check("up to date" in win.update_status.get(), "updates: Check now says when you're up to date")
+win.open_settings()
+pump(0.4)
+sw3 = win.settings_win
+sw3.nb.select(4)
+check("check_updates" in sw3.v and sw3.v["check_updates"][1].get() is True, "updates: the switch is in Settings > About")
+sw3.v["check_updates"][1].set(False)
+sw3.save()
+check(cast.cfg["check_updates"] is False, "updates: switching the check off is saved")
 
 win.toggle_captions(True)
 pump(12)

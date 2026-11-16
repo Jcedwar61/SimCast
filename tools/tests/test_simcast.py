@@ -733,4 +733,67 @@ ka._kokoro_download()
 check(not os.path.exists(kvoices) and fetched and fetched[0].endswith("voices-v1.0.bin"),
       "Kokoro: a cut-short SimCoach copy is downloaded instead")
 urllib.request.urlopen = real_urlopen
+# ---------------------------------------------------------------- updates (simcast/update.py)
+import hashlib  # noqa: E402
+import http.server  # noqa: E402
+import threading as _th  # noqa: E402
+from simcast import update as up  # noqa: E402
+
+check(up.ver_tuple("v1.3.1") == (1, 3, 1, 0) and up.ver_tuple("1.10") > up.ver_tuple("1.9") and
+      up.ver_tuple("nonsense") == (0, 0, 0, 0), "updates: versions compare by number")
+wizard = b"MZ" + bytes(range(256)) * 2400                       # stands in for SimCast-Setup.exe (over 500 kB)
+sha = hashlib.sha256(wizard).hexdigest()
+rel = {"tag_name": "v9.0", "html_url": "https://example.invalid/r", "body": "notes",
+       "assets": [{"name": "release-notes.md", "browser_download_url": "x", "digest": "sha256:" + "0" * 64},
+                  {"name": "SimCast-Setup.exe", "browser_download_url": "URL", "digest": "sha256:" + sha}]}
+info = up.pick_release(rel, "1.3")
+check(info and info["version"] == "9.0" and info["installer_url"] == "URL" and info["sha256"] == sha,
+      "updates: a newer release is offered with its wizard and checksum")
+check(up.pick_release(rel, "9.0") is None and up.pick_release(rel, "9.1") is None,
+      "updates: the same or an older release is not offered")
+check(up.pick_release(dict(rel, prerelease=True), "1.3") is None and up.pick_release(dict(rel, draft=True), "1.3") is None
+      and up.pick_release({}, "1.3") is None, "updates: drafts and pre-releases are not offered")
+bare = up.pick_release(dict(rel, assets=[{"name": "SimCast-Setup.exe", "browser_download_url": "URL"}]), "1.3")
+check(bare and bare["sha256"] == "" and not up.can_install(bare, here=REPO) and not up.can_install(info, here=REPO),
+      "updates: no checksum, or not the installed copy: a link to the release instead of installing")
+check(DEFAULTS["check_updates"] is True and DEFAULTS["update_skip"] == "", "updates: checked by default")
+
+
+class _H(http.server.BaseHTTPRequestHandler):
+    def do_GET(self):
+        body = {"/ok": wizard, "/page": b"<html>not found</html>" * 40000, "/cut": wizard}[self.path]
+        self.send_response(200)
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body[:1000] if self.path == "/cut" else body)
+
+    def log_message(self, *a):
+        pass
+
+
+srv = http.server.ThreadingHTTPServer(("127.0.0.1", 0), _H)
+_th.Thread(target=srv.serve_forever, daemon=True).start()
+base = f"http://127.0.0.1:{srv.server_address[1]}"
+dl = os.path.join(tempfile.mkdtemp(prefix="simcast-upd-"), "SimCast-Setup-v9.0.exe")
+seen = []
+up.download_installer(base + "/ok", dl, sha, progress=lambda g, t: seen.append((g, t)))
+check(open(dl, "rb").read() == wizard and seen and seen[-1] == (len(wizard), len(wizard)) and
+      not os.path.exists(dl + ".part"), "updates: the wizard downloads, with progress")
+
+
+def refused(path, digest):
+    os.remove(dl) if os.path.exists(dl) else None
+    try:
+        up.download_installer(base + path, dl, digest, timeout=5)
+    except Exception:
+        return not os.path.exists(dl) and not os.path.exists(dl + ".part")
+    return False
+
+
+check(refused("/ok", "0" * 64), "updates: a download that doesn't match the published checksum is thrown away")
+check(refused("/ok", ""), "updates: no checksum, no install")
+check(refused("/page", hashlib.sha256(b"<html>not found</html>" * 40000).hexdigest()),
+      "updates: a web page instead of a program is thrown away")
+check(refused("/cut", sha), "updates: a download cut short is thrown away")
+srv.shutdown()
 done()

@@ -17,10 +17,26 @@ each other: while SimCoach's coach or crew speaks, the booth drops under them an
   (Windows 10/11, 64-bit): a standard setup wizard. No admin rights needed. It installs SimCast for your
   Windows account, then gets Python and SimCast's packages (a few minutes, once). Start menu and desktop
   shortcuts; uninstall from *Settings → Apps* (your settings are kept). If Windows SmartScreen appears,
-  choose *More info → Run anyway* (the app isn't code-signed).
+  choose *More info → Run anyway* (the app isn't code-signed). SimCast tells you when a newer release is out
+  and can install it for you.
 * **[Latest release and checksums](https://github.com/Jcedwar61/SimCast/releases/latest)**
 * **Linux / Steam Deck:** [install-simcast-wine.sh](install-simcast-wine.sh) installs SimCast into the sim's
   own Proton prefix (see below).
+
+### What's new in 1.4
+* **Updates itself:** SimCast checks GitHub for a newer release when it starts and every 12 hours. A new version
+  shows a bar at the top of the window: *Install update* downloads the setup wizard, checks it against the SHA-256
+  published for the release and runs it (it closes SimCast and updates it in place; your settings are kept).
+  *What's new* opens the release notes and *Not now* skips that version. Nothing is installed until you click.
+  *Settings → About* has the switch and a *Check now* button.
+* **SimCoach from the setup wizard:** SimCast-Setup.exe has a new option, *SimCoach: live voice coach and race
+  crew* (unticked). Tick it and setup also installs the latest [SimCoach](https://github.com/Jcedwar61/SimCoach)
+  from its GitHub release, checked against the published SHA-256 before it runs. The two stay separate apps.
+* **One voice model for both:** if SimCoach has already downloaded the Kokoro voice model (about 115 MB), SimCast
+  uses that copy instead of downloading it again, and the other way round. Python and the packages were shared
+  already.
+* **Ready for newer SimCoaches:** the link that drops the booth under the coach now understands newer versions of
+  SimCoach's message as well as today's, so updating one app never breaks the other.
 
 ### What's new in 1.3
 * **A booth with opinions:** Ben and Kate make calls on the fights in front of them, with a reason from the lap
@@ -133,6 +149,8 @@ simcast/audio.py             voices (Microsoft, Kokoro, Google, OpenAI), fallbac
 simcast/detect.py            the supported sims installed on this PC (Steam libraries, iRacing, EA app)
 simcast/gamesetup.py         EA WRC, DiRT Rally 2.0, F1 25, ACC and Assetto Corsa set up for SimCast
 simcast/gui.py, guide.py     the window, settings, captions window, the guide
+simcast/update.py            the update check and the checksum-verified installer download
+simcast/link.py              the SimCoach link (the booth drops under the coach)
 simcast/demo.py              a fictional 12-car race for the demo and the tests
 simcast/licenses/            SimCast's MIT licence and third-party notices
 tools/launcher/              SimCast.exe (Go): build_launcher.sh
@@ -144,3 +162,8 @@ Tests: `tools/run_tests.sh` (add `--gui` for the real window under Xvfb);
 Build: `tools/launcher/build_launcher.sh` (Go and go-winres), then `tools/installer/build_installer.sh` (NSIS and
 7-Zip). On Windows, `tools/installer/nsis64.ps1` fetches a 64-bit NSIS (the setup and the winget package are x86-only)
 and prints the folder for PATH.
+
+Releasing: set `APP_VERSION` in `simcast/app.py`, add a "What's new" section here, run the tests, build the
+launcher and the installer, merge to main, then publish a GitHub release tagged `vX.Y` on main with
+**SimCast-Setup.exe** attached under exactly that name: installed copies' update check and SimCoach's setup wizard
+both look for it, and both check the download against the SHA-256 GitHub shows for the asset.
