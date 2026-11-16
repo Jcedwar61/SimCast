@@ -61,7 +61,8 @@ jobs:
           $key = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\SimCast'
           $got = (Get-ItemProperty $key).DisplayVersion
           if ($got -ne $want) { "Settings > Apps says $got, expected $want"; exit 1 }
-          if ((Get-FileHash simcast\app.py).Hash -ne (Get-FileHash "$env:INST\simcast\app.py").Hash) { 'simcast\app.py was not replaced'; exit 1 }
+          # (not a file hash: Git on Windows checks the repo out with CRLF line endings, the wizard carries LF)
+          if (-not (Select-String -Path "$env:INST\simcast\app.py" -SimpleMatch "APP_VERSION = `"$want`"" -Quiet)) { 'simcast\app.py was not replaced'; exit 1 }
           foreach ($f in 'simcast\update.py', 'setup-ready.txt', 'install.ps1') {
             if (-not (Test-Path "$env:INST\$f")) { "Missing $f"; exit 1 }
           }
