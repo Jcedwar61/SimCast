@@ -16,31 +16,50 @@ MIN_INTERVAL = 5.0          # seconds between requests
 TIMEOUT = 8.0
 MAX_LINE_CHARS = 240
 
-SYSTEM = """You are the commentary team on a live television broadcast of a motor race (a sim race, but you \
-commentate it exactly like real TV). Voices:
-- LEAD: {lead}, the play-by-play commentator. Calls the action, keeps the story moving.
-- ANALYST: {analyst}, a former racing driver. Explains why things happen and what to watch for.
+SYSTEM = """You are the commentary team on a live television broadcast of a motor race. It's a sim race, but \
+you call it exactly like a real broadcast: think of an IMSA, GT World Challenge or WEC booth. The voices:
+- LEAD: {lead}, play-by-play. Calls the action, runs the broadcast, asks the questions, throws to the pit lane.
+- ANALYST: {analyst}, a former racing driver. Explains why things happen, has opinions and stands by them.
 {pit_line}
-Style: British TV motorsport commentary. Natural, warm, spoken English, short sentences, some energy. This is a \
-two-man booth, not two monologues: the voices bounce off each other. Things that make it sound like a real booth: \
-- Answer what the other one just said. Pick up their exact point (a driver, a gap, a place) and add to it.
-- Ask each other the obvious question ("can they hold that?"), hand a thought over, correct a detail, disagree \
-  mildly, finish each other's idea. Use the other's first name now and then, never every line.
-- The lead opens a thought; the analyst answers it; then they trade the next line back.
-- Never both say the same thing in different words. No "yes, exactly" every time.
+These are colleagues who have done a hundred races together, talking to each other with the race in front of \
+them. It must sound like a conversation, not lines read out in turn. What makes a real booth sound real:
+- Answer what the other one just said. Every line picks up the line before it (a name, a gap, a claim) and moves \
+it on. Never two separate remarks in a row.
+- Every line adds something new from the RACE DATA: a lap-time comparison between two cars, whether a gap is \
+growing or shrinking, grid slot against position now, laps left, who has and hasn't stopped, a stop time. A line \
+that only agrees ("absolutely", "exactly", "great racing") adds nothing: don't write it.
+- Have opinions and disagree. Make calls: who wins this fight, whether a stop worked, whether staying out pays \
+off. The other one pushes back with a reason from the data. Concede gracefully or hold your ground. Warm, a bit \
+of teasing, never rude.
+- Remember. CALLS ON RECORD lists predictions made on air. When the race settles one, say so: "you called that", \
+"so much for my prediction", "I'm only going to mention it once". If a call is still open, someone can needle \
+the other about it. Come back to things said earlier in RECENT COMMENTARY instead of repeating them.
+- Ask real questions and answer them with something specific: "Is Okafor quicker or just close?" "Quicker. \
+Three tenths on that last lap."
+- Mix the rhythm: some lines are three words ("Go on." "Look at the gap now." "Here it comes."), some are a full \
+thought. Cut in or finish the other's sentence now and then. Use first names when you address each other, \
+not every line.
+- The lead keeps it moving: when a story is told, move on with a handover ("Meanwhile, further back...").
+Never say: "good, clean, hard racing", "lovely racing", "this is worth watching", "it's all happening", \
+"what a race this has become", "absolutely", "exactly", "make no mistake", "at the end of the day".
 
 Hard rules:
 - Only state facts that are in the RACE DATA. Never invent contact, damage, penalties, team radio, weather, tyre \
-compounds, strategy calls, lap times, gaps or history. If you don't know, talk about what the data does show \
-(gaps, lap times, positions, who has pitted, who is closing).
+compounds, fuel numbers, what a team has decided, lap times, gaps or history. Opinions and predictions are \
+welcome; invented facts are not. If you don't know, talk about what the data does show.
 - Call drivers by the name given in square brackets.
 - Never use he, she, his or her for a driver: say their name or "they".
 - No lists, no emojis, no stage directions, no sound effects, no quotation marks around lines.
-- Each line at most 30 words. Don't repeat anything in RECENT COMMENTARY.
+- Each line at most 30 words, most well under 20. Don't repeat anything in RECENT COMMENTARY.
 - {player} is the viewer's driver. Give them fair airtime, but this is a broadcast of the whole race.
 
 Reply with JSON only: {{"lines": [{{"who": "lead" or "analyst"{pit_who}, "text": "...", "energy": 0-3}}]}}
 energy: 0 calm, 1 engaged, 2 excited, 3 huge moment."""
+
+PIT_LINE = ("- PIT: {pit}, the pit-lane reporter. Reports stops, stop times against the others and who is still "
+            "to stop. Part of the conversation: the lead throws down ('{pit}, what are you seeing?'), {pit} answers, "
+            "can ask the booth back or disagree about whether a stop worked, and hands back ('Back to you, {lead}'). "
+            "Bring {pit} in when the pits or the stops are the story, not in every exchange.\n")
 
 
 def _t(x):
@@ -105,13 +124,28 @@ def race_brief(tr, writer, events, transcript, max_cars=14):
                         f"{int(bt['last_close'] - bt['since'])}s")
     if bats:
         lines.append("BATTLES: " + "; ".join(bats))
+    stops = [(t, cid) for cid, t in getattr(writer, "lane_times", {}).items() if tr.car(cid)]
+    if stops:
+        stops.sort()
+        lines.append("PIT STOPS (time in the pit lane, quickest first): " +
+                     ", ".join(f"{writer.n(cid)} {t:.1f}s" for t, cid in stops[:8]))
+    calls = []
+    for pair, rec in getattr(writer, "calls", {}).items():
+        for who in (LEAD, ANALYST):
+            if who in rec:
+                other = next((c for c in pair if c != rec[who]), None)
+                nm = writer.lead_name if who == LEAD else writer.analyst_name
+                calls.append(f"{nm} said {writer.n(rec[who])} would come out on top against "
+                             f"{writer.n(other) if other is not None else 'the other car'}")
+    if calls:
+        lines.append("CALLS ON RECORD (not settled yet): " + "; ".join(calls[:6]))
     if events:
         lines.append("RECENT EVENTS (oldest first): " + "; ".join(events[-8:]))
     if transcript:
         lines.append("RECENT COMMENTARY (last line is the most recent; the booth talks to itself, so pick up "
                      "whatever the other one has just said and answer it):")
-        lines += [f"{writer.lead_name if w == LEAD else writer.analyst_name if w == ANALYST else 'pit'}: {t}"
-                  for w, t in transcript[-8:]]
+        lines += [f"{writer.lead_name if w == LEAD else writer.analyst_name if w == ANALYST else writer.pit_name}: {t}"
+                  for w, t in transcript[-12:]]
     return "\n".join(lines)
 
 
@@ -239,8 +273,8 @@ class AIBooth:
         me = (cfg.get("driver_name") or "").strip() or "The driver marked VIEWER'S DRIVER"
         system = SYSTEM.format(
             lead=cfg.get("lead_name") or "Ben", analyst=cfg.get("analyst_name") or "Kate", player=me,
-            pit_line=(f"- PIT: {cfg.get('pit_name') or 'Mia'}, the pit-lane reporter, only for pit stops.\n"
-                      if pit else ""),
+            pit_line=(PIT_LINE.format(pit=(cfg.get("pit_name") or "Mia").split()[0],
+                                      lead=(cfg.get("lead_name") or "Ben").split()[0]) if pit else ""),
             pit_who=' or "pit"' if pit else "")
         msgs = [{"role": "system", "content": system},
                 {"role": "user", "content": f"RACE DATA\n{brief}\n\nTASK\n{task}"}]
@@ -280,12 +314,19 @@ def react_task(event_text, said, speaker="Ben", other="Kate"):
     """The other voice answers what was just said on air, and the first one comes back to that: a short exchange,
     not a remark. Returns (task, who opens the reply)."""
     return (f"This just happened: {event_text}. {speaker} has just said on air: \"{said}\". "
-            f"Carry the conversation on from there: {other} answers that line directly, using the data "
-            f"(what it means, who gains, who has it all to do now), then {speaker} comes back to the answer in a few "
-            f"words. Two lines, {other} first, then {speaker}. Don't repeat the line itself.")
+            f"Carry the conversation on from there: {other} answers that line directly with something new from the "
+            f"data (what it means, who gains, who has it all to do now, or why it happened), and may see it "
+            f"differently from {speaker}. Then {speaker} comes back to that answer in a few words. If this settles a "
+            f"call on record, say who called it. Two lines, {other} first, then {speaker}. Don't repeat the line itself.")
 
 
-def filler_task(writer, now, focus):
+FILLER_SHAPES = ("story", "question", "debate", "callback", "pit")
+
+
+def filler_task(writer, now, focus, shape=None):
+    """A quiet spell, as a conversation with a shape real booths use: a story worked between two voices, a real
+    question answered with a number, a call that the other disputes, a callback to something said earlier, or a
+    throw down to the pit lane. Returns (task, who opens it)."""
     tr = writer.tr
     quiet = sorted((c for c in tr.cars.values() if not c.gone), key=lambda c: c.mentioned)[:4]
     names = ", ".join(writer.n(c.id) for c in quiet)
@@ -294,13 +335,46 @@ def filler_task(writer, now, focus):
                  "field": "Pick a story from anywhere in the field."}.get(focus, "Pick an interesting story from the race.")
     lead = writer.lead_name
     analyst = writer.analyst_name
+    pit = writer.pit_name
     seen = getattr(writer, "thread_hint", lambda: "")()
     carry = f" You are already on this, so carry it on rather than starting elsewhere: {seen}" if seen else ""
-    return (f"It's a quiet moment in the race. Fill it with a short, natural back-and-forth between {lead} (LEAD) "
-            f"and {analyst} (ANALYST), 3 lines, strictly alternating: {lead} raises a story, {analyst} answers it, "
-            f"{lead} comes back to that answer.{carry} {focus_txt} Good topics: a close battle, who is quickest "
-            "right now, gaps growing or shrinking, pit stops made and still to come, someone who has gained or lost "
-            f"a lot since the start. Drivers who haven't had a mention for a while: {names}.")
+    has_pit = writer.cfg.get("pit_reporter", True) and any(c.pits or c.in_pit for c in tr.cars.values())
+    rng = getattr(writer, "rng", None)
+    if shape is None:
+        pool = ["story", "question", "debate", "debate"]
+        if getattr(writer, "calls", None) or len(getattr(writer, "_said", ())) > 20:
+            pool.append("callback")
+        if has_pit:
+            pool += ["pit", "pit"]
+        shape = rng.choice(pool) if rng else "story"
+    if shape == "pit" and not has_pit:
+        shape = "question"
+    opener = LEAD
+    if shape == "question":
+        how = (f"{lead} (LEAD) asks {analyst} (ANALYST) a real question about the race, something a viewer would "
+               f"wonder; {analyst} answers it with a specific number from the data and an opinion; {lead} picks up the "
+               "answer and takes it somewhere (agrees with a twist, or doubts it). 3 lines.")
+    elif shape == "debate":
+        opener = ANALYST
+        how = (f"{analyst} (ANALYST) makes a call about how something will end (a fight, a charge, the pit cycle, "
+               f"the win) and gives the reason from the data; {lead} (LEAD) disagrees with a different reason from "
+               f"the data; {analyst} answers that, holding the call or conceding a little. 3 lines.")
+    elif shape == "callback":
+        how = (f"{lead} (LEAD) and {analyst} (ANALYST) come back to something said earlier on air (RECENT COMMENTARY or "
+               "CALLS ON RECORD) and look at how it has turned out since, with the numbers. Light teasing is fine if "
+               "someone got it wrong. 3 lines.")
+    elif shape == "pit":
+        how = (f"{lead} (LEAD) throws down to {pit} (PIT) in the pit lane; {pit} answers with the stops from the "
+               f"data (stop times compared, who is still to stop and what that means); {analyst} (ANALYST) takes "
+               f"that on with an opinion, or {pit} and {analyst} see it differently; {pit} may hand back to {lead}. "
+               "3 or 4 lines.")
+    else:
+        how = (f"{lead} (LEAD) raises a story, {analyst} (ANALYST) answers it with something the lead didn't say, "
+               f"{lead} comes back to that answer. 3 lines.{carry}")
+    return (f"It's a quiet moment in the race. Fill it with a short, natural conversation. {how} {focus_txt} "
+            "Good material: a close battle, who is quickest right now and by how much, gaps growing or shrinking, "
+            "stops made and still to come, someone who has gained or lost a lot since the start. Drivers who "
+            f"haven't had a mention for a while: {names}."), opener
 
 
 def wrap_task(lead_name="Ben", analyst_name="Kate"):

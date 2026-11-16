@@ -87,6 +87,7 @@ class Director:
         self._wrap_asked = None
         self.winner_t = None
         self.writer.forget()
+        self.writer.clear_memory()
         self.writer.floor_who, self.writer.floor_run = "", 0
 
     # -------------------------------------------------------------- scoring
@@ -165,8 +166,11 @@ class Director:
         self.writer.book(lines)                 # the floor is booked as it queues, not as it plays
 
     def _merge(self, top, now):
-        """Several overtakes at once (a train of cars swapping places, a pit cycle): one call, not five."""
-        same = [e for e in self.pending if e is not top and e.kind == "overtake" and e.age(now) < 3.0
+        """Several overtakes at once (a train of cars swapping places, a pit cycle): one call, not five. Several cars
+        into the pits together are one report from the pit lane, not a string of single lines."""
+        if top.kind == "pit_in":
+            return self._merge_pits(top, now)
+        same =[e for e in self.pending if e is not top and e.kind == "overtake" and e.age(now) < 3.0
                 and e.priority < 90]
         if top.kind != "overtake" or top.priority >= 90 or not same:
             return None
@@ -180,6 +184,31 @@ class Director:
         txt = "Lots going on! " + ", ".join(parts[:-1]) + f", and {parts[-1]}."
         from .writer import Line
         return [Line(LEAD, txt, 2)]
+
+    def _merge_pits(self, top, now):
+        same = [e for e in self.pending if e is not top and e.kind == "pit_in" and e.age(now) < 6.0]
+        if not same or any(getattr(self.tr.car(e.cars[0]), "player", False) for e in [top] + same):
+            return None                                     # the viewer's own stop always gets its own call
+        events = [top] + same[:3]
+        for e in events[1:]:
+            self.pending.remove(e)
+        w = self.writer
+        names = [w.n(e.cars[0], now) for e in events]
+        who = w.pit_voice()
+        from .writer import Line
+        lst = ", ".join(names[:-1]) + f" and {names[-1]}"
+        txt = w.pick("pit_rush", [
+            f"It's busy down here now: {lst}, all in together.",
+            f"A rush into the pit lane! {lst} are all in.",
+            f"{lst}, all on the same lap. The lane is packed.",
+        ])
+        out = [Line(who, txt, 2)]
+        if who != LEAD and w.chance(0.6):
+            out.append(Line(ANALYST, w.pick("pit_rush_a", [
+                f"A busy lane, {w.pit_name}. That's where stops go wrong.",
+                f"Thanks, {w.pit_name}. Now it's all about who comes out in front of whom.",
+            ]), 1))
+        return out
 
     def _air_event(self, e, now, interrupting=False):
         self.pending.remove(e)
@@ -230,8 +259,8 @@ class Director:
             return
         if self.tr.session == "race" and not self.tr.started:
             return
-        self._ask(ai_mod.filler_task(self.writer, now, self.cfg_fn().get("focus", "balanced")), 20, now,
-                  filler=True)
+        task, opener = ai_mod.filler_task(self.writer, now, self.cfg_fn().get("focus", "balanced"))
+        self._ask(task, 20, now, filler=True, answer=opener)
 
     def _wrap(self, now, idle):
         if self.wrapped or self.winner_t is None or now - self.winner_t < 25 or idle < 3:

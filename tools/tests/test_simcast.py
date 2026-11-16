@@ -217,6 +217,43 @@ w.covered(("battle", pair), 100.0)
 check(w._threaded("battle", pair, 101.0), "stories: a fight just called is not reopened at once")
 check(not w._threaded("battle", pair, 200.0), "stories: and it is free again later")
 
+# the booth remembers its calls: a prediction settled by the racing gets the credit (or the stick)
+from simcast.writer import ANALYST, LEAD  # noqa: E402
+w = Writer(trq, {}, seed=2)
+w._call((0, 1), ANALYST, 1, 100.0)
+w._call((0, 1), LEAD, 0, 100.0)
+st = w._settle(1, 0, 150.0)
+check(len(st) == 2 and st[0].who == LEAD and st[1].who == ANALYST and "Kate" in st[0].text,
+      f"calls: the one who got it wrong hands it over to the one who got it right ({[l.text for l in st]})")
+check(not w.calls, "calls: a settled call is off the record")
+w._call((0, 1), ANALYST, 1, 100.0)
+trq.cars[0].pit_in_t, saved = 160.0, trq.cars[0].pit_in_t
+check(w._settle(1, 0, 170.0) == [], "calls: a fight decided by a pit stop gets nobody any credit")
+trq.cars[0].pit_in_t = saved
+w._call((0, 1), LEAD, 0, 100.0)
+w.lane_times[0] = 30.0
+w.forget()
+check(w.calls and w.lane_times, "calls: the flag puts conversations on hold but the booth remembers what it said")
+w.clear_memory()
+check(not w.calls and not w.lane_times, "calls: a new session starts with a clean slate")
+task, opener = ai_mod.filler_task(w, 0.0, "balanced", shape="debate")
+check(opener == ANALYST and "disagrees" in task, "AI booth: a debate is opened by the analyst and disputed")
+
+# the pit reporter is part of the conversation, and never talked to when switched off
+cast = headless_run(laps=8, seed=7, log=lambda m: None)
+sp = [ln for _, ln in cast.audio.spoken]
+check(any(ln.who in ("lead", "analyst") and "Mia" in ln.text for ln in sp),
+      "pit lane: the booth talks to the pit reporter by name")
+check(any(ln.who == "pit" and re.search(r"\b(Ben|Kate)\b", ln.text) for ln in sp),
+      "pit lane: the pit reporter talks back to the booth")
+check(any(ln.who == "pit" and re.search(r"slower than|quickest stop|off the best stop|identical", ln.text) for ln in sp),
+      "pit lane: stops are timed and compared")
+check(not [ln.text for ln in sp if re.search(r"[.!?] [a-z]", ln.text)], "every sentence starts with a capital")
+cast = headless_run(laps=8, seed=7, cfg={"pit_reporter": False}, log=lambda m: None)
+sp = [ln for _, ln in cast.audio.spoken]
+check(not [ln.text for ln in sp if "Mia" in ln.text or ln.who == "pit"],
+      "pit lane: with the reporter switched off, nobody throws to them")
+
 # ---------------------------------------------------------------- the AI booth with a stand-in model
 calls = []
 
@@ -248,8 +285,9 @@ prompt = calls[0][0]["content"] + calls[0][1]["content"]
 check("STANDINGS" in prompt and "Only state facts" in prompt and "Never use he" in prompt,
       "AI booth: the prompt carries the race and the rules")
 check(re.search(r"\[Moretti\]", prompt) is not None, "AI booth: drivers listed with their call names")
-check("two-man booth" in prompt and "Answer what the other one just said" in prompt,
+check("Answer what the other one just said" in prompt and "disagree" in prompt and "CALLS ON RECORD" in prompt,
       "AI booth: the prompt asks for a conversation, not two monologues")
+check("throws down" in prompt and "Back to you" in prompt, "AI booth: the pit reporter is part of the conversation")
 
 # the booth talks to itself: an exchange alternates, whoever opens it
 ex = ai_mod.parse_lines(json.dumps({"lines": [{"who": "lead", "text": "a"}, {"who": "lead", "text": "b"},
