@@ -671,8 +671,66 @@ for _ in range(50):
         break
     time.sleep(0.02)
 check(not L.coach_talking(), "SimCoach link: 'quiet' ends it; other packets are ignored")
+# the wire format (SimCoach's docs/simcast-link.md): read leniently so a newer SimCoach still lowers the booth
+check(lk.TALK == b"SIMCOACH-VOICE 1 talk" and lk.QUIET == b"SIMCOACH-VOICE 1 quiet"
+      and lk.parse(lk.TALK) == (1, "talk") and lk.parse(lk.QUIET) == (1, "quiet"), "SimCoach link: version 1 packets")
+check(lk.parse(b"SIMCOACH-VOICE 2 talk") == (2, "talk") and lk.parse(b"SIMCOACH-VOICE 1 quiet src=crew\n")
+      == (1, "quiet"), "SimCoach link: a newer version or extra words still understood")
+check(all(lk.parse(b) is None for b in (b"", b"SIMCOACH-VOICE", b"SIMCOACH-VOICE 1", b"SIMCOACH-VOICE x talk",
+                                       b"SIMCOACH-VOICE 0 talk", b"SIMCOACH-VOICE -1 talk", b"SIMCOACH-VOICE 1 shout",
+                                       b"SIMCOACH-VOICE2 1 talk", b"something else", b"\xff\xfe")),
+      "SimCoach link: anything else ignored")
+L.handle(b"SIMCOACH-VOICE 3 talk crew", now=time.monotonic())
+check(L.coach_talking(), "SimCoach link: a version 3 'talk' lowers the booth")
+L.handle(b"SIMCOACH-VOICE 3 quiet", now=time.monotonic())
+check(not L.coach_talking(), "SimCoach link: and its 'quiet' brings it back")
+newer = []
+L2 = lk.SimCoachLink(log=newer.append, start=False)
+L2.handle(b"SIMCOACH-VOICE 2 quiet")
+check(L2.connected() and any("newer link (version 2" in m for m in newer), "SimCoach link: a newer SimCoach is noted once")
 check(DEFAULTS["simcoach_duck"] == "under" and set(lk.DUCK_LEVELS) == set(lk.DUCK_LABELS),
       "SimCoach link: lowered to 30% by default, every level has a label")
 check(SimCast(cfg={"simcoach_duck": "nonsense"}, audio=SimAudio(), booth=False, save=False).config()["simcoach_duck"]
       == "under", "SimCoach link: a bad setting falls back to the default")
+# ---------------------------------------------------------------- Kokoro model shared with SimCoach
+import urllib.request  # noqa: E402
+from simcast import audio as audio_mod  # noqa: E402
+from simcast.app import APP_DIR  # noqa: E402
+
+ka = audio_mod.BroadcastAudio.__new__(audio_mod.BroadcastAudio)
+ka.log, ka._kokoro_dl, ka._kokoro_retry = (lambda m: None), True, 0.0
+_kd, kmodel, kvoices = ka._kokoro_paths()
+coach_k = os.path.join(os.path.dirname(APP_DIR), "SimCoach", "kokoro")
+os.makedirs(coach_k, exist_ok=True)
+
+
+def sparse(path, size):
+    with open(path, "wb") as fh:
+        fh.truncate(size)
+
+
+fetched = []
+
+
+def no_net(req, timeout=None):
+    fetched.append(req.full_url)
+    raise OSError("no network in this test")
+
+
+real_urlopen, urllib.request.urlopen = urllib.request.urlopen, no_net
+ka._kokoro_download()
+check(len(fetched) == 1 and not os.path.exists(kmodel), "Kokoro: no SimCoach copy, so it downloads as before")
+sparse(os.path.join(coach_k, "kokoro-v1.0.int8.onnx"), 60_000_000)
+sparse(os.path.join(coach_k, "voices-v1.0.bin"), 27_000_000)
+fetched.clear()
+ka._kokoro_download()
+check(fetched == [] and os.path.getsize(kmodel) == 60_000_000 and os.path.getsize(kvoices) == 27_000_000
+      and not os.path.exists(kmodel + ".part"), "Kokoro: SimCoach's model files used, nothing downloaded")
+os.remove(kvoices)
+sparse(os.path.join(coach_k, "voices-v1.0.bin"), 1000)
+fetched.clear()
+ka._kokoro_download()
+check(not os.path.exists(kvoices) and fetched and fetched[0].endswith("voices-v1.0.bin"),
+      "Kokoro: a cut-short SimCoach copy is downloaded instead")
+urllib.request.urlopen = real_urlopen
 done()
