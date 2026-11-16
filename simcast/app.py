@@ -19,7 +19,7 @@ from . import ai as ai_mod
 from . import providers, sims
 
 APP_NAME = "SimCast"
-APP_VERSION = "1.3"
+APP_VERSION = "1.4"
 APP_DIR = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), "SimCast")
 CONFIG_PATH = os.path.join(APP_DIR, "config.json")
 LOG_PATH = os.path.join(APP_DIR, "simcast.log")
@@ -51,6 +51,7 @@ DEFAULTS = {
     "openai_model": "auto", "gemini_model": "auto", "deepseek_model": "auto", "openai_tts_model": "auto",
     "f1_port": 20777, "dr2_port": 20779, "udp_share_simhub": True, "game_setup": True, "guide_seen": False,
     "demo_laps": 8, "captions": False, "captions_pos": None, "window": None,
+    "check_updates": True, "update_skip": "",
 }
 CHOICES = {"tts": ("on", "off"), "chatter": ("quiet", "normal", "chatty"),
            "focus": ("field", "balanced", "me"), "ai_provider": ("openai", "gemini", "deepseek"),
@@ -94,6 +95,8 @@ def clean_config(cfg):
         cfg["demo_laps"] = 8
     for k in ("lead_name", "analyst_name", "pit_name", "driver_name"):
         cfg[k] = " ".join(str(cfg.get(k) or "").split())[:40]
+    cfg["check_updates"] = bool(cfg.get("check_updates", True))
+    cfg["update_skip"] = str(cfg.get("update_skip") or "")[:40]
     return cfg
 
 

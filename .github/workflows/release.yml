@@ -1,0 +1,51 @@
+# Publishes a SimCast release from main: tag vX.Y (APP_VERSION in simcast/app.py), with SimCast-Setup.exe attached
+# and the README's "What's new in X.Y" section as the notes. Run it by hand (Actions > Release > Run workflow) after
+# the release commit is on main. It refuses to run if that version is already released, or if the committed
+# installer doesn't carry main's files. Installed copies' update check and SimCoach's setup wizard both look for an
+# asset named exactly SimCast-Setup.exe, and check the download against the SHA-256 GitHub shows for it.
+name: Release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Version and notes
+        id: v
+        run: |
+          VER="$(sed -n 's/^APP_VERSION = "\(.*\)"$/\1/p' simcast/app.py)"
+          [ -n "$VER" ] || { echo "APP_VERSION not found"; exit 1; }
+          if git ls-remote --exit-code --tags origin "refs/tags/v$VER" >/dev/null; then
+            echo "v$VER is already tagged: set the next version in simcast/app.py first."; exit 1
+          fi
+          awk -v h="### What's new in $VER" '$0==h{on=1;next} on&&/^### /{exit} on{print}' README.md | tr -d '\r' > notes.md
+          [ -s notes.md ] || { echo "README.md has no \"What's new in $VER\" section"; exit 1; }
+          echo "ver=$VER" >> "$GITHUB_OUTPUT"
+      - name: Check the installer carries these files
+        run: |
+          sudo apt-get install -y p7zip-full >/dev/null
+          mkdir check && 7z x -y -ocheck SimCast-Setup.exe >/dev/null
+          for f in sim_cast.py SimCast.exe SimCast.bat simcast/*.py; do
+            cmp -s "$f" "check/$f" || { echo "The installer doesn't carry this $f: rebuild it (tools/installer/build_installer.sh)."; exit 1; }
+          done
+          cmp -s installer-source/install.ps1 check/install.ps1 || { echo "The installer's install.ps1 is out of date: rebuild it."; exit 1; }
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VER="${{ steps.v.outputs.ver }}"
+          gh release create "v$VER" SimCast-Setup.exe \
+            --target "$(git rev-parse HEAD)" --title "SimCast v$VER" --notes-file notes.md --latest

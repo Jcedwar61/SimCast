@@ -4,13 +4,15 @@ from __future__ import annotations
 
 import os
 import sys
+import tempfile
 import threading
 import time
 import tkinter as tk
+from collections import deque
 from tkinter import ttk
 
-from . import providers
-from .app import APP_DIR, APP_NAME, APP_VERSION, DEFAULTS
+from . import providers, update
+from .app import APP_DIR, APP_NAME, APP_VERSION, DEFAULTS, file_log
 from .link import DUCK_LABELS
 from .audio import VOICE_LABEL, VOICES
 from .guide import TOPICS as GUIDE
@@ -86,6 +88,8 @@ def _lap(t):
 
 class SimCastWindow:
     POLL_MS = 400
+    UPDATE_FIRST_MS = 4000                         # first update check, once the window is up
+    UPDATE_EVERY_MS = 12 * 3600 * 1000             # then every 12 hours while SimCast is open
 
     def __init__(self, cast, start_demo=False):
         _dpi_aware()
@@ -104,6 +108,11 @@ class SimCastWindow:
         self.last_line_t = 0.0
         self.captions = None
         self.settings_win = None
+        self.update_info = None                    # the newer release on offer, if any
+        self.update_bar = None
+        self.update_status = tk.StringVar(value="")       # shown in Settings > About
+        self._update_events = deque()              # from the checking / downloading threads to the window
+        self._updating = False
         self.stop = threading.Event()
         self.loop = threading.Thread(target=cast.run, args=(self.stop,), daemon=True, name="simcast-loop")
         r.protocol("WM_DELETE_WINDOW", self.close)
@@ -114,6 +123,7 @@ class SimCastWindow:
         if not cast.cfg.get("guide_seen"):                 # first start: open the guide on Getting started
             r.after(600, self.open_guide)
             cast.update_settings({"guide_seen": True})
+        r.after(self.UPDATE_FIRST_MS, self._update_tick)
 
     # ------------------------------------------------------------------ look
     def _fonts(self):
@@ -207,7 +217,7 @@ class SimCastWindow:
         r.columnconfigure(0, weight=1)
         r.rowconfigure(1, weight=1)
 
-        hdr = ttk.Frame(r, padding=(16, 10))
+        self.hdr = hdr = ttk.Frame(r, padding=(16, 10))
         hdr.grid(row=0, column=0, sticky="ew")
         hdr.columnconfigure(4, weight=1)
         if self.img_logo:
@@ -347,6 +357,7 @@ class SimCastWindow:
 
     def poll(self):
         try:
+            self._update_drain()
             self._render(self.cast.state())
         except Exception as e:
             self.foot.configure(text=f"Display error: {e}")
@@ -467,6 +478,111 @@ class SimCastWindow:
         self.cap_var.set(bool(on))
         if bool(self.cast.cfg.get("captions")) != bool(on):
             self.cast.update_settings({"captions": bool(on)})
+
+    # ------------------------------------------------------------------ updates (simcast/update.py)
+    def _update_tick(self):
+        """Check now, then every 12 hours while SimCast is open (Settings > About switches it off)."""
+        if self.cast.cfg.get("check_updates", True):
+            self.check_for_updates()
+        self.root.after(self.UPDATE_EVERY_MS, self._update_tick)
+
+    def check_for_updates(self, manual=False):
+        """Asks GitHub on a background thread; the answer comes back to the window through poll()."""
+        if manual:
+            self.update_status.set("Checking…")
+
+        def work():
+            try:
+                info = update.check_latest_release(APP_VERSION)
+            except Exception as e:
+                file_log(f"Update check failed: {type(e).__name__}: {e}")
+                if manual:
+                    self._update_events.append(("status", "Couldn't reach GitHub to check for updates."))
+                return
+            if info is None:
+                if manual:
+                    self._update_events.append(("status", f"You're up to date (SimCast {APP_VERSION})."))
+                return
+            if not manual and info["tag"] == self.cast.cfg.get("update_skip"):
+                return
+            self._update_events.append(("found", info))
+        threading.Thread(target=work, daemon=True, name="update-check").start()
+
+    def _update_drain(self):
+        while self._update_events:
+            kind, val = self._update_events.popleft()
+            if kind == "status":
+                self.update_status.set(val)
+            elif kind == "found":
+                self.update_status.set(f"SimCast {val['version']} is available.")
+                if not (self.update_info and self.update_info["tag"] == val["tag"] and self.update_bar is not None):
+                    self._show_update(val)
+            elif kind == "progress":
+                self._update_progress(val)
+
+    def _show_update(self, info):
+        self.update_info = info
+        if self.update_bar is not None:
+            self.update_bar.destroy()
+        bg = "#10222b"
+        bar = self.update_bar = tk.Frame(self.hdr, bg=bg, highlightbackground=P["cyan"], highlightthickness=1)
+        tk.Label(bar, text=f"SimCast {info['version']} is available", bg=bg, fg=P["fg"],
+                 font=self.f["uib"]).pack(side="left", padx=(12, 8), pady=7)
+        self.update_msg = tk.Label(bar, text=f"You have {APP_VERSION}.", bg=bg, fg=P["mut"], font=self.f["small"])
+        self.update_msg.pack(side="left")
+        ttk.Button(bar, text="Not now", style="Small.TButton", command=self._skip_update).pack(side="right", padx=(4, 10))
+        ttk.Button(bar, text="What's new", style="Small.TButton",
+                   command=lambda: _open_url(info["url"])).pack(side="right", padx=4)
+        can = update.can_install(info)
+        self.update_btn = ttk.Button(bar, text="Install update" if can else "Download", style="Accent.TButton",
+                                     command=self._install_update if can else (lambda: _open_url(info["url"])))
+        self.update_btn.pack(side="right", padx=4)
+        bar.grid(row=1, column=0, columnspan=6, sticky="ew", pady=(10, 0))
+        self.cast.log(f"Update available: SimCast {info['version']} ({info['url']})")
+
+    def _skip_update(self):
+        """Not now: don't offer this release again by itself (Settings > About > Check now still finds it)."""
+        if self.update_info:
+            self.cast.update_settings({"update_skip": self.update_info["tag"]})
+        bar, self.update_bar = self.update_bar, None
+        if bar is not None:
+            bar.destroy()
+
+    def _install_update(self):
+        info = self.update_info
+        if not info or self._updating:
+            return
+        self._updating = True
+        self.update_btn.configure(state="disabled")
+        safe = "".join(c if c.isalnum() or c in ".-" else "_" for c in info["tag"])
+        dest = os.path.join(tempfile.gettempdir(), f"SimCast-Setup-{safe}.exe")
+
+        def work():
+            try:
+                update.download_installer(info["installer_url"], dest, info["sha256"], current=APP_VERSION,
+                                          progress=lambda got, total: self._update_events.append(("progress", (got, total))))
+                update.start_installer(dest)
+                self._update_events.append(("progress", "run"))
+            except Exception as e:
+                file_log(f"Update failed: {type(e).__name__}: {e}")
+                self._update_events.append(("progress", f"error:{e}"))
+            finally:
+                self._updating = False
+        threading.Thread(target=work, daemon=True, name="update-download").start()
+
+    def _update_progress(self, p):
+        if self.update_bar is None:
+            return
+        if p == "run":
+            self.update_msg.configure(text="Setup started: it closes SimCast and updates it. Your settings are kept.")
+        elif isinstance(p, str):
+            self.update_msg.configure(text="The update couldn't be downloaded. Use What's new to get it from GitHub.",
+                                      fg=P["red"])
+            self.update_btn.configure(state="normal")
+        else:
+            got, total = p
+            self.update_msg.configure(text=f"Downloading… {got * 100 // total}%" if total else
+                                      f"Downloading… {got // 1024} KB")
 
     def open_guide(self, topic=None):
         g = getattr(self, "guide_win", None)
@@ -709,6 +825,14 @@ class SettingsWindow:
                    command=lambda: app.open_guide("About and licences")).pack(side="left", padx=6)
         ttk.Button(b, text="Open log folder", style="Small.TButton",
                    command=lambda: _open_path(APP_DIR)).pack(side="left", padx=6)
+        self.row(f, 3, "Updates", self.check(f, "check_updates", "Check for a new version when SimCast starts", cfg),
+                 ttk.Button(f, text="Check now", style="Small.TButton",
+                            command=lambda: app.check_for_updates(manual=True)))
+        ttk.Label(f, textvariable=app.update_status, style="Card.TLabel", foreground=P["mut"],
+                  wraplength=480).grid(row=4, column=1, columnspan=2, sticky="w")
+        self.note(f, 5, "A new version shows a bar at the top of the window. Install update downloads its setup "
+                        "wizard from GitHub, checks it against the published checksum and runs it; nothing is "
+                        "installed until you click.", span=3)
 
         bb = ttk.Frame(w, style="Card.TFrame", padding=(18, 0, 18, 16))
         bb.pack(fill="x")
@@ -905,6 +1029,14 @@ def sims_list(box, sims, f, wrap=620):
         ttk.Label(box, text=s["name"], style="Card.TLabel", font=f["uib"], width=26).grid(row=i, column=1, sticky="nw")
         ttk.Label(box, text=s["status"], style="Card.TLabel", foreground=P["mut"], wraplength=wrap,
                   justify="left").grid(row=i, column=2, sticky="nw", pady=1)
+
+
+def _open_url(url):
+    try:
+        import webbrowser
+        webbrowser.open(url)
+    except Exception:
+        pass
 
 
 def _open_path(path):

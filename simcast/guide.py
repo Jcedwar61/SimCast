@@ -124,6 +124,10 @@ AI commentary on or off, the provider to use first, keys, and the model (Automat
 - Set up games automatically (EA WRC, DiRT Rally 2.0, ACC).
 - F1 25 port, and sharing UDP port 20777 with SimHub.
 
+## About
+- Updates: SimCast checks for a new version when it starts and every 12 hours. A new version shows a bar at the top of the window. Install update downloads the setup wizard from GitHub, checks it against the checksum published for the release, and runs it: it closes SimCast and updates it, keeping your settings. Not now skips that version. Nothing is installed until you click.
+- Check now looks straight away. Untick the box to stop the automatic check.
+
 Settings are saved in %APPDATA%\\SimCast\\config.json.
 """),
     ("Streaming and captions", """

@@ -1,7 +1,7 @@
 ; SimCast setup wizard (NSIS 3, Modern UI 2). Installs for the current Windows user, no admin rights needed.
 ; Built by tools/installer/build_installer.sh, which passes VERSION and VIVERSION and runs makensis in a
 ; folder holding this script, art\, LICENSE.txt and the app files (simcast\ with its .py files and assets\).
-; /S installs silently with every part.
+; /S installs silently with every part except SimCoach.
 
 Unicode true
 Target amd64-unicode           ; 64-bit, like Windows 10/11 and every Wine/Proton prefix a sim runs in
@@ -19,6 +19,7 @@ ManifestDPIAware true
 !define APP "SimCast"
 !define UNINST_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\SimCast"
 !define UNINSTALLER "Uninstall SimCast.exe"
+!define SIMCOACH_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\SimCoach"
 !define PS '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass'
 !define DESC "SimCast - live TV-style race commentary"
 
@@ -46,6 +47,7 @@ VIAddVersionKey "LegalCopyright" "MIT License"
 
 Var Partial
 Var FinishText
+Var SimCoachResult      ; "" not asked for, "ok" installed, "failed" didn't install
 
 !define MUI_ICON "SimCast.ico"
 !define MUI_UNICON "SimCast.ico"
@@ -61,7 +63,8 @@ Var FinishText
 !define MUI_WELCOMEPAGE_TEXT "SimCast gives your sim race the television treatment: a commentary booth calls the \
 whole race live while you drive, from the start to the chequered flag, for every car on the grid.$\r$\n$\r$\n\
 Setup installs it for your Windows account (no admin rights needed), then downloads Python and SimCast's \
-packages: a few minutes the first time. Keep the internet on.$\r$\n$\r$\n\
+packages: a few minutes the first time (quicker if SimCoach is already installed: they share Python and \
+packages). Keep the internet on.$\r$\n$\r$\n\
 Your settings are kept if SimCast is already installed.$\r$\n$\r$\nClick Next to continue."
 !insertmacro MUI_PAGE_WELCOME
 !insertmacro MUI_PAGE_LICENSE "LICENSE.txt"
@@ -153,6 +156,18 @@ Section "Start menu shortcut" SecStart
   CreateShortcut "$SMPROGRAMS\SimCast.lnk" "$INSTDIR\SimCast.exe" "" "$INSTDIR\SimCast.ico" 0 SW_SHOWNORMAL "" "${DESC}"
 SectionEnd
 
+Section /o "SimCoach: live voice coach and race crew" SecSimCoach
+  AddSize 1000000
+  DetailPrint "Getting SimCoach from GitHub (its own installer, run silently; about 1 GB with speech recognition)..."
+  nsExec::ExecToLog '${PS} -File "$INSTDIR\install.ps1" -Dest "$INSTDIR" -Step simcoach'
+  Pop $0
+  ${If} $0 == 0
+    StrCpy $SimCoachResult "ok"
+  ${Else}
+    StrCpy $SimCoachResult "failed"
+  ${EndIf}
+SectionEnd
+
 Section "-finish"
   SetShellVarContext current
   ${IfNot} ${SectionIsSelected} ${SecDesktop}
@@ -168,6 +183,13 @@ time it starts (keep the internet on). Details: install.log in the SimCast folde
     StrCpy $FinishText "SimCast is ready. It finds the sims on this PC and sets them up.$\r$\n$\r$\nStart it \
 and click Demo race to hear the booth, or just start a race: SimCast goes on air by itself."
   ${EndIf}
+  ${If} $SimCoachResult == "ok"
+    StrCpy $FinishText "$FinishText$\r$\n$\r$\nSimCoach is installed too (Start menu). Run them together and the \
+booth drops under the coach while the coach talks."
+  ${ElseIf} $SimCoachResult == "failed"
+    StrCpy $FinishText "$FinishText$\r$\n$\r$\nSimCoach couldn't be installed (details in install.log). Get it \
+from github.com/Jcedwar61/SimCoach."
+  ${EndIf}
 SectionEnd
 
 !insertmacro MUI_FUNCTION_DESCRIPTION_BEGIN
@@ -176,10 +198,20 @@ SectionEnd
 the first start is quick (required)."
   !insertmacro MUI_DESCRIPTION_TEXT ${SecDesktop} "A SimCast icon on the desktop."
   !insertmacro MUI_DESCRIPTION_TEXT ${SecStart} "SimCast in the Start menu."
+  !insertmacro MUI_DESCRIPTION_TEXT ${SecSimCoach} "Also install SimCoach, a separate app: a live voice coach \
+and race crew on the radio. The booth drops under it while it talks. Downloads its latest release from GitHub \
+(about 1 GB with its speech recognition)."
 !insertmacro MUI_FUNCTION_DESCRIPTION_END
 
 Function .onInit
   StrCpy $Partial 0
+  StrCpy $SimCoachResult ""
+  ; SimCoach already on this PC: it checks for its own updates, so there's nothing to offer
+  ReadRegStr $0 HKCU "${SIMCOACH_KEY}" "InstallLocation"
+  ${If} $0 != ""
+    SectionSetText ${SecSimCoach} ""
+    !insertmacro UnselectSection ${SecSimCoach}
+  ${EndIf}
 FunctionEnd
 
 ; ---------------------------------------------------------------------------------------------------------------

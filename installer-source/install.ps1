@@ -1,7 +1,10 @@
-# Closes a SimCast running from the install folder before the setup wizard (SimCast-Setup.exe) replaces its files
-# or the uninstaller removes them. Everything else the installer does needs no PowerShell (SimCast.exe --setup gets
-# uv, Python and the packages), so under Wine, where there's no PowerShell, only this convenience is skipped.
-param([string]$Dest = $PSScriptRoot, [ValidateSet('close')][string]$Step = 'close')
+# Setup steps the wizard (SimCast-Setup.exe) runs with PowerShell:
+#   -Step close     close a SimCast running from the install folder before its files are replaced or removed
+#   -Step simcoach  SimCoach (the live voice coach), if ticked: its latest setup wizard from GitHub, checked against
+#                   the SHA-256 GitHub publishes for it, run silently
+# Everything else the installer does needs no PowerShell (SimCast.exe --setup gets uv, Python and the packages), so
+# under Wine, where there's no PowerShell, only these extras are skipped.
+param([string]$Dest = $PSScriptRoot, [ValidateSet('close', 'simcoach')][string]$Step = 'close')
 
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
@@ -46,6 +49,35 @@ try {
             $ErrorActionPreference = 'Continue'
             if (Close-SimCast) { Say 'Closed the SimCast that was running.' }
             exit 0
+        }
+        'simcoach' {
+            [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+            $rel = Invoke-RestMethod -UseBasicParsing -Headers @{ 'User-Agent' = 'SimCast-Setup' } `
+                -Uri 'https://api.github.com/repos/Jcedwar61/SimCoach/releases/latest'
+            $asset = @($rel.assets | Where-Object { $_.name -eq 'SimCoach-Setup.exe' })[0]
+            $want = if ($asset) { "$($asset.digest)" -replace '^sha256:', '' } else { '' }
+            if (-not $asset -or $want -notmatch '^[0-9a-fA-F]{64}$') {
+                Say "SimCoach $($rel.tag_name) has no setup wizard with a checksum to install from; get it from github.com/Jcedwar61/SimCoach."
+                exit 2
+            }
+            $exe = Join-Path $env:TEMP 'SimCoach-Setup.exe'
+            Say "Downloading SimCoach $($rel.tag_name) ..."
+            Invoke-WebRequest -UseBasicParsing -Uri $asset.browser_download_url -OutFile $exe
+            $got = (Get-FileHash -Algorithm SHA256 -Path $exe).Hash
+            if ($got -ne $want.ToUpper()) {
+                Remove-Item $exe -Force -ErrorAction SilentlyContinue
+                Say 'The SimCoach download did not match its published checksum, so it was not run.'
+                exit 2
+            }
+            Say 'Installing SimCoach with its speech recognition (about 1 GB; Python and packages shared with SimCast) ...'
+            $p = Start-Process -FilePath $exe -ArgumentList '/S' -Wait -PassThru
+            Remove-Item $exe -Force -ErrorAction SilentlyContinue
+            if ($p.ExitCode -eq 0 -and (Test-Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\SimCoach')) {
+                Say "SimCoach $($rel.tag_name) is installed."
+                exit 0
+            }
+            Say "SimCoach's setup stopped (code $($p.ExitCode)); get it from github.com/Jcedwar61/SimCoach."
+            exit 2
         }
     }
 }

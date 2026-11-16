@@ -363,8 +363,29 @@ class BroadcastAudio(BaseAudio):
         kdir = os.path.join(APP_DIR, "kokoro")
         return kdir, os.path.join(kdir, "kokoro-v1.0.int8.onnx"), os.path.join(kdir, "voices-v1.0.bin")
 
+    def _kokoro_borrow(self, dst, tmp):
+        """SimCoach uses the same Kokoro model files. If it already downloaded them, hard-link (or copy) its copy
+        instead of downloading about 115 MB again. Each app keeps its own name for the file, so uninstalling or
+        clearing one never breaks the other. True if `tmp` now holds the file."""
+        from .app import APP_DIR
+        name = os.path.basename(dst)
+        src = os.path.join(os.path.dirname(APP_DIR), "SimCoach", "kokoro", name)
+        try:
+            if os.path.getsize(src) < KOKORO_MIN[name]:
+                return False
+        except OSError:
+            return False
+        try:
+            os.link(src, tmp)
+        except OSError:
+            try:
+                shutil.copyfile(src, tmp)
+            except OSError:
+                return False
+        self.log(f"Kokoro: using SimCoach's copy of {name} (no download needed).")
+        return True
+
     def _kokoro_download(self):
-        import shutil
         import urllib.request
         try:
             kdir, mpath, vpath = self._kokoro_paths()
@@ -374,9 +395,12 @@ class BroadcastAudio(BaseAudio):
                 if os.path.exists(dst):
                     continue
                 tmp = dst + ".part"
-                req = urllib.request.Request(url, headers={"User-Agent": "SimCast/1.0"})
-                with urllib.request.urlopen(req, timeout=60) as resp, open(tmp, "wb") as out:
-                    shutil.copyfileobj(resp, out)
+                if os.path.exists(tmp):
+                    os.remove(tmp)
+                if not self._kokoro_borrow(dst, tmp):
+                    req = urllib.request.Request(url, headers={"User-Agent": "SimCast/1.0"})
+                    with urllib.request.urlopen(req, timeout=60) as resp, open(tmp, "wb") as out:
+                        shutil.copyfileobj(resp, out)
                 if os.path.getsize(tmp) < KOKORO_MIN[os.path.basename(dst)]:
                     os.remove(tmp)
                     raise RuntimeError(f"the download of {os.path.basename(dst)} was incomplete")
