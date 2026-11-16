@@ -22,28 +22,41 @@ each other: while SimCoach's coach or crew speaks, the booth drops under them an
 * **Linux / Steam Deck:** [install-simcast-wine.sh](install-simcast-wine.sh) installs SimCast into the sim's
   own Proton prefix (see below).
 
-### What's new in 1.2
-* **A booth that talks to itself, and to the race:** Ben and Kate pick a story up between them, work it, and put it
-  down when it breaks, the way a television pair does. They follow a fight lap by lap, a driver coming through the
-  field, the pit cycle, and your own afternoon.
-* **Much less dead air:** the quiet spells are a back-and-forth now, not the odd remark into silence (longest gap
-  in a demo race is about nine seconds, from nearly seventy).
-* **Nobody hogs the microphone:** three lines is the most one voice gets before the other breaks in on what was
-  just said.
-* **No repeats:** a fight that has just been called isn't called again a few corners later, and lines already said
-  are held back.
-* **Runs alongside SimCoach** (1.1): while the coach or crew talk, the booth drops under them and comes back up
-  after. *Settings → Voices → When SimCoach talks*.
+### What's new in 1.3
+* **A booth with opinions:** Ben and Kate make calls on the fights in front of them, with a reason from the lap
+  times, and the other one pushes back. *"I think Okafor keeps this. Okafor was four tenths faster last time
+  round."* *"I don't know. Okafor has had a mirror full of Lindqvist for a while now. Mistakes come from that."*
+* **And they remember them:** a prediction stays on the record until the race settles it, mid-race or at the flag:
+  *"All right, Kate, you called that one."* *"I'm only going to mention it once."* A call that's slow to come off
+  gets a bit of stick (*"How's that prediction looking?"*), and a fight decided by a pit stop or a spin credits nobody.
+* **Answers that add something:** instead of stock remarks, the second voice brings a number: who was quicker on the
+  last lap and by how much, laps left, places gained since the grid. The same fact isn't given twice running.
+* **Mia is part of the booth:** the big stops are thrown down to the pit lane by name, and Mia times every stop and
+  compares it to the best so far, answers the booth's questions, argues strategy with Kate and hands back. Several cars pitting at
+  once are one report from the lane, not a string of single lines.
+* **Side conversations:** between stories the booth drifts off the way a real one does, but always about what's on
+  screen: what it's like in the car with someone filling your mirrors, the race in numbers, who Kate would swap seats
+  with, who wins it (with dinner riding on it), what it's like in the pit lane during a stop, what you should be
+  thinking from your place. Each one at most once a race, and never in the opening scramble, the last lap or a caution.
+* **Callbacks:** the booth ties the race together (*"That's the car that gained two places at the start, Ben."*).
+* **AI booth:** a new brief built on how IMSA, GT World Challenge and WEC booths talk. The AI sees the calls on record
+  and the stop times, and quiet spells take different shapes: a real question answered with a number, a debate, a
+  callback, a throw to the pit lane, or a side conversation.
+* **Earlier:** a booth that works a story between two voices with very little dead air (1.2), and runs alongside
+  SimCoach, dropping under the coach or crew while they talk (1.1; *Settings → Voices → When SimCoach talks*).
 
 ### The booth
-* **Ben, the lead commentator**, calls the action: *"And Okafor takes the lead! Past Moretti, and into first place!"*
-* **Kate, the analyst**, answers: *"That's been coming. Okafor has looked the quicker of the two."* — and Ben comes
-  straight back at her: *"And now Moretti has to fight it back. What a race this has become."*
-* **Mia, the pit-lane reporter**, brings you every stop: *"Moretti is back out, in fifth, thirty-one seconds in the pit lane."*
+* **Ben, the lead commentator**, calls the action and runs the show: *"And Okafor takes the lead! Past Moretti, and
+  into first place!"*
+* **Kate, the analyst**, a former racing driver with opinions: *"No surprise, really. Okafor was three tenths a lap
+  quicker than Moretti coming into that."*
+* **Mia, the pit-lane reporter**, brings you every stop, and talks back: *"Moretti is back out, in seventh,
+  thirty-one seconds in the pit lane. That's one point four seconds slower than Carter's stop, which is still the
+  one to beat."*
 
-They work a story the way a television booth does: it gets opened, kicked around between the two of them, followed
-while it lasts and paid off when it breaks. Nobody holds the floor for long, and there is always another thread
-running somewhere in the field.
+They work a story the way a television booth does: it gets opened, argued over, followed while it lasts and paid
+off when it breaks, with somebody usually proved right. Nobody holds the floor for long, and there is always
+another thread running somewhere in the field.
 
 Names and voices are yours to change. Each speaks in their own voice and gets faster, higher and louder as the
 moment gets bigger; when something big happens, the lead cuts in, the way it does on TV.
@@ -77,8 +90,10 @@ own voice: the booth never goes silent.
 
 ### AI commentary (optional)
 The booth calls every moment from its own lines, instantly. Add an **OpenAI, Google Gemini or DeepSeek** key
-(Settings → AI) and the two of them talk to each other: the analyst answers the lead's calls, he answers her
-back, quiet spells become a real back-and-forth about the stories in the race, and there's a proper sign-off. **The
+(Settings → AI) and the booth writes its own conversation from the live race: the analyst answers the lead's
+calls and argues with them, the pit reporter is brought in when the stops are the story, quiet spells become a real
+back-and-forth (a debate, a question, a side conversation), predictions are remembered and settled, and there's a
+proper sign-off. **The
 model is picked automatically**: SimCast asks the provider which models your key can use and takes the best one for
 live commentary; you can choose
 another from the list. With more than one key, it moves to another provider if one is down. The AI only gets

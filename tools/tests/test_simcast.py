@@ -254,6 +254,14 @@ sp = [ln for _, ln in cast.audio.spoken]
 check(not [ln.text for ln in sp if "Mia" in ln.text or ln.who == "pit"],
       "pit lane: with the reporter switched off, nobody throws to them")
 
+# side conversations: the booth drifts into them between stories, never the same one twice in a race
+asides = []
+for sd in (3, 7, 11):
+    cast = headless_run(laps=8, seed=sd, log=lambda m: None)
+    asides.append(set(cast.director.writer.asides_done))
+check(sum(len(a) for a in asides) >= 3, f"asides: side conversations come up in a race ({asides})")
+check(all(len(a) <= 11 for a in asides), "asides: each one at most once per race")
+
 # ---------------------------------------------------------------- the AI booth with a stand-in model
 calls = []
 

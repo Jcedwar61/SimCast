@@ -12,7 +12,7 @@ import re
 from collections import deque
 from dataclasses import dataclass
 
-from .race import call_name
+from .race import CAUTION_FLAGS, call_name
 
 LEAD, ANALYST, PIT = "lead", "analyst", "pit"
 THREAD_GAP = 6.0         # seconds before a running conversation is moved on a beat
@@ -187,6 +187,10 @@ class Writer:
         self.lane_times: dict = {}                   # car -> seconds in the pit lane, last stop
         self.moments: dict = {}                      # car -> (what happened, when), for callbacks later on
         self._told_pace: dict = {}                   # lap-time comparisons lately given, so they aren't repeated
+        self.passes = 0                              # overtakes called this race, and lead changes
+        self.lead_changes = 0
+        self.asides_done: set = set()                # side conversations already had this race
+        self.last_aside = -1e9
 
     # ------------------------------------------------------------------ helpers
     @property
@@ -612,6 +616,9 @@ class Writer:
         """The call, then either a prediction settled ('you called that') or a reason from the lap times."""
         lines = self._overtake_lines(e, now)
         a, b = e.cars[0], (e.cars[1] if len(e.cars) > 1 else None)
+        self.passes += max(1, len(e.cars) - 1)
+        if e.data.get("lead"):
+            self.lead_changes += 1
         if e.data.get("multi") and len(e.cars) > 2:
             self._remember(a, f"the car that went past {plural(len(e.cars) - 1, 'car')} in one go earlier", now)
         if b is None or not lines:
@@ -1544,7 +1551,7 @@ class Writer:
             return self._filler_grid(now)
         if tr.finished:
             return []
-        raw = self._due_call(now) or self._beat(now, focus) or self._open(now, focus)
+        raw = self._due_call(now) or self._beat(now, focus) or self._aside(now, focus) or self._open(now, focus)
         lines = self._fresh(raw) or self._fresh(raw, 8) or raw
         if lines:
             return self.floor(lines)
@@ -1610,7 +1617,7 @@ class Writer:
         if getattr(tr, "solo", False):
             return self._solo_exchange(now)
         self._pick_i = 0
-        parts = self._due_call(now) or self._beat(now, focus)
+        parts = self._due_call(now) or self._beat(now, focus) or self._aside(now, focus)
         if parts:
             return parts
         return self._open(now, focus)
@@ -1660,6 +1667,9 @@ class Writer:
         self.calls.clear()
         self.lane_times.clear()
         self.moments.clear()
+        self.passes = self.lead_changes = 0
+        self.asides_done.clear()
+        self.last_aside = -1e9
 
     def covered(self, key, now, window=PAIR_TTL):
         """This one has just gone out on air, so it isn't said again straight after (a call is not repeated by an
@@ -1790,6 +1800,276 @@ class Writer:
     def _pitting(self, now):
         """Is anyone actually in the lane right now (or just arrived), so a pit story is worth opening?"""
         return any(c.in_pit and not c.gone for c in self.tr.cars.values() if now - (c.pit_in_t or 0) < 40)
+
+    # --- asides: the side conversations a real booth drifts into between stories, always about this race
+    ASIDE_GAP = 55.0             # seconds between side conversations at the least
+
+    def _aside(self, now, focus="balanced"):
+        """Now and then, a side conversation: what it's like in the car in a fight like this one, the race in
+        numbers, who wins it, what the pit lane looks like, the viewer's driver's afternoon. Random, but always
+        tied to what is on the screen, and never the same one twice in a race."""
+        tr = self.tr
+        if now - self.last_aside < self.ASIDE_GAP or not tr.started or tr.finished or not self.chance(0.4):
+            return []
+        ld = tr.leader()
+        left = self._laps_left()
+        if ld is None or ld.laps < 1 or (left is not None and left < 2) or getattr(tr, "flag", None) in CAUTION_FLAGS or any(c.in_pit and now - (c.pit_in_t or 0) < 6 for c in tr.cars.values()):
+            return []                         # not in the opening scramble, the last lap, a caution or a stop
+        topics = ["numbers", "defend", "chase", "stops", "final", "start", "viewer", "swap", "winner", "pitview",
+                  "pressure"]
+        self.rng.shuffle(topics)
+        if focus == "me" and "viewer" in topics:
+            topics.remove("viewer")
+            topics.insert(0, "viewer")
+        for t in topics:
+            if t in self.asides_done:
+                continue
+            lines = getattr(self, "_aside_" + t)(now)
+            if lines:
+                self.asides_done.add(t)
+                self.last_aside = now
+                return lines
+        return []
+
+    def _close_fight(self):
+        """The closest fight going: (car ahead, car behind, gap), or None."""
+        tr = self.tr
+        best = None
+        for (a, b), bt in tr.battles.items():
+            ca, cb = tr.car(a), tr.car(b)
+            if ca and cb and not ca.gone and not cb.gone and cb.interval is not None and cb.interval < 1.5 and \
+                    tr.pos_of(b) == tr.pos_of(a) + 1 and (best is None or cb.interval < best[2]):
+                best = (a, b, cb.interval)
+        return best
+
+    def _aside_numbers(self, now):
+        laps = self.tr.leader().laps if self.tr.leader() else 0
+        if self.passes < 3 or laps < 1:
+            return []
+        mov = max((c for c in self.tr.cars.values() if c.grid and not c.gone and c.status not in ("dnf", "dsq")),
+                  key=lambda c: c.grid - self.tr.pos_of(c.id), default=None)
+        gained = mov.grid - self.tr.pos_of(mov.id) if mov else 0
+        leaders = (f" and {plural(self.lead_changes, 'change')} of lead" if self.lead_changes else
+                   ", and not a single change of lead")
+        out = [Line(LEAD, self.pick("as_num", [
+            f"{self.analyst_name}, a few numbers while it's calm. {plural(self.passes, 'pass')} so far{leaders}.",
+            f"While we've got a moment: that's {plural(self.passes, 'overtake')} in this race already{leaders}.",
+        ]).replace("passs", "passes"), 1)]
+        if mov and gained >= 2:
+            out.append(Line(ANALYST, self.pick("as_num_a", [
+                f"And the biggest mover is {self.n(mov.id, now)}, {plural(gained, 'place')} up from the grid. "
+                "That's where the story of this race is, for me.",
+                f"Most of them involving {self.n(mov.id, now)}, it feels like. {plural(gained, 'place')} gained "
+                "since the start.",
+            ]), 1))
+        else:
+            out.append(Line(ANALYST, "Which tells you how evenly matched these cars are. Nobody is getting away "
+                                     "with anything.", 1))
+        out.append(Line(LEAD, self.pick("as_num_l", [
+            "And plenty of race left to add to it.",
+            "Keep counting. I don't think it's finished.",
+        ]), 1))
+        return out
+
+    def _aside_defend(self, now):
+        f = self._close_fight()
+        if not f:
+            return []
+        an, bn = self.n(f[0], now), self.n(f[1], now)
+        return [Line(LEAD, self.pick("as_def", [
+            f"{self.analyst_name}, you've been where {an} is now, with a car filling the mirrors. "
+            "What's going through your head?",
+            f"What's it actually like in {an}'s seat right now, {self.analyst_name}?",
+        ]), 1), Line(ANALYST, self.pick("as_def_a", [
+            "Mostly the mirrors, and that's the problem. You stop driving your own race and start driving the car "
+            "behind, and that's exactly when you miss a braking point.",
+            "Honestly? You're counting corners. Every one you get through is one fewer for them to have a go at.",
+            "You hear them before you see them. And you tell yourself not to look, and you look anyway.",
+        ]), 1), Line(LEAD, self.pick("as_def_l", [
+            f"So that's what {bn} is waiting for. One look in the mirror too many.",
+            f"And {bn} knows all of that, of course. {gap_words(f[2]).capitalize()} and waiting.",
+        ]), 1)]
+
+    def _aside_chase(self, now):
+        f = self._close_fight()
+        if not f:
+            return []
+        an, bn = self.n(f[0], now), self.n(f[1], now)
+        return [Line(LEAD, self.pick("as_ch", [
+            f"Is it easier being {bn}, though? Chasing rather than being chased?",
+            f"Would you rather be {an} or {bn} right now, {self.analyst_name}?",
+        ]), 1), Line(ANALYST, self.pick("as_ch_a", [
+            f"{bn}, every time. Nothing to lose. You can try something, and if it doesn't work you just try again "
+            "a lap later.",
+            f"Chasing is fun for about three laps. After that, if you haven't got by, you start wondering if you "
+            f"ever will. {bn} is getting near that point.",
+        ]), 1), Line(LEAD, self.pick("as_ch_l", [
+            "Spoken like someone who did a lot of chasing.",
+            "I think you've just told us more about your career than you meant to.",
+        ]), 1), Line(ANALYST, self.pick("as_ch_b", [
+            "No comment.",
+            "Thank you, Ben. Lovely.".replace("Ben", self.lead_name),
+            "We're not here to talk about me.",
+        ]), 1)]
+
+    def _aside_stops(self, now):
+        if not self._mia or not self.lane_times:
+            return []
+        best = min(self.lane_times, key=self.lane_times.get)
+        if not self.tr.car(best):
+            return []
+        bt = num_words(int(round(self.lane_times[best])))
+        return [Line(LEAD, f"{self.pit_name}, what's it like down there when a car comes in?"),
+                Line(PIT, self.pick("as_st", [
+                    f"It goes very quiet, {self.lead_name}. Everyone stops talking and watches the clock. "
+                    f"{plural(len(self.lane_times), 'stop')} so far, and {self.n(best, now)}'s {bt} seconds is the "
+                    "one the crews are measuring themselves against.",
+                    f"Tense. You can tell a good stop without looking at the clock, it just flows. "
+                    f"{self.n(best, now)}'s was like that, {bt} seconds, the best so far.",
+                ]), 1),
+                Line(ANALYST, self.pick("as_st_a", [
+                    "I always hated stops. Sitting there, completely still, while everyone else is racing.",
+                    "From the car it feels like an hour. You just stare at the lollipop and wait.",
+                ]), 1),
+                Line(PIT, self.pick("as_st_b", [
+                    f"And yet you always got away cleanly, {self.analyst_name}. I've looked it up.",
+                    "The crews would say the same about waiting for you to arrive.",
+                ]), 1)]
+
+    def _aside_final(self, now):
+        left = self._laps_left()
+        ld = self.tr.leader()
+        p2 = self.tr.at(2)
+        if left is None or left > 3 or left < 2 or not ld or not p2 or p2.interval is None:
+            return []
+        return [Line(LEAD, self.pick("as_fi", [
+            f"{self.analyst_name}, {self._laps_left_words()}. What changes in the car now?",
+            f"Last few laps. Does it feel different from the inside, {self.analyst_name}?",
+        ]), 1), Line(ANALYST, self.pick("as_fi_a", [
+            "Everything gets louder. Every noise from the car, you're sure it's about to break.",
+            "You start doing sums. How big is the gap, how many corners left, how many mistakes can I afford. "
+            "Usually none.",
+        ]), 1), Line(LEAD, f"And {self.n(ld.id, now)} will be doing those sums now. "
+                           f"{gap_words(p2.interval).capitalize()} to {self.n(p2.id, now)}.", 1)]
+
+    def _aside_start(self, now):
+        ld = self.tr.leader()
+        g = next(((cid, m) for cid, m in self.moments.items() if "at the start" in m[0]), None)
+        if not ld or ld.laps > 2 or not g:
+            return []
+        nm = self.n(g[0], now)
+        ask = self.chance(0.5)
+        return [Line(LEAD, f"Still thinking about that start, {self.analyst_name}. {nm} {g[1][0].replace('the car that ', '')}.", 1),
+                Line(ANALYST, self.pick("as_sa", [
+                    "Starts are half nerve, half luck. You commit to a gap before it's there and hope it opens.",
+                    "You've got about two seconds to make a decision you'll be living with for the whole race.",
+                ]), 1),
+                Line(LEAD, "Did you ever get one badly wrong?" if ask else
+                     f"And {nm} is living with it, one way or another.", 1)] + \
+            ([Line(ANALYST, "Once. We don't talk about it.", 1)] if ask else [])
+
+    def _aside_viewer(self, now):
+        me = self.tr.player()
+        if me is None or me.gone or me.in_pit:
+            return []
+        p = self.tr.pos_of(me.id)
+        ahead = self.tr.at(p - 1)
+        behind, gb = self._behind(me.id)
+        nm = self.n(me.id, now)
+        if ahead and me.interval is not None and me.interval < 2.0:
+            think = (f"Get after {self.n(ahead.id, now)}. {gap_words(me.interval).capitalize()} is close enough "
+                     "that one good lap does it.")
+        elif behind and gb is not None and gb < 1.5:
+            think = (f"Honestly, the mirrors. {self.n(behind.id, now)} is {gap_words(gb)} back, and that's the "
+                     "real fight.")
+        else:
+            think = (f"Rhythm. Nobody close either way, so it's about clean laps and being ready when the race "
+                     f"comes back to {nm}.")
+        return [Line(LEAD, f"If you're {nm} right now, {self.analyst_name}, {place(p)}, what are you thinking?", 1),
+                Line(ANALYST, think, 1),
+                Line(LEAD, self.pick("as_vw_l", [
+                    "Simple as that.",
+                    f"Over to you, {nm}.",
+                ]), 1)]
+
+    def _aside_swap(self, now):
+        laps = [(c.last, c) for c in self.tr.cars.values() if c.last and not c.gone and not c.in_pit and not c.pit_lap]
+        ld = self.tr.leader()
+        if len(laps) < 3 or not ld:
+            return []
+        t, fast = min(laps, key=lambda x: x[0])
+        if fast.id == ld.id:
+            return [Line(LEAD, f"{self.analyst_name}, if you could swap into any car out there right now?", 1),
+                    Line(ANALYST, f"{self.n(ld.id, now)}'s. Leading and quickest on the last lap. Easy question.", 1),
+                    Line(LEAD, "Fair. I was hoping for something more interesting.", 1),
+                    Line(ANALYST, "Sorry to disappoint.", 1)]
+        return [Line(LEAD, f"{self.analyst_name}, if you could swap into any car out there right now?", 1),
+                Line(ANALYST, f"{self.n(fast.id, now)}'s. Quickest on the last lap, a {lap_time_words(t)}. "
+                              f"{place(self.tr.pos_of(fast.id)).capitalize()} on the road, but that's the car.", 1),
+                Line(LEAD, f"Not {self.n(ld.id, now)}, who's leading the race?", 1),
+                Line(ANALYST, f"{self.n(ld.id, now)} has the result. I'd want the speed.", 1)]
+
+    def _aside_winner(self, now):
+        left = self._laps_left()
+        ld, p2 = self.tr.leader(), self.tr.at(2)
+        if not ld or not p2 or p2.interval is None or (left is not None and left < 2) or ld.laps < 1:
+            return []
+        if frozenset((ld.id, p2.id)) in self.calls:
+            return []
+        if p2.interval > 5.0:
+            return []
+        _, fav, reason = self._read_fight(ld.id, p2.id, now)
+        first = reason.split(" ", 1)[0].strip(",.")
+        if first not in (self.n(ld.id), self.n(p2.id)):
+            reason = reason[:1].lower() + reason[1:]
+        other = p2.id if fav == ld.id else ld.id
+        self._call((ld.id, p2.id), ANALYST, fav, now)
+        self._call((ld.id, p2.id), LEAD, other, now)
+        return [Line(LEAD, self.pick("as_wn", [
+            f"Go on then, {self.analyst_name}. Who wins this?",
+            f"Put your neck on the line, {self.analyst_name}. Who takes it?",
+        ]), 1), Line(ANALYST, f"I'll say {self.n(fav, now)}, because {reason}", 1),
+            Line(LEAD, (f"I'll take {self.n(other, now)}. Track position, and {self._laps_left_words()}."
+                        if other == ld.id else
+                        f"I'll go the other way. {self.n(other, now)} is {gap_words(p2.interval)} back, and "
+                        + ("that's nothing." if p2.interval < 1.5 else f"there's {self._laps_left_words()}."))),
+            Line(ANALYST, "Done. Loser buys dinner.", 1)]
+
+    def _aside_pitview(self, now):
+        if not self._mia:
+            return []
+        cars = [c for c in self.tr.cars.values() if not c.gone and c.status not in ("dnf", "dsq")]
+        still = sorted((c for c in cars if not c.pits), key=lambda c: self.tr.pos_of(c.id))
+        done = [c for c in cars if c.pits]
+        if not still or not done:
+            return []
+        s0 = still[0]
+        return [Line(PIT, f"{self.lead_name}, a word from down here. Every crew in this lane is watching the timing "
+                          f"screens for {self.n(s0.id, now)}, still to stop and running {place(self.tr.pos_of(s0.id))}.", 1),
+                Line(LEAD, f"Why {self.n(s0.id, now)} in particular, {self.pit_name}?", 1),
+                Line(PIT, self.pick("as_pv", [
+                    "Because where that car comes out decides half their afternoons. Everyone's doing the maths.",
+                    f"Because until {self.n(s0.id, now)} stops, nobody really knows where they stand.",
+                ]), 1)]
+
+    def _aside_pressure(self, now):
+        me = self.tr.player()
+        ld = self.tr.leader()
+        if not ld or ld.laps < 2:
+            return []
+        if me and not me.gone and self.tr.pos_of(me.id) == 1:
+            return []
+        p2 = self.tr.at(2)
+        if not p2 or p2.interval is None:
+            return []
+        return [Line(ANALYST, f"Can I say something about {self.n(ld.id, now)}? We've barely mentioned the leader.", 1),
+                Line(LEAD, "That's usually a compliment.", 1),
+                Line(ANALYST, self.pick("as_pr", [
+                    f"It is. {gap_words(p2.interval).capitalize()} in hand over {self.n(p2.id, now)}, no drama, "
+                    "no mistakes. That's the hardest kind of driving to notice.",
+                    "It is. Nobody's talking about them because there's been nothing to talk about. That's the job done "
+                    "properly.",
+                ]), 1)]
 
     # --- battle: followed while it lasts, paid off when it breaks
     def _open_battle(self, now, key=None):

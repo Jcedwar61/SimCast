@@ -320,7 +320,7 @@ def react_task(event_text, said, speaker="Ben", other="Kate"):
             f"call on record, say who called it. Two lines, {other} first, then {speaker}. Don't repeat the line itself.")
 
 
-FILLER_SHAPES = ("story", "question", "debate", "callback", "pit")
+FILLER_SHAPES = ("story", "question", "debate", "callback", "pit", "aside")
 
 
 def filler_task(writer, now, focus, shape=None):
@@ -341,7 +341,7 @@ def filler_task(writer, now, focus, shape=None):
     has_pit = writer.cfg.get("pit_reporter", True) and any(c.pits or c.in_pit for c in tr.cars.values())
     rng = getattr(writer, "rng", None)
     if shape is None:
-        pool = ["story", "question", "debate", "debate"]
+        pool = ["story", "question", "debate", "debate", "aside"]
         if getattr(writer, "calls", None) or len(getattr(writer, "_said", ())) > 20:
             pool.append("callback")
         if has_pit:
@@ -368,6 +368,13 @@ def filler_task(writer, now, focus, shape=None):
                f"data (stop times compared, who is still to stop and what that means); {analyst} (ANALYST) takes "
                f"that on with an opinion, or {pit} and {analyst} see it differently; {pit} may hand back to {lead}. "
                "3 or 4 lines.")
+    elif shape == "aside":
+        how = (f"A side conversation, the kind a booth drifts into between stories, but tied to what's on screen: "
+               f"what it's like in the car in a fight like the one going on, the race so far in numbers (passes, "
+               f"lead changes, biggest mover), who {analyst} would swap seats with and why, who wins this and a small "
+               f"bet on it, or {analyst}'s own racing days (general feelings only, no invented results). {lead} (LEAD) "
+               f"opens it, {analyst} (ANALYST) answers, and it comes back to a car on track by the last line. Light "
+               f"and human: a bit of teasing is welcome. 3 or 4 lines.")
     else:
         how = (f"{lead} (LEAD) raises a story, {analyst} (ANALYST) answers it with something the lead didn't say, "
                f"{lead} comes back to that answer. 3 lines.{carry}")
