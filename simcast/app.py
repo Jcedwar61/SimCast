@@ -19,7 +19,7 @@ from . import ai as ai_mod
 from . import providers, sims
 
 APP_NAME = "SimCast"
-APP_VERSION = "1.2"
+APP_VERSION = "1.3"
 APP_DIR = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), "SimCast")
 CONFIG_PATH = os.path.join(APP_DIR, "config.json")
 LOG_PATH = os.path.join(APP_DIR, "simcast.log")
