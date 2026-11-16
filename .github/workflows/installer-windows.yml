@@ -1,0 +1,128 @@
+# Tests the setup wizard and the update path on real Windows whenever the installer or the app changes:
+# install.ps1 parses in Windows PowerShell 5.1; SimCast 1.3 is installed from its release and started, then this
+# SimCast-Setup.exe updates it in place (closing the running SimCast); the updater finds, downloads and verifies the
+# latest release; the optional SimCoach step installs SimCoach (checksum-checked); and both uninstall cleanly.
+name: Installer (Windows)
+
+on:
+  pull_request:
+    paths: ["installer-source/**", "SimCast-Setup.exe", "SimCast.exe", "sim_cast.py", "simcast/**", ".github/workflows/installer-windows.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: installer-windows-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  install:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: powershell
+    steps:
+      - uses: actions/checkout@v5
+      - name: install.ps1 parses in Windows PowerShell 5.1
+        run: |
+          $tokens = $null; $errs = $null
+          [void][System.Management.Automation.Language.Parser]::ParseFile("$PWD\installer-source\install.ps1", [ref]$tokens, [ref]$errs)
+          if ($errs) { $errs | ForEach-Object { Write-Host $_ }; exit 1 }
+          "PowerShell $($PSVersionTable.PSVersion): install.ps1 parses"
+      - name: Install SimCast 1.3 from its release and start it
+        run: |
+          $ProgressPreference = 'SilentlyContinue'
+          Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/Jcedwar61/SimCast/releases/download/v1.3/SimCast-Setup.exe' -OutFile "$env:RUNNER_TEMP\SimCast-1.3.exe"
+          $p = Start-Process -FilePath "$env:RUNNER_TEMP\SimCast-1.3.exe" -ArgumentList '/S' -Wait -PassThru
+          $key = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\SimCast'
+          if (-not (Test-Path $key)) { "No uninstall entry (exit code $($p.ExitCode))"; exit 1 }
+          $inst = (Get-ItemProperty $key).InstallLocation
+          "SimCast $((Get-ItemProperty $key).DisplayVersion) installed to $inst"
+          if (-not (Test-Path "$inst\setup-ready.txt")) { 'The downloads did not finish'; exit 1 }
+          "INST=$inst" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          Start-Process -FilePath "$inst\SimCast.exe"
+          $deadline = (Get-Date).AddSeconds(90)
+          do {
+            Start-Sleep -Seconds 3
+            $py = @(Get-CimInstance Win32_Process | Where-Object { $_.Name -like 'python*' -and $_.CommandLine -like '*sim_cast.py*' })
+          } while ($py.Count -eq 0 -and (Get-Date) -lt $deadline)
+          if ($py.Count -eq 0) { 'SimCast 1.3 did not start'; Get-Content "$env:APPDATA\SimCast\simcast.log" -ErrorAction SilentlyContinue | Select-Object -Last 30; exit 1 }
+          Start-Sleep -Seconds 25      # past the launcher's "stopped while starting" window
+          'SimCast 1.3 is running'
+      - name: This wizard updates it in place and closes the running SimCast
+        run: |
+          $want = (Select-String -Path simcast\app.py -Pattern '^APP_VERSION = "(.*)"$').Matches[0].Groups[1].Value
+          $p = Start-Process -FilePath .\SimCast-Setup.exe -ArgumentList '/S' -Wait -PassThru
+          Get-Content "$env:INST\install.log" -ErrorAction SilentlyContinue | Select-Object -Last 20
+          $left = @(Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like '*sim_cast.py*' -or $_.Name -eq 'SimCast.exe' })
+          if ($left.Count) { 'SimCast is still running after the update:'; $left | ForEach-Object { $_.Name + '  ' + $_.CommandLine }; exit 1 }
+          $key = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\SimCast'
+          $got = (Get-ItemProperty $key).DisplayVersion
+          if ($got -ne $want) { "Settings > Apps says $got, expected $want"; exit 1 }
+          if ((Get-FileHash simcast\app.py).Hash -ne (Get-FileHash "$env:INST\simcast\app.py").Hash) { 'simcast\app.py was not replaced'; exit 1 }
+          foreach ($f in 'simcast\update.py', 'setup-ready.txt', 'install.ps1') {
+            if (-not (Test-Path "$env:INST\$f")) { "Missing $f"; exit 1 }
+          }
+          "Updated in place to SimCast $got (exit code $($p.ExitCode))"
+      - name: The updater finds, downloads and verifies the latest release
+        shell: python
+        run: |
+          import os, sys, tempfile
+          sys.path.insert(0, os.environ["INST"])
+          from simcast import update
+          info = update.check_latest_release("1.3")
+          assert info and info["installer_url"] and info["sha256"], info
+          assert update.check_latest_release(info["version"]) is None
+          assert update.installed_copy(os.environ["INST"]) and update.can_install(info, here=os.environ["INST"])
+          assert not update.can_install(info, here=os.getcwd())
+          dest = os.path.join(tempfile.gettempdir(), "SimCast-Setup-check.exe")
+          update.download_installer(info["installer_url"], dest, info["sha256"])
+          print(f"SimCast {info['version']} offered to 1.3; wizard downloaded and verified ({os.path.getsize(dest)} bytes)")
+          try:
+              update.download_installer(info["installer_url"], dest + "x", "0" * 64)
+          except ValueError as e:
+              print("Wrong checksum refused:", e)
+          else:
+              sys.exit("a download with the wrong checksum was accepted")
+      - name: The new SimCast starts
+        run: |
+          Start-Process -FilePath "$env:INST\SimCast.exe"
+          $deadline = (Get-Date).AddSeconds(90)
+          do {
+            Start-Sleep -Seconds 3
+            $py = @(Get-CimInstance Win32_Process | Where-Object { $_.Name -like 'python*' -and $_.CommandLine -like '*sim_cast.py*' })
+          } while ($py.Count -eq 0 -and (Get-Date) -lt $deadline)
+          if ($py.Count -eq 0) { 'SimCast did not start'; exit 1 }
+          Start-Sleep -Seconds 25
+          $py = @(Get-CimInstance Win32_Process | Where-Object { $_.Name -like 'python*' -and $_.CommandLine -like '*sim_cast.py*' })
+          Get-Content "$env:APPDATA\SimCast\simcast.log" -ErrorAction SilentlyContinue | Select-Object -Last 30
+          if ($py.Count -eq 0) { 'SimCast started and then stopped'; exit 1 }
+          'SimCast is running (the update check runs 4 s after the window opens)'
+      - name: The SimCoach option installs SimCoach (latest release, checksum-checked)
+        run: |
+          & "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$env:INST\install.ps1" -Dest "$env:INST" -Step simcoach
+          $code = $LASTEXITCODE
+          $key = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\SimCoach'
+          if ($code -ne 0 -or -not (Test-Path $key)) { "Step simcoach failed (exit code $code)"; exit 1 }
+          $coach = (Get-ItemProperty $key).InstallLocation
+          "SimCoach $((Get-ItemProperty $key).DisplayVersion) installed to $coach"
+          Get-Content "$coach\install.log" -ErrorAction SilentlyContinue | Select-Object -Last 20
+          foreach ($f in 'sim_coach.py', 'SimCoach.exe') {
+            if (-not (Test-Path "$coach\$f")) { "SimCoach: missing $f"; exit 1 }
+          }
+          if (-not (Select-String -Path "$coach\install.log" -Pattern 'Ready\.' -Quiet)) { "SimCoach's downloads did not finish"; exit 1 }
+      - name: Both uninstall cleanly (the running SimCast is closed)
+        run: |
+          foreach ($app in 'SimCoach', 'SimCast') {
+            $key = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\$app"
+            $inst = (Get-ItemProperty $key).InstallLocation
+            # NSIS uninstallers copy themselves to TEMP and return at once unless told where they are
+            $p = Start-Process -FilePath "$inst\Uninstall $app.exe" -ArgumentList '/S', "_?=$inst" -Wait -PassThru
+            if (Test-Path $key) { "$app is still registered after uninstalling (exit code $($p.ExitCode))"; exit 1 }
+            if (Test-Path "$inst\$($app.ToLower().Replace('simc', 'sim_c')).py") { "$app's files are still there"; exit 1 }
+            "$app uninstalled"
+          }
+          $left = @(Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like '*sim_cast.py*' })
+          if ($left.Count) { 'SimCast is still running after uninstalling'; exit 1 }
