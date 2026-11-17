@@ -53,6 +53,7 @@ class Director:
         self._filler_asked = -1e9
         self.load = DriverLoad()                             # driver mode: is the driver busy right now?
         self.memory = None                                   # memory.Memory: the booth's history across races
+        self.chat = None                                     # stream.TwitchChat, when reading chat is on
         self.recording = False                               # this race goes into it (a real race, not the demo)
         self._remembered = False
         self.held_since = None                               # the booth is holding its tongue since then
@@ -406,6 +407,18 @@ class Director:
             return
         if self.tr.session == "race" and not self.tr.started:
             return
+        talk = self._talk_booth()
+        if talk is None or not talk.ready():
+            return                                         # nobody free to write it: try again next tick
+        if self.chat is not None:
+            odds = {"rare": 0.25, "normal": 0.45, "lots": 0.65}.get(self.cfg_fn().get("banter", "normal"), 0.45)
+            msgs = self.chat.fresh() if self.writer.chance(odds) else []
+            if msgs:
+                task, opener = ai_mod.chat_task(self.writer, self.chat.take(3))
+                if self._ask(task, 20, now, filler=True, answer=opener):
+                    self._filler_asked = now
+                    self.convo_t, self.convo_left, self.convo_n = now, 1, 0
+                    return
         if self.convo_left > 0 and now - self.convo_t < 30:
             task, opener = ai_mod.continue_task(self.writer, self.convo_n + 1)
             if self._ask(task, 20, now, filler=True, answer=opener):

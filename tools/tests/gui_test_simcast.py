@@ -103,10 +103,10 @@ labels = sw2.voice_boxes["lead"].cget("values")
 check(any("Kokoro" in x for x in labels) and any("Google" in x for x in labels) and any("OpenAI" in x for x in labels)
       and any("Microsoft" in x for x in labels), "settings: Microsoft, Kokoro, Google and OpenAI voices offered")
 check(sw2.model_boxes["openai"].cget("values")[0].startswith("Automatic ("), "settings: model on Automatic")
-for i in range(6):
+for i in range(7):
     sw2.nb.select(i)
     pump(0.2)
-    if i in (1, 2, 3, 5):
+    if i in (1, 2, 3, 5, 6):
         if SHOTS:
             try:
                 from PIL import ImageGrab
@@ -190,7 +190,7 @@ check("up to date" in win.update_status.get(), "updates: Check now says when you
 win.open_settings()
 pump(0.4)
 sw3 = win.settings_win
-sw3.nb.select(5)
+sw3.nb.select(6)
 check("check_updates" in sw3.v and sw3.v["check_updates"][1].get() is True, "updates: the switch is in Settings > About")
 sw3.v["check_updates"][1].set(False)
 sw3.save()

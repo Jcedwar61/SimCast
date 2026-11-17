@@ -613,6 +613,10 @@ class SimCastWindow:
     def run(self):
         self.hotkeys = hotkeys.Hotkeys(self.cast.config, self._hotkey, log=self.cast.log)
         self.hotkeys.start()
+        try:
+            self.cast.sync_stream()                     # OBS captions page and Twitch chat, if switched on
+        except Exception as e:
+            self.cast.log(f"Streaming: {e}")
         self.loop.start()
         self.root.after(100, self.poll)
         self.root.mainloop()
@@ -712,7 +716,7 @@ class Captions:
 
 
 class SettingsWindow:
-    """Settings, in six tabs: Commentary, Booth, Voices, AI, Sims, About."""
+    """Settings, in seven tabs: Commentary, Booth, Voices, AI, Sims, Stream, About."""
 
     def __init__(self, app):
         self.app = app
@@ -886,6 +890,27 @@ class SettingsWindow:
                         "CrewChiefEx. Rally stages: EA SPORTS WRC, DiRT Rally 2.0, AC Rally. The Guide has the "
                         "one-time game settings.", span=3)
 
+        # ---------------------------------------------------------------- Stream
+        f = page("Stream")
+        self.row(f, 0, "OBS captions", self.check(f, "obs_captions", "Show the captions on a page for OBS", cfg))
+        port = ttk.Frame(f, style="Card.TFrame")
+        self.entry(port, "obs_port", cfg, width=8).pack(side="left")
+        url = f"http://127.0.0.1:{cfg.get('obs_port') or 8686}/"
+        ttk.Label(port, text="   " + url, style="Card.TLabel").pack(side="left")
+        ttk.Button(port, text="Copy", style="Small.TButton",
+                   command=lambda: (self.win.clipboard_clear(), self.win.clipboard_append(url))).pack(side="left", padx=8)
+        self.row(f, 1, "Port", port, sticky="w")
+        self.note(f, 2, "In OBS: Sources > + > Browser, paste the address, width 1600, height 300. The background is "
+                        "transparent; each line shows with the speaker's name in their colour, then fades. Add "
+                        "?lines=1 to the address to show one line at a time.")
+        self.row(f, 3, "Twitch channel", self.entry(f, "twitch_channel", cfg))
+        self.row(f, 4, "", self.check(f, "twitch_chat", "The booth answers the odd message in a quiet spell", cfg))
+        self.row(f, 5, "", self.check(f, "twitch_only_booth", "Only messages that start with !booth", cfg))
+        self.note(f, 6, "Chat is read without logging in, and nothing is ever posted. It needs an AI key: the AI picks "
+                        "a message, puts it in its own words and answers it ('Kate, someone in chat says you're "
+                        "wrong'). Abuse, spam, links and attempts to make the booth say something are ignored, and "
+                        "chat is never read out word for word.")
+
         # ---------------------------------------------------------------- About
         f = page("About")
         top = ttk.Frame(f, style="Card.TFrame")
@@ -1057,7 +1082,7 @@ class SettingsWindow:
             out[f"{p}_model"] = providers.AUTO if val.startswith("Automatic") else val
         val = self.tts_box.get()
         out["openai_tts_model"] = providers.AUTO if val.startswith("Automatic") else val
-        for k in ("demo_laps", "f1_port"):
+        for k in ("demo_laps", "f1_port", "obs_port"):
             try:
                 out[k] = int(out.get(k) or DEFAULTS[k])
             except ValueError:

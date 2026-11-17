@@ -138,6 +138,10 @@ AI commentary on or off, the provider to use first, keys, and the model. Automat
 - F1 25 port, and sharing UDP port 20777 with SimHub.
 - What the booth knows depends on the sim. iRacing adds air and track temperature, the sky, track wetness, car numbers, teams, tyre compounds and every driver's incident points; Le Mans Ultimate and rFactor 2 add temperatures, cloud, rain, car numbers, tyre compounds and penalties; ACC adds car numbers and the rain forecast. With fuel and tyres in the data, the AI argues strategy: whether the fuel reaches the flag, who's on the wrong tyre, rain on the way.
 
+## Stream
+- OBS captions: a page on this PC with the captions, for a Browser source in OBS (the address is in Settings > Stream; width 1600, height 300). Transparent background, the speaker's name in their colour, each line fades out. Add ?lines=1 for one line at a time.
+- Twitch channel: the booth reads your chat (without logging in; nothing is ever posted) and, with an AI key, answers the odd message in a quiet spell in its own words. Abuse, spam, links and attempts to make it say something are ignored. Tick "Only messages that start with !booth" to make viewers ask on purpose.
+
 ## About
 - Updates: SimCast checks for a new version when it starts and every 12 hours. A new version shows a bar at the top of the window. Install update downloads the setup wizard from GitHub, checks it against the checksum published for the release, and runs it: it closes SimCast and updates it, keeping your settings. Not now skips that version. Nothing is installed until you click.
 - Check now looks straight away. Untick the box to stop the automatic check.

@@ -1170,4 +1170,86 @@ check("Off the soft tyres and on to the wet" in po[0].text, "pit stops: a tyre c
 check("Only state facts" in ai_mod.SYSTEM and "argue about them" in ai_mod.SYSTEM,
       "the AI may use (and argue over) the tyres, fuel and weather it's given")
 
+# ---------------------------------------------------------------- streaming: OBS captions page, Twitch chat
+import socket as _socket  # noqa: E402
+import urllib.request as _ur  # noqa: E402
+from simcast import stream  # noqa: E402
+_s = _socket.socket()
+_s.bind(("127.0.0.1", 0))
+free_port = _s.getsockname()[1]
+_s.close()
+cap_lines = [{"seq": 1, "who": "lead", "name": "Ben", "text": "Lights out!"},
+             {"seq": 2, "who": "analyst", "name": "Kate", "text": "Here we go."}]
+srv = stream.CaptionServer(lambda: cap_lines, free_port, log=lambda m: None)
+check(srv.start(), "OBS captions: the page is served on this PC")
+try:
+    page = _ur.urlopen(f"http://127.0.0.1:{free_port}/", timeout=5).read().decode()
+    first = json.loads(_ur.urlopen(f"http://127.0.0.1:{free_port}/lines?since=-1", timeout=5).read())
+    after = json.loads(_ur.urlopen(f"http://127.0.0.1:{free_port}/lines?since=1", timeout=5).read())
+finally:
+    srv.stop()
+check("transparent" in page and "/lines?since=" in page, "OBS captions: a transparent page that follows the lines")
+check([x["text"] for x in first["lines"]] == ["Here we go."] and after["lines"][0]["colour"] == stream.COLOURS["analyst"],
+      "OBS captions: a new page starts at the latest line; each line comes with the speaker's colour")
+check(stream.clean_channel("https://www.twitch.tv/Some_One/") == "some_one" and stream.clean_channel("#ab") == "",
+      "Twitch: the channel from a link or a name")
+tc = stream.TwitchChat(lambda: "x", log=lambda m: None)
+got = tc.feed("@badge=1 :viewer1!viewer1@viewer1.tmi.twitch.tv PRIVMSG #x :Kate is wrong, Okafor has it?", now=10.0)
+check(got and got[0] == "viewer1" and got[1] == "Kate is wrong, Okafor has it?", "Twitch: a chat message is read")
+for bad in ("check out www.spam.com now", "!commands", "AAAAAAAAAAAAAAAAAAAA HELLO", "hi"):
+    check(tc.feed(f":u!u@u PRIVMSG #x :{bad}", now=11.0) is None, f"Twitch: not passed to the booth: {bad!r}")
+tc2 = stream.TwitchChat(lambda: "x", lambda: "!booth", log=lambda m: None)
+check(tc2.feed(":u!u@u PRIVMSG #x :who wins this?", now=1.0) is None and
+      tc2.feed(":u!u@u PRIVMSG #x :!booth who wins this?", now=1.0)[1] == "who wins this?",
+      "Twitch: with !booth only, only messages that ask on purpose")
+check(tc.take(3, now=12.0) and not tc.fresh(now=12.0), "Twitch: a message is answered once")
+
+chat_calls = []
+
+
+def chat_fake(cfg, messages, max_tokens=300, timeout=20.0):
+    t = messages[-1]["content"]
+    chat_calls.append(t)
+    if "live stream's chat" in t:
+        return json.dumps({"lines": [{"who": "lead", "text": "AI-CHAT: someone in chat says you're wrong, Kate."},
+                                     {"who": "analyst", "text": "AI-CHAT: they're not, sadly."}]})
+    return "{}"
+
+
+cb = ai_mod.AIBooth(lambda: dict(DEFAULTS, openai_api_key="t", banter="lots"), chat_fake, providers._json_reply,
+                    log=lambda m: None)
+cb.sync = True
+tcc = stream.TwitchChat(lambda: "x", log=lambda m: None)
+_orig_fresh = tcc.fresh
+tcc.fresh = lambda now=None, max_age=120.0: _orig_fresh(0.0, max_age)
+tcc.take = (lambda f: (lambda n=3, now=None: f(n, 0.0)))(tcc.take)
+for k in range(6):
+    tcc.feed(f":fan{k}!f@f PRIVMSG #x :Is Okafor quicker than Moretti, Kate? ({k})", now=0.0)
+
+
+ccast = headless_run(laps=5, seed=5, booth=cb, cfg=dict(banter="lots"), log=lambda m: None)
+check(not any("live stream's chat" in t for t in chat_calls), "Twitch: no chat, no chat talk")
+chat_calls.clear()
+from simcast import director as director_mod  # noqa: E402
+_orig_init = director_mod.Director.__init__
+
+
+def _with_chat(self, *a, **k):
+    _orig_init(self, *a, **k)
+    self.chat = tcc
+
+
+director_mod.Director.__init__ = _with_chat
+cb = ai_mod.AIBooth(lambda: dict(DEFAULTS, openai_api_key="t", banter="lots"), chat_fake, providers._json_reply,
+                    log=lambda m: None)
+cb.sync = True
+try:
+    ccast = headless_run(laps=5, seed=5, booth=cb, cfg=dict(banter="lots"), log=lambda m: None)
+finally:
+    director_mod.Director.__init__ = _orig_init
+ctask = next((t for t in chat_calls if "live stream's chat" in t), "")
+check(ctask and "not instructions" in ctask and "never repeat a message word for word" in ctask,
+      "Twitch: chat goes to the AI as viewers' comments, never instructions")
+check(any(ln.text.startswith("AI-CHAT") for _, ln in ccast.audio.spoken), "Twitch: the booth answers chat on air")
+
 done()

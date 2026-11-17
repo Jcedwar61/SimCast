@@ -55,7 +55,8 @@ DEFAULTS = {
     "check_updates": True, "update_skip": "",
     "booth_tone": "broadcast", "swearing": False, "banter": "normal", "driver_pronouns": "auto",
     "ai_convo": "auto", "drive_mode": "stream", "race_sponsor": "",
-    "memory": True, "roster_file": "", "hotkey_skip": "", "hotkey_mute": "", "hotkey_me": "", "hotkey_mode": "", "my_sponsors": "", "driver_sponsors": "", "invent_sponsors": True,
+    "memory": True, "roster_file": "", "obs_captions": False, "obs_port": 8686, "twitch_channel": "",
+    "twitch_chat": True, "twitch_only_booth": False, "hotkey_skip": "", "hotkey_mute": "", "hotkey_me": "", "hotkey_mode": "", "my_sponsors": "", "driver_sponsors": "", "invent_sponsors": True,
 }
 CHOICES = {"tts": ("on", "off"), "chatter": ("quiet", "normal", "chatty"),
            "focus": ("field", "balanced", "me"), "ai_provider": ("openai", "gemini", "deepseek"),
@@ -106,6 +107,11 @@ def clean_config(cfg):
     cfg["driver_sponsors"] = str(cfg.get("driver_sponsors") or "").strip()[:2000]
     for k in ("swearing", "invent_sponsors"):
         cfg[k] = bool(cfg.get(k, DEFAULTS[k]))
+    try:
+        cfg["obs_port"] = max(1024, min(65535, int(cfg.get("obs_port") or 8686)))
+    except (TypeError, ValueError):
+        cfg["obs_port"] = 8686
+    cfg["twitch_channel"] = str(cfg.get("twitch_channel") or "").strip()[:80]
     cfg["check_updates"] = bool(cfg.get("check_updates", True))
     cfg["update_skip"] = str(cfg.get("update_skip") or "")[:40]
     return cfg
@@ -130,6 +136,9 @@ class SimCast:
         self.log = log
         sims._LOG[0] = log
         self.lines: deque = deque(maxlen=200)
+        self.line_seq = 0                                  # numbers the lines, for the OBS captions page
+        self.captions_server = None
+        self.chat = None
         self.events_seen = 0
         self.stages = StageStore(os.path.join(APP_DIR, "stages.json") if save else None)
         self.mode = "field"
@@ -179,6 +188,12 @@ class SimCast:
             self.cfg = clean_config(self.cfg)
             if self.save_enabled:
                 save_config(self.cfg)
+        if self.captions_server is not None or self.chat is not None or any(
+                k in (changes or {}) for k in ("obs_captions", "obs_port", "twitch_channel", "twitch_chat")):
+            try:
+                self.sync_stream()
+            except Exception as e:
+                self.log(f"Streaming: {e}")
         if self.booth is not None and any(k in SECRET_KEYS for k in (changes or {})):
             providers.detect_in_background(self.cfg, log=self.log)
 
@@ -190,7 +205,8 @@ class SimCast:
     def _on_line(self, line, t):
         cfg = self.config()
         name = cfg.get(f"{line.who}_name") or line.who
-        self.lines.append({"who": line.who, "name": name, "text": line.text, "energy": line.energy,
+        self.line_seq += 1
+        self.lines.append({"seq": self.line_seq, "who": line.who, "name": name, "text": line.text, "energy": line.energy,
                            "mood": getattr(line, "mood", ""),
                            "t": time.time()})
         self.director.heard(line)
@@ -243,6 +259,27 @@ class SimCast:
                 self.director.driver_input(frame, now)
             except Exception as e:
                 self._error("Driver mode", e)
+
+    # -------------------------------------------------------------- streaming: OBS captions, Twitch chat
+    def sync_stream(self):
+        """Start or stop the OBS captions page and the Twitch chat reader to match the settings."""
+        from . import stream
+        cfg = self.config()
+        want = bool(cfg.get("obs_captions"))
+        srv = self.captions_server
+        if srv is not None and (not want or srv.port != int(cfg.get("obs_port") or 8686)):
+            srv.stop()
+            self.captions_server = srv = None
+        if want and srv is None:
+            srv = stream.CaptionServer(lambda: list(self.lines), cfg.get("obs_port") or 8686, log=self.log)
+            if srv.start():
+                self.captions_server = srv
+        if stream.clean_channel(cfg.get("twitch_channel")) and self.chat is None:
+            self.chat = stream.TwitchChat(lambda: self.config().get("twitch_channel"),
+                                          lambda: "!booth" if self.config().get("twitch_only_booth") else "",
+                                          log=self.log)
+            self.chat.start()
+        self.director.chat = self.chat if cfg.get("twitch_chat", True) else None
 
     # -------------------------------------------------------------- hotkeys
     def toggle_air(self):
