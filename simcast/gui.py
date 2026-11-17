@@ -634,7 +634,8 @@ class Captions:
         pos = app.cast.cfg.get("captions_pos")
         sw, sh = w.winfo_screenwidth(), w.winfo_screenheight()
         x, y = (pos if isinstance(pos, list) and len(pos) == 2 else (sw // 2 - 450, sh - 220))
-        w.geometry(f"900x110+{int(x)}+{int(y)}")
+        self.width, self.home_y = 900, int(y)  # home_y: where the user put it; long lines may lift it
+        w.geometry(f"{self.width}x110+{int(x)}+{int(y)}")
         self.bar = tk.Frame(w, bg=P["cyan"], width=6)
         self.bar.pack(side="left", fill="y")
         inner = tk.Frame(w, bg=P["bg"], padx=16, pady=10)
@@ -661,7 +662,20 @@ class Captions:
         self.bar.configure(bg=WHO_COLOUR.get(ln["who"], P["cyan"]))
         self.who.configure(text=ln["name"].upper(), fg=WHO_COLOUR.get(ln["who"], P["mut"]))
         self.text.configure(text=ln["text"], fg=P["fg"])
+        self._fit()
         self.hide_at = time.monotonic() + 2.0 + len(ln["text"].split()) * 0.38
+
+    def _fit(self):
+        """Grow or shrink the window's height so the whole line fits, keeping it on screen."""
+        w = self.win
+        try:
+            w.update_idletasks()
+            h = max(110, w.winfo_reqheight())
+            x, sh = w.winfo_x(), w.winfo_screenheight()
+            y = min(self.home_y, max(0, sh - h))  # grow upwards rather than run off the bottom of the screen
+            w.geometry(f"{self.width}x{h}+{x}+{y}")
+        except Exception:
+            pass
 
     def idle(self):
         if self.hide_at and time.monotonic() > self.hide_at:
@@ -675,6 +689,7 @@ class Captions:
         self.win.geometry(f"+{e.x_root - self._off[0]}+{e.y_root - self._off[1]}")
 
     def _drop(self, e):
+        self.home_y = self.win.winfo_y()
         self.app.cast.update_settings({"captions_pos": [self.win.winfo_x(), self.win.winfo_y()]})
 
     def close(self):
