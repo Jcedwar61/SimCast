@@ -11,8 +11,9 @@ from __future__ import annotations
 from collections import deque
 
 from . import ai as ai_mod
+from .cockpit import CATCH_UP_MAX, DriverLoad
 from .race import Event
-from .writer import ANALYST, LEAD, Writer
+from .writer import ANALYST, LEAD, Line, Writer
 
 CHATTER = {   # seconds of quiet before the booth fills it, and gap after any line
     "quiet": (18.0, 0.6),
@@ -25,13 +26,16 @@ CUT_MARGIN = 20              # ... something at least this much smaller
 REACT_MIN = 60               # the AI analyst reacts to events at least this big
 FOLLOWUP_TTL = 12.0
 FILLER_TTL = 45.0
+AI_WAIT = 6.0                # a quiet spell waits this long for the AI booth's conversation before a stock line
+CONTINUE = {"rare": 0, "normal": 1, "lots": 3}    # follow-up exchanges to a conversation, per 'Random chat'
 RETRY_S = 2.5
 
 
 class Director:
-    def __init__(self, tracker, audio, cfg_fn, booth=None, log=print, seed=None):
+    def __init__(self, tracker, audio, cfg_fn, booth=None, log=print, seed=None, convo_booth=None):
         self.tr, self.audio, self.cfg_fn = tracker, audio, cfg_fn
         self.booth = booth                                   # ai.AIBooth or None
+        self.convo_booth = convo_booth                       # a second one for the conversations (its own provider)
         self.log = log
         self.writer = Writer(tracker, cfg_fn(), seed=seed)
         self.pending: list = []
@@ -45,6 +49,18 @@ class Director:
         self.winner_t = None
         self.last_said_t = -1e9
         self.on_air = True
+        self.convo_left, self.convo_t, self.convo_n = 0, -1e9, 0   # an AI conversation still running
+        self._filler_asked = -1e9
+        self.load = DriverLoad()                             # driver mode: is the driver busy right now?
+        self.memory = None                                   # memory.Memory: the booth's history across races
+        self.chat = None                                     # stream.TwitchChat, when reading chat is on
+        self.recap = None                                    # recap.Recap: the transcript and moments of this race
+        self._recap_done = False
+        self.recap_path = None
+        self.recording = False                               # this race goes into it (a real race, not the demo)
+        self._remembered = False
+        self.held_since = None                               # the booth is holding its tongue since then
+        self.hold_reason = ""
 
     # -------------------------------------------------------------- input
     AFTER_FLAG = {"winner", "podium", "player_finish", "retired", "contact", "penalty"}
@@ -64,14 +80,77 @@ class Director:
                 pass
             if e.kind == "winner":
                 self.winner_t = now
+            self._remember_event(e)
+            if self.recap is not None:
+                try:
+                    self.recap.event(now, e, ai_mod.describe(e, self.writer))
+                except Exception:
+                    pass
+            if e.kind == "pit_out" and e.cars:                 # every stop is timed, called on air or not, so the
+                lane = (e.data or {}).get("lane_time")         # pit lane can compare against all of them
+                if lane and lane < 100:
+                    self.writer.lane_times[e.cars[0]] = lane
         if len(self._keys) > 2000:
             for k in [k for k, t in self._keys.items() if now - t > 600]:
                 del self._keys[k]
 
-    def heard(self, line):
+    def set_memory(self, memory):
+        self.memory = memory
+        w = self.writer
+        w.memory = memory
+        w.on_call_settled = self._call_settled
+
+    def _remembering(self):
+        return self.memory is not None and self.recording and self.cfg_fn().get("memory", True)
+
+    def _call_settled(self, commentator, right):
+        if self._remembering():
+            self.memory.call_settled(commentator, right)
+
+    def _remember_event(self, e):
+        if not self._remembering() or self.tr.session != "race":
+            return
+        names = [self.tr.car(c).name for c in e.cars if self.tr.car(c) is not None]
+        kind = {"contact": "contact", "retired": "retired"}.get(e.kind)
+        if e.kind == "overtake" and (e.data or {}).get("lead"):
+            kind = "lead_pass"
+        if kind and (len(names) >= 2 or kind == "retired"):
+            self.memory.note(kind, names, self.tr.track)
+
+    def _end_of_race(self, now):
+        """The flag has fallen and the dust settled: the race goes into the booth's memory, once."""
+        if self._remembered or self.winner_t is None or now - self.winner_t < 20:
+            return
+        self._remembered = True
+        if self._remembering():
+            try:
+                self.memory.end_race(self.tr)
+            except Exception as ex:
+                self.log(f"Memory: {ex}")
+
+    def heard(self, line, t=None):
         """The audio calls this as each line goes on air."""
         self.transcript.append((line.who, line.text))
         self.writer.heard(line)
+        if self.recap is not None and t is not None:
+            self.recap.line(t, self.writer._name(line.who) or line.who, line.text)
+
+    def finish_recap(self, demo=False):
+        """The race is over and the booth has signed off: write the recap (once)."""
+        if self.recap is None or self._recap_done or not self.tr.finished:
+            return None
+        self._recap_done = True
+        cfg = self.cfg_fn()
+        if not cfg.get("recap", True):
+            return None
+        try:
+            from .usage import METER
+            self.recap_path = self.recap.write(self.tr, self.writer, float(cfg.get("recap_offset") or 0), demo=demo,
+                                               cost=METER.summary(cfg.get("ai_rates") or ""))
+        except Exception as ex:
+            self.log(f"Recap: {ex}")
+            self.recap_path = None
+        return self.recap_path
 
     def set_tracker(self, tr):
         self.tr = tr
@@ -79,13 +158,26 @@ class Director:
         self.reset()
 
     def reset(self):
+        try:
+            from .usage import METER
+            METER.new_race(self.cfg_fn().get("ai_rates") or "")
+        except Exception:
+            pass
         self.pending.clear()
         self._keys.clear()
         self.followups.clear()
         self.ai_filler = None
+        self.convo_left, self.convo_t, self.convo_n = 0, -1e9, 0
+        self._filler_asked = -1e9
         self.wrapped = False
         self._wrap_asked = None
         self.winner_t = None
+        self._remembered = False
+        if self.recap is not None:
+            self.recap.reset()
+        self._recap_done = False
+        if self.memory is not None:
+            self.memory.current, self.memory.calls_now = [], []     # an unfinished race isn't remembered
         self.writer.forget()
         self.writer.clear_memory()
         self.writer.floor_who, self.writer.floor_run = "", 0
@@ -104,6 +196,58 @@ class Director:
             return None
         return max(self.pending, key=lambda e: self._score(e, now))
 
+    # -------------------------------------------------------------- driver mode
+    def driver_input(self, frame, now):
+        """Each telemetry frame: is the driver braking, racing someone close, or off the track?"""
+        self.load.update(frame, now, self.tr)
+
+    def _hold(self, cfg, now):
+        """Driver mode: True while the driver is busy. Nothing new goes on air; a side conversation playing when a
+        car gets alongside is stopped. When it's quiet again, what happened meanwhile is moved on by the time held
+        (up to CATCH_UP_MAX), so it's still called if it's still news."""
+        why = ""
+        if cfg.get("drive_mode") == "driver" and self.tr.started and not self.tr.finished and \
+                self.tr.session == "race":
+            why = self.load.busy(now)
+        self.hold_reason = why
+        if why == "fight":
+            why = ""                                         # a long fight: tick() lets race calls through
+        if why:
+            if self.held_since is None:
+                self.held_since = now
+                if why == "close" and self.audio.speaking(now) and self.audio.current_priority < 50:
+                    self.audio.interrupt(now)                # no chat about biscuits side by side into Turn 1
+            return True
+        if self.held_since is not None:
+            held = min(CATCH_UP_MAX, now - self.held_since)
+            for e in self.pending:
+                e.t += held
+            self.followups = type(self.followups)((ln, made + held, p) for ln, made, p in self.followups)
+            if self.ai_filler:
+                self.ai_filler = (self.ai_filler[0], self.ai_filler[1] + held)
+            self.held_since = None
+        return False
+
+    def talk_about_me(self, now):
+        """The 'talk about me' button: the viewer's race, now, over any chat (not over a big call)."""
+        me = self.tr.player() if hasattr(self.tr, "player") else None
+        if me is None or not self.on_air:
+            return False
+        if self.audio.speaking(now):
+            if self.audio.current_priority >= CUT_IN:
+                return False
+            self.audio.interrupt(now)
+        lines = self.writer._player_line(me, now) if self.tr.session == "race" and \
+            getattr(self.tr, "started", False) else [Line(LEAD, f"Let's check in on {self.writer.n(me.id, now)}.", 1)]
+        self._air(lines, 60, now)
+        if self.booth is not None:
+            self._ask(f"The viewer has asked the booth to talk about their driver, {self.writer.n(me.id)}, right "
+                      "now. ANALYST picks up straight from the last line with a proper look at their race from the "
+                      "data: position against the grid slot, the gaps either side and whether they're shrinking, "
+                      "pace against the cars around them, the stops, and what they need to do next. LEAD answers. "
+                      "2 or 3 lines.", 55, now, answer=ANALYST)
+        return True
+
     # -------------------------------------------------------------- the loop
     def tick(self, now):
         if not self.on_air:
@@ -111,6 +255,8 @@ class Director:
             return
         cfg = self.cfg_fn()
         self.writer.cfg = cfg
+        if self._hold(cfg, now):
+            return
         quiet_s, gap_s = CHATTER.get(cfg.get("chatter", "normal"), CHATTER["normal"])
         if getattr(self.tr, "solo", False):
             quiet_s *= 1.6                      # one car: less to talk about, so the quiet spells are longer
@@ -137,8 +283,13 @@ class Director:
                 if self._wrap_asked is not None:
                     self.wrapped = True
                 return
+        if self.hold_reason == "fight":
+            return                                           # in a long fight: race calls, but no chat
         if self.tr.finished:
+            self._end_of_race(now)
             self._wrap(now, idle)
+            if self.wrapped and self.audio.idle_for(now) > 2.0:     # the sign-off has been said, not just queued
+                self.finish_recap(demo=not self.recording)
             return
         if idle >= quiet_s * 0.6:
             self._prefetch_filler(now)
@@ -148,7 +299,15 @@ class Director:
                 lines, _ = self.ai_filler
                 self.ai_filler = None
                 self._air(lines, 20, now)
+                if now - self.convo_t > FILLER_TTL:            # a new conversation: it may run on a while
+                    self.convo_left = CONTINUE.get(cfg.get("banter", "normal"), 1)
+                    self.convo_n = 0
+                self.convo_t = now
                 return
+            talk = self._talk_booth()
+            if not mid_story and talk is not None and talk.busy and \
+                    now - self._filler_asked < AI_WAIT:
+                return                                           # the AI's conversation is on its way
             lines = self.writer.filler(now, cfg.get("focus", "balanced"))
             if lines:
                 self._air(lines, 20, now)
@@ -216,6 +375,15 @@ class Director:
         if not lines:
             return
         self.followups.clear()
+        try:
+            self.writer.feel(e, lines)                          # how it's said: the feeling of the moment
+            extra = self.writer.extras(e, lines, now)           # an outburst, history or a sponsor
+            if e.kind == "intro" and extra and len(lines) >= 2:
+                lines[1].text += " " + extra[0].text            # one line, so the start can't cut it off
+            else:
+                lines = lines + extra
+        except Exception as ex:
+            self.log(f"banter: {ex}")
         self._air(lines, e.priority, now)
         if e.priority >= REACT_MIN and e.kind not in ("start", "caution", "green"):
             self._ask_reaction(e, lines[-1], now)
@@ -226,8 +394,28 @@ class Director:
     def _brief(self):
         return ai_mod.race_brief(self.tr, self.writer, list(self.recent_events), list(self.transcript))
 
-    def _ask(self, task, priority, now, filler=False, answer=LEAD):
-        if self.booth is None or not self.booth.ready():
+    def _talk_booth(self):
+        """The booth that writes the conversations: the second provider's when it has one set up, so it works
+        alongside the main one instead of queueing behind the reactions."""
+        cb = self.convo_booth
+        if cb is not None and self.booth is not None:
+            try:
+                from .providers import ai_provider, convo_provider
+                cfg = self.cfg_fn()
+                if convo_provider(cfg) != ai_provider(cfg) and cb.available() and \
+                        self.clock_ok(cb):
+                    return cb
+            except Exception:
+                pass
+        return self.booth
+
+    @staticmethod
+    def clock_ok(b):
+        return b.clock() >= b.disabled_until                 # a second provider that keeps failing steps aside
+
+    def _ask(self, task, priority, now, filler=False, answer=LEAD, max_tokens=420):
+        booth = self._talk_booth() if filler else self.booth
+        if booth is None or not booth.ready():
             return False
         made = now
 
@@ -237,7 +425,8 @@ class Director:
             else:
                 self.followups.append((lines, made, priority))
         try:
-            return self.booth.request(task, self._brief(), done, opener=answer)
+            return booth.request(task, self._brief(), done, opener=answer, max_tokens=max_tokens,
+                                 purpose="convo" if filler else "react")
         except Exception as e:
             self.log(f"AI booth: {e}")
             return False
@@ -259,8 +448,28 @@ class Director:
             return
         if self.tr.session == "race" and not self.tr.started:
             return
+        talk = self._talk_booth()
+        if talk is None or not talk.ready():
+            return                                         # nobody free to write it: try again next tick
+        if self.chat is not None:
+            odds = {"rare": 0.25, "normal": 0.45, "lots": 0.65}.get(self.cfg_fn().get("banter", "normal"), 0.45)
+            msgs = self.chat.fresh() if self.writer.chance(odds) else []
+            if msgs:
+                task, opener = ai_mod.chat_task(self.writer, self.chat.take(3))
+                if self._ask(task, 20, now, filler=True, answer=opener):
+                    self._filler_asked = now
+                    self.convo_t, self.convo_left, self.convo_n = now, 1, 0
+                    return
+        if self.convo_left > 0 and now - self.convo_t < 30:
+            task, opener = ai_mod.continue_task(self.writer, self.convo_n + 1)
+            if self._ask(task, 20, now, filler=True, answer=opener):
+                self.convo_left -= 1
+                self.convo_n += 1
+                self._filler_asked = now
+            return
         task, opener = ai_mod.filler_task(self.writer, now, self.cfg_fn().get("focus", "balanced"))
-        self._ask(task, 20, now, filler=True, answer=opener)
+        if self._ask(task, 20, now, filler=True, answer=opener, max_tokens=520):
+            self._filler_asked = now
 
     def _wrap(self, now, idle):
         if self.wrapped or self.winner_t is None or now - self.winner_t < 25 or idle < 3:

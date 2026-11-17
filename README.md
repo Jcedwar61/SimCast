@@ -23,6 +23,41 @@ each other: while SimCoach's coach or crew speaks, the booth drops under them an
 * **Linux / Steam Deck:** [install-simcast-wine.sh](install-simcast-wine.sh) installs SimCast into the sim's
   own Proton prefix (see below).
 
+### What's new in 1.5
+* **A booth with a personality you choose:** *Settings → Commentary → Style* sets the whole feel in one click:
+  **TV broadcast**, **Late-night stream** (looser, chattier, the odd swear word) or **Mates down the pub**
+  (unhinged, sweary, all about you). *Fine-tune* has the details: personality (Professional, Loose, Unhinged),
+  swearing on or off, how often they wander into random conversations, how chatty, who they follow.
+* **Emotion:** every line has a feeling from the racing and the conversation: excited at a pass, angry at a clumsy
+  lunge, gutted when a race ends early, tense in a close fight, amused or annoyed at each other. The voices change
+  pace, pitch and volume to match; OpenAI voices are told how to say each line, and the new **ElevenLabs** voices
+  (your key) get the mood as an emotion cue.
+* **Driving mode:** the booth holds back while you brake into a corner, race a car within a second or go off,
+  stops a side conversation when someone gets alongside, and catches up on the next straight. *Stream* is the
+  full show.
+* **Hotkeys on your wheel:** a key or a wheel/button-box button for Skip this line, Booth on/off air, Talk about
+  me and Driving/Stream (*Settings → Sims*).
+* **The booth remembers:** results, wins and streaks, contact and lead changes between drivers, and each
+  commentator's prediction record are kept between races: *"These two made contact at Spa last time out."*
+* **League roster:** a spreadsheet with each driver's number, team, pronouns, sponsors and how to say their name:
+  *"the number 12 Porsche"*. Without one, drivers are "he" or "she" when the first name makes it clear and "they"
+  when it doesn't.
+* **Sponsors:** the race's title sponsor, yours and other drivers' (or made-up ones), worked in the way TV
+  booths do.
+* **More from the sims:** iRacing's temperatures, sky, track wetness, car numbers, teams, tyres and incident
+  points; Le Mans Ultimate and rFactor 2's temperatures, cloud, tyres, car numbers and penalties; ACC's car
+  numbers. Your fuel per lap is worked out, and the AI argues strategy with all of it.
+* **Real AI conversation:** quiet spells wait for the AI instead of a stock line, and a good conversation runs on
+  for a few exchanges. A **second AI** (DeepSeek, Gemini or OpenAI) can write the conversations while the first
+  answers the big moments, and each job gets the right model automatically: the quickest for reactions, the best
+  writer for conversations. Reactions are **streamed**: the first line is spoken while the AI is still writing
+  the rest. *Settings → AI* shows a **rough cost** per race.
+* **For streamers** (*Settings → Stream*): captions as an **OBS browser source**; the booth **answers Twitch chat**
+  in its own words (read without logging in, never read out word for word); and a **post-race recap** with the
+  result, **YouTube chapters**, highlights and the full timestamped transcript.
+* **Fixes:** every pit stop is timed now (the pit lane compared stops only against the ones called on air); the
+  captions window grows to fit long lines.
+
 ### What's new in 1.4
 * **Updates itself:** SimCast checks GitHub for a newer release when it starts and every 12 hours. A new version
   shows a bar at the top of the window: *Install update* downloads the setup wizard, checks it against the SHA-256
@@ -87,6 +122,9 @@ moment gets bigger; when something big happens, the lead cuts in, the way it doe
 | AC EVO | your car (it doesn't share the others) |
 | EA SPORTS WRC, DiRT Rally 2.0, AC Rally | rally stages: splits against your best run on that stage, moments, damage, the stage time and new bests |
 
+iRacing also gives the booth the temperatures, sky, track wetness, car numbers, teams, tyres and incident points;
+Le Mans Ultimate and rFactor 2 the temperatures, cloud, tyres, car numbers and penalties; ACC the car numbers.
+
 SimCast **finds the sims installed on your PC** (every Steam library, iRacing, EA app installs) and lists them on
 its start screen, each marked ready or with the one thing still to do. It picks the coverage by itself. *Your car only* means TV-style coverage of your session: places gained
 and lost, the gap to the car ahead closing, pressure from behind, trips off the track, your laps and the finish.
@@ -98,7 +136,12 @@ make (Automobilista 2's shared memory) is in the built-in guide.
 * **Microsoft neural voices**: natural and quick; the default.
 * **Kokoro**: high-quality neural voices that run on your PC, offline after a one-time download.
 * **Google** voices.
-* **OpenAI** voices (with your OpenAI key): the most lifelike; every line is spoken with its own direction.
+* **OpenAI** voices (with your OpenAI key): every line is spoken with its own direction and feeling.
+* **ElevenLabs** voices (with your ElevenLabs key): the voices on your account, the most emotional of all; each
+  line's mood goes in as a cue (*[excited]*, *[sighs]*, *[laughs]*).
+
+The free voices can only change pace, pitch and volume, so "angry" mostly sounds faster and louder; OpenAI and
+ElevenLabs voices carry real emotion.
 
 Pick a voice for each commentator, and where it plays: **Settings → Voices → Play on** (headset, speakers,
 VR headset). If a voice's service can't be reached, the line is spoken by Kokoro, then Google, then Windows'
@@ -109,19 +152,28 @@ The booth calls every moment from its own lines, instantly. Add an **OpenAI, Goo
 (Settings → AI) and the booth writes its own conversation from the live race: the analyst answers the lead's
 calls and argues with them, the pit reporter is brought in when the stops are the story, quiet spells become a real
 back-and-forth (a debate, a question, a side conversation), predictions are remembered and settled, and there's a
-proper sign-off. **The
-model is picked automatically**: SimCast asks the provider which models your key can use and takes the best one for
-live commentary; you can choose
-another from the list. With more than one key, it moves to another provider if one is down. The AI only gets
-the race data, and strict rules: no invented facts, drivers by name, no repeats.
+proper sign-off. With two keys, a **second AI** writes the conversations while the first answers the big moments
+(*Settings → AI → Conversations*; Automatic uses DeepSeek when it has a key). **Models are picked automatically**
+for each job: the quickest good one for reactions (streamed, so the first line is spoken while the rest is still
+being written) and the strongest writer for conversations; you can choose another from the list. With more than
+one key, it moves to another provider if one is down. The AI only gets the race data, the booth's memory of
+earlier races and strict rules: no invented facts, drivers by name, no repeats. *Settings → AI* shows a rough cost
+for the race so far.
 
 ### Built-in guide
 The **Guide** button opens a guide to everything: getting started, setting up each sim, voices and sound, AI,
 every setting, streaming, Linux and troubleshooting. It opens by itself the first time.
 
 ### Streaming
-Tick **Captions window**: a small always-on-top window shows each line as it's spoken (drag it anywhere; capture
-it in OBS). Add the *Play on* device to OBS to put the booth on stream.
+* **OBS captions** (*Settings → Stream*): a page on your PC for a Browser source, transparent, each line in the
+  speaker's colour. Or tick **Captions window** for a small always-on-top window that grows to fit each line.
+* **Twitch chat:** type your channel and, with an AI key, the booth answers the odd message in a quiet spell, in
+  its own words (*"Kate, someone in chat says you're wrong"*). Chat is read without logging in, nothing is
+  posted, and abuse, spam, links and attempts to make the booth say something are ignored.
+* **Recap:** after each race, a file with the result, YouTube chapters ready to paste, the highlights and the
+  whole transcript, timestamped from lights out (plus an offset for when your stream started).
+* Add the *Play on* device to OBS to put the booth on stream; *Driving* mode keeps it out of your way when you're
+  the one racing.
 
 ### Linux and Steam Deck
 Sims share their live data inside their own Wine prefix, so SimCast must run in the same prefix as the game:
@@ -144,8 +196,14 @@ simcast/race.py              the race model: timing loops, gaps, overtakes, batt
 simcast/solo.py              one-car coverage and rally stages (best runs in %APPDATA%\SimCast\stages.json)
 simcast/director.py          what goes on air, when, and what gets cut off
 simcast/writer.py            the instant lines, in three voices
-simcast/ai.py, providers.py  the AI booth; OpenAI / Gemini / DeepSeek with automatic model choice
-simcast/audio.py             voices (Microsoft, Kokoro, Google, OpenAI), fallback, playback, interruptions
+simcast/ai.py, providers.py  the AI booth; OpenAI / Gemini / DeepSeek, a model for each job, streamed reactions
+simcast/persona.py, banter.py  pronouns, personality, emotion, sponsors, outbursts and random conversations
+simcast/cockpit.py           driving mode: quiet while the driver is busy
+simcast/hotkeys.py           keyboard and wheel-button hotkeys
+simcast/memory.py, roster.py  the booth's memory across races; the league roster (CSV)
+simcast/stream.py, recap.py  OBS captions page, Twitch chat; the post-race recap
+simcast/eleven.py, usage.py  ElevenLabs voices; the cost estimate
+simcast/audio.py             voices (Microsoft, Kokoro, Google, OpenAI, ElevenLabs), fallback, playback, interruptions
 simcast/detect.py            the supported sims installed on this PC (Steam libraries, iRacing, EA app)
 simcast/gamesetup.py         EA WRC, DiRT Rally 2.0, F1 25, ACC and Assetto Corsa set up for SimCast
 simcast/gui.py, guide.py     the window, settings, captions window, the guide

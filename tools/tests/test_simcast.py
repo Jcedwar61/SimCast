@@ -269,6 +269,10 @@ calls = []
 def fake_chat(cfg, messages, max_tokens=300, timeout=20.0):
     calls.append(messages)
     task = messages[-1]["content"]
+    if "keep talking" in task:
+        return json.dumps({"lines": [{"who": "analyst", "text": f"AI-MORE {len(calls)}: oh, come off it.",
+                                      "energy": 2, "mood": "frustrated"},
+                                     {"who": "lead", "text": f"AI-MORE {len(calls)}: I'm serious!", "mood": "nonsense"}]})
     if "quiet moment" in task:
         return json.dumps({"lines": [{"who": "lead", "text": "AI-FILLER: the gaps are tumbling at the front.", "energy": 1},
                                      {"who": "analyst", "text": "AI-FILLER: and the pace is there.", "energy": 1}]})
@@ -290,7 +294,7 @@ check(any(t.startswith("AI-FILLER") for t in said), "AI booth: quiet spells beco
 check(any(t.startswith("AI-WRAP") for t in said), "AI booth: the sign-off (from a fenced reply)")
 check(not any("xxxx" in t for t in said), "AI booth: an overlong line is dropped")
 prompt = calls[0][0]["content"] + calls[0][1]["content"]
-check("STANDINGS" in prompt and "Only state facts" in prompt and "Never use he" in prompt,
+check("STANDINGS" in prompt and "Only state facts" in prompt and "never a guess" in prompt,
       "AI booth: the prompt carries the race and the rules")
 check(re.search(r"\[Moretti\]", prompt) is not None, "AI booth: drivers listed with their call names")
 check("Answer what the other one just said" in prompt and "disagree" in prompt and "CALLS ON RECORD" in prompt,
@@ -570,7 +574,7 @@ fams = {engine_of(v)[0] for _, v in VOICES}
 check(fams == {"edge", "kokoro", "google", "openai"}, "voices: Microsoft, Kokoro, Google and OpenAI offered")
 from simcast.guide import TOPICS  # noqa: E402
 gtext = " ".join(t for _, t in TOPICS)
-for word in ("Play on", "Demo race", "Captions window", "install-simcast-wine.sh", "Automatic", "CrewChiefEx",
+for word in ("Play on", "Demo race", "Personality", "Random chat", "Sponsors", "Call me", "Captions window", "install-simcast-wine.sh", "Automatic", "CrewChiefEx",
              "EA SPORTS WRC", "DiRT Rally 2.0", "AC Rally", "AC EVO", "ACC", "iRacing", "F1 25", "Le Mans Ultimate",
              "rFactor 2", "Automobilista 2", "RaceRoom", "Assetto Corsa"):
     check(word in gtext, f"guide covers: {word}")
@@ -796,4 +800,630 @@ check(refused("/page", hashlib.sha256(b"<html>not found</html>" * 40000).hexdige
       "updates: a web page instead of a program is thrown away")
 check(refused("/cut", sha), "updates: a download cut short is thrown away")
 srv.shutdown()
+# ---------------------------------------------------------------- pronouns, personality, random chat, sponsors
+from simcast import persona  # noqa: E402
+check(persona.name_gender("Lewis Hamilton") == "m" and persona.name_gender("Sophia Floersch") == "f",
+      "pronouns: a clear first name gives he or she")
+check(all(persona.name_gender(n) is None for n in ("Alex Albon", "Sam C", "L. Hamilton", "xX_Speed_Xx", "Okafor", "")),
+      "pronouns: an unclear name, an initial, a tag or a surname stays they")
+check(persona.from_choice("she", "Lewis Hamilton") == "f" and persona.from_choice("they", "Lewis") is None and
+      persona.from_choice("auto", "Emma Jones") == "f", "pronouns: your own choice wins over your name")
+check(persona.voice_gender("en-GB-SoniaNeural") == "f" and persona.voice_gender("Ryan (British) - Microsoft") == "m"
+      and persona.voice_gender("kokoro:bf_emma") == "f" and persona.voice_gender("openai:alloy") is None,
+      "pronouns: a commentator with an unclear name goes by their voice")
+check(persona.made_up_sponsors("Okafor") == persona.made_up_sponsors("Okafor") and persona.made_up_sponsors("Okafor"),
+      "sponsors: made-up backers are the same every time for a driver")
+check(persona.parse_driver_sponsors("Okafor: Acme Oil, Bolt; Lewis Hamilton = Zed\nnonsense") ==
+      {"okafor": ["Acme Oil", "Bolt"], "lewis hamilton": ["Zed"]}, "sponsors: other drivers' list is read")
+check(persona.car_make("Porsche 911 GT3 R (992)") == "Porsche" and persona.car_make("Aston Martin Vantage") ==
+      "Aston Martin", "sponsors: the car's make for 'the ... Porsche of Okafor'")
+
+calls.clear()
+loud = dict(DEFAULTS, openai_api_key="test", ai_colour=True, booth_tone="unhinged", swearing=True, banter="lots",
+            race_sponsor="Acme Oil", my_sponsors="Bolt Energy", driver_name="Emma Stone", lead_name="Jordan",
+            lead_voice="en-GB-SoniaNeural", analyst_name="Kate")
+booth = ai_mod.AIBooth(lambda: loud, fake_chat, providers._json_reply, log=lambda m: None)
+booth.sync = True
+cast = headless_run(laps=4, seed=3, booth=booth, cfg=loud, log=lambda m: None)
+prompt = calls[0][0]["content"] + calls[0][1]["content"]
+check("UNHINGED" in prompt and "Swearing is allowed" in prompt, "personality: unhinged and swearing reach the AI booth")
+check("Jordan (she/her)" in prompt and "Kate (she/her)" in prompt,
+      "pronouns: the booth's own, from the name or the voice")
+check("(she) " in prompt and re.search(r"\] \((he|she|they)\)", prompt) is not None,
+      "pronouns: every driver in the standings has one, the viewer's from their name")
+check("SPONSORS: race title sponsor Acme Oil" in prompt and "Bolt Energy" in prompt,
+      "sponsors: the race's and the viewer's reach the AI booth")
+more = [ln for _, ln in cast.audio.spoken if ln.text.startswith("AI-MORE")]
+check(len({ln.text.split(":")[0] for ln in more}) >= 2, f"conversation: the AI booth keeps a conversation going "
+      f"({len(more)} follow-up lines)")
+check(any(ln.mood == "frustrated" for ln in more) and all(ln.mood in persona.MOODS or ln.mood == "" for ln in more),
+      "emotion: the AI's moods come through, an unknown one is dropped")
+fill = [ai_mod.filler_task(cast.director.writer, 0, "balanced")[0] for _ in range(60)]
+check(any("random conversation" in t for t in fill) and any("sponsor from SPONSORS" in t for t in fill),
+      "random chat: the AI booth gets tangents and sponsor reads in the quiet spells")
+calls.clear()
+calm = dict(DEFAULTS, openai_api_key="test", ai_colour=True)
+booth = ai_mod.AIBooth(lambda: calm, fake_chat, providers._json_reply, log=lambda m: None)
+booth.sync = True
+headless_run(laps=3, seed=3, booth=booth, log=lambda m: None)
+prompt = calls[0][0]["content"]
+check("Emotion is everything" in prompt and '"mood"' in prompt, "emotion: the AI booth gives every line a mood")
+check("a proper television booth" in prompt and "no swearing" in prompt, "personality: professional and clean by default")
+
+from simcast import banter  # noqa: E402
+SWEARS = ("bloody", "hell", "shit", "damn", "sod ", "f...", "jesus")
+loud_said, clean_said = [], []
+for sd in range(4):
+    c = headless_run(laps=8, seed=sd, cfg=dict(booth_tone="unhinged", swearing=True, banter="lots",
+                                               race_sponsor="Acme Oil"), log=lambda m: None)
+    loud_said += [ln.text for _, ln in c.audio.spoken]
+    c = headless_run(laps=8, seed=sd, cfg=dict(booth_tone="unhinged", swearing=False, banter="lots"), log=lambda m: None)
+    clean_said += [ln.text for _, ln in c.audio.spoken]
+outb = {t.split("{")[0][:18] for _, _, _, t in banter.OUTBURSTS}
+check(any(any(t.startswith(o) for o in outb if o) for t in loud_said), "personality: the unhinged booth has outbursts")
+check(any(ln.mood for _, ln in c.audio.spoken), "emotion: the instant lines carry a mood")
+check(any(ln.mood == "angry" or ln.mood == "gutted" for sd in range(1) for _, ln in c.audio.spoken) or
+      any(ln.mood in ("shocked", "thrilled") for _, ln in c.audio.spoken), "emotion: the big moments sound like it")
+from simcast import audio as audio_mod  # noqa: E402
+from simcast.writer import Line as _L  # noqa: E402
+calm_p = audio_mod._prosody(_L("lead", "x", 1, "gutted"), {"booth_tone": "broadcast"})
+wild_p = audio_mod._prosody(_L("lead", "x", 1, "gutted"), {"booth_tone": "unhinged"})
+check(calm_p[0] < 0 and wild_p[0] < calm_p[0], "emotion: a gutted line is slower, and more so when unhinged")
+check("angry" in persona.mood_direction("angry", "unhinged", True) and "never bleeped" in
+      persona.mood_direction("angry", "unhinged", True), "emotion: OpenAI voices are told how to say it")
+check(any(w in t.lower() for t in loud_said for w in SWEARS), "personality: with swearing on, they swear")
+check(not any(w in t.lower() for t in clean_said for w in ("bloody", "shit", "damn", "sod ", "f...", "jesus")),
+      "personality: with swearing off, nobody swears, however unhinged")
+w = c.director.writer
+check(persona.car_make("GT3 #12") == "" and persona.car_make("LMP2") == "", "sponsors: a class isn't a make")
+w.cfg = dict(w.cfg, race_sponsor="Acme Oil", banter="lots")
+reads = []
+for _ in range(30):
+    w._sponsor_t = -1e9
+    reads += [ln.text for ln in w._tg_sponsor(1000.0)]
+check(any("Acme Oil" in t for t in reads), "sponsors: the race sponsor is read out in the quiet spells")
+check(any(x in t for t in reads for x in persona._BRAND_A), "sponsors: and a car's backers")
+w.cfg = dict(w.cfg, booth_tone="broadcast")
+check(all(lvl >= 1 for k, lvl, sw, t in banter.OUTBURSTS) and w._outburst(type("E", (), {"kind": "overtake",
+      "cars": ()})(), "analyst", 0) == [], "personality: the professional booth has no outbursts")
+
+# ---------------------------------------------------------------- a second AI for the conversations (DeepSeek)
+check(providers.convo_provider(dict(DEFAULTS, openai_api_key="a", deepseek_api_key="b")) == "deepseek",
+      "two AIs: Automatic hands the conversations to DeepSeek when it has a key")
+check(providers.convo_provider(dict(DEFAULTS, openai_api_key="a")) == "openai",
+      "two AIs: with one key, the main provider does both")
+check(providers.convo_provider(dict(DEFAULTS, openai_api_key="a", deepseek_api_key="b", ai_convo="same")) == "openai"
+      and providers.convo_provider(dict(DEFAULTS, ai_provider="deepseek", deepseek_api_key="b", gemini_api_key="c",
+                                        ai_convo="gemini")) == "gemini", "two AIs: picked by hand")
+who = {"main": [], "talk": []}
+
+
+def chat_as(name):
+    def f(cfg, messages, max_tokens=300, timeout=20.0):
+        who[name].append(messages[-1]["content"])
+        return fake_chat(cfg, messages, max_tokens, timeout)
+    return f
+
+
+both = dict(DEFAULTS, openai_api_key="a", deepseek_api_key="b", ai_colour=True, banter="lots")
+main_b = ai_mod.AIBooth(lambda: both, chat_as("main"), providers._json_reply, log=lambda m: None)
+talk_b = ai_mod.AIBooth(lambda: both, chat_as("talk"), providers._json_reply, log=lambda m: None)
+main_b.sync = talk_b.sync = True
+cast = headless_run(laps=5, seed=5, booth=main_b, convo_booth=talk_b, cfg=both, log=lambda m: None)
+check(who["talk"] and all("quiet" in t for t in who["talk"]), f"two AIs: DeepSeek writes the conversations "
+      f"({len(who['talk'])} requests)")
+check(any("carry the conversation" in t.lower() or "has already called it" in t for t in who["main"]) and
+      not any("quiet moment" in t for t in who["main"]), "two AIs: the main one answers the big moments")
+said = [ln.text for _, ln in cast.audio.spoken]
+check(any(t.startswith("AI-FILLER") for t in said) and any(t.startswith("AI-REACT") for t in said),
+      "two AIs: both are heard on air")
+
+# ---------------------------------------------------------------- the best model for each job
+check(providers.best_model(DEFAULTS, "deepseek", "react") == "deepseek-chat" and
+      providers.best_model(DEFAULTS, "deepseek", "convo") == "deepseek-v4-pro",
+      "models: DeepSeek reacts with its quick model and talks with its strongest")
+check(providers.best_model(DEFAULTS, "gemini", "convo") == "gemini-3.1-pro-preview" and
+      providers.best_model(DEFAULTS, "gemini", "react") == "gemini-3.5-flash", "models: so does Gemini")
+oc = providers.best_model(DEFAULTS, "openai", "convo")
+check(oc in providers.OPENAI_MODELS and "mini" not in oc and "reasoner" not in oc,
+      f"models: OpenAI talks with a full-size model ({oc})")
+check(providers.rank_for(["x-mini", "o3", "gpt-7", "gpt-6.5"], "convo")[:2] == ["gpt-7", "gpt-6.5"],
+      "models: a newer model the list doesn't know yet is used for conversations")
+check(providers.ai_model(dict(DEFAULTS, ai_provider="deepseek", deepseek_model="deepseek-reasoner",
+                              _purpose="convo")) == "deepseek-reasoner", "models: one picked by hand always wins")
+seen = []
+pb = ai_mod.AIBooth(lambda: dict(DEFAULTS, openai_api_key="a"),
+                    lambda cfg, m, max_tokens=0, timeout=0: seen.append((cfg.get("_purpose"), timeout)) or "{}",
+                    providers._json_reply, log=lambda m: None)
+pb.sync = True
+pb.request("t", "b", lambda *a: None, purpose="convo")
+pb.last_req = -1e9
+pb.request("t", "b", lambda *a: None)
+check(seen == [("convo", ai_mod.CONVO_TIMEOUT), ("react", ai_mod.TIMEOUT)],
+      "models: each request says what it's for, and a conversation may take longer")
+
+# ---------------------------------------------------------------- driver mode: quiet while the driver is busy
+from types import SimpleNamespace as _NS  # noqa: E402
+from simcast import cockpit  # noqa: E402
+ld = cockpit.DriverLoad()
+ld.update(_NS(brake=0.6, speed=40.0, gap_ahead=3.0, gap_behind=4.0), 10.0)
+check(ld.busy(10.0) == "braking" and ld.busy(10.5) == "braking", "driver mode: braking is busy")
+ld.update(_NS(brake=0.0, speed=40.0, gap_ahead=3.0, gap_behind=4.0), 11.0)
+check(ld.busy(11.0) == "", "driver mode: free again once past the apex")
+ld.update(_NS(brake=0.0, speed=40.0, gap_ahead=0.5, gap_behind=4.0), 12.0)
+check(ld.busy(12.0) == "close", "driver mode: a car within a second is busy")
+ld.update(_NS(brake=0.0, speed=40.0, gap_ahead=0.9, gap_behind=4.0), 12.5)
+check(ld.busy(12.5) == "close", "driver mode: and stays busy until there's a real gap (no flicker)")
+ld.update(_NS(brake=0.0, speed=40.0, gap_ahead=1.3, gap_behind=4.0), 13.0)
+check(ld.busy(13.0) == "", "driver mode: free on a gap")
+check(ld.busy(20.0) == "", "driver mode: no telemetry, nothing to hold for")
+lf = cockpit.DriverLoad()
+for k in range(40):
+    lf.update(_NS(brake=0.0, speed=40.0, gap_ahead=0.4, gap_behind=4.0), 100.0 + k * 0.5)
+check(lf.busy(119.5) == "fight", "driver mode: a long fight lets race calls out between the corners")
+lf.update(_NS(brake=0.5, speed=40.0, gap_ahead=0.4, gap_behind=4.0), 120.0)
+check(lf.busy(120.0) == "close", "driver mode: but never in the braking zone")
+
+said_at = []
+_orig_say = SimAudio.say
+
+
+def _rec(self, lines, priority, now):
+    said_at.append(now)
+    return _orig_say(self, lines, priority, now)
+
+
+def _busy(self, now):
+    return "close" if now > 40 and int(now) % 30 < 12 else ""
+
+
+SimAudio.say, _orig_busy = _rec, cockpit.DriverLoad.busy
+cockpit.DriverLoad.busy = _busy
+try:
+    c = headless_run(laps=5, seed=4, cfg=dict(drive_mode="driver"), log=lambda m: None)
+finally:
+    SimAudio.say, cockpit.DriverLoad.busy = _orig_say, _orig_busy
+quiet = [t for t in said_at if t > 40 and int(t) % 30 < 12 and not c.tracker.finished]
+check(not quiet, f"driver mode: nothing starts while the driver is busy ({quiet[:3]})")
+check(sum(1 for t in said_at if t > 40) > 10, "driver mode: the booth catches up on the straights")
+fill_at = []
+_orig_fill = Writer.filler
+
+
+def _fill_spy(self, now, focus="balanced"):
+    fill_at.append(now)
+    return _orig_fill(self, now, focus)
+
+
+SimAudio.say, Writer.filler = _rec, _fill_spy
+cockpit.DriverLoad.busy = lambda self, now: "fight" if now > 40 else ""
+said_at.clear()
+try:
+    fc = headless_run(laps=5, seed=4, cfg=dict(drive_mode="driver"), log=lambda m: None)
+finally:
+    SimAudio.say, cockpit.DriverLoad.busy, Writer.filler = _orig_say, _orig_busy, _orig_fill
+check(sum(1 for t in said_at if 40 < t) > 10, "driver mode: in a long fight the race is still called")
+check(not [t for t in fill_at if t > 40 and not fc.tracker.finished],
+      "driver mode: but no side conversations until it's over")
+said_at.clear()
+SimAudio.say = _rec
+try:
+    headless_run(laps=5, seed=4, cfg=dict(drive_mode="stream"), log=lambda m: None)
+finally:
+    SimAudio.say = _orig_say
+check(any(t > 40 and int(t) % 30 < 12 for t in said_at), "stream mode: the full show")
+
+# ---------------------------------------------------------------- hotkeys: a key or a wheel button
+from simcast import hotkeys  # noqa: E402
+
+
+class _Pad:
+    def __init__(self):
+        self.down = set()
+
+    def pressed(self):
+        return set(self.down)
+
+
+pad, fired = _Pad(), []
+hk = hotkeys.Hotkeys(lambda: {"hotkey_skip": "joy:Wheel#3", "hotkey_me": "key:F9"}, fired.append,
+                     log=lambda m: None, source=pad)
+pad.down = {"joy:Wheel#3"}
+hk.step()
+hk.step()                                                     # held down: one press, one action
+pad.down = set()
+hk.step()
+pad.down = {"key:F9", "joy:Wheel#0"}
+hk.step()
+check(fired == ["skip", "me"], f"hotkeys: a wheel button and a key fire their actions once per press ({fired})")
+got = []
+hk.learn(got.append)
+pad.down = {"key:F9", "joy:Wheel#0", "joy:Wheel#5"}
+hk.step()
+check(got == ["joy:Wheel#5"] and fired == ["skip", "me"], "hotkeys: Set takes the next button pressed, and does nothing else")
+check(hotkeys.describe("joy:Fanatec CSL#7") == "Fanatec CSL, button 8" and hotkeys.describe("key:F9") == "F9" and
+      hotkeys.describe("") == "not set", "hotkeys: shown the way a person reads them")
+hc = headless_run(laps=3, seed=2, log=lambda m: None)
+hc.hotkey("mode")
+check(hc.cfg["drive_mode"] == "driver", "hotkeys: Driving/Stream switches the mode")
+hc.hotkey("mute")
+check(not hc.director.on_air, "hotkeys: the booth goes off air")
+hc.hotkey("mute")
+n0 = len(hc.audio.spoken)
+hc.tracker.finished = False
+t_me = hc.audio.spoken[-1][0] + 120.0
+check(hc.director.talk_about_me(t_me) and len(hc.audio.spoken) > n0, "hotkeys: Talk about me puts the viewer's race on air now")
+
+# ---------------------------------------------------------------- memory across races
+from simcast.memory import Memory  # noqa: E402
+mpath = os.path.join(tempfile.mkdtemp(), "memory.json")
+m1 = Memory(mpath, log=lambda m: None)
+r1 = headless_run(laps=5, seed=7, memory=m1, log=lambda m: None)
+check(len(m1.data["races"]) == 1 and len(m1.data["races"][0]["results"]) >= 2, "memory: a race is remembered")
+check(os.path.exists(mpath), "memory: written to memory.json")
+m2 = Memory(mpath, log=lambda m: None)
+win = next(r for r in m2.data["races"][0]["results"] if r["pos"] == 1)["name"]
+check(m2.driver(win)["wins"] == 1 and m2.driver(win)["last"][2] == 0, "memory: read back next time, the winner's win too")
+m2.data["incidents"].append({"kind": "contact", "names": ["Luca Moretti", "Sam Carter"], "track": "Spa", "race": 0})
+check(m2.pair("Sam Carter", "Luca Moretti") == {"kind": "contact", "track": "Spa", "back": 0} and
+      "made contact at Spa last time out" in m2.pair_words(m2.pair("Sam Carter", "Luca Moretti")),
+      "memory: an incident between two drivers, said the way a commentator would")
+m2.data["calls"]["kate"] = {"right": 2, "wrong": 5}
+mem_calls = []
+_mchat = lambda cfg, msgs, max_tokens=0, timeout=0: mem_calls.append(msgs) or "{}"  # noqa: E731
+mb = ai_mod.AIBooth(lambda: dict(DEFAULTS, openai_api_key="t"), _mchat, providers._json_reply, log=lambda m: None)
+mb.sync = True
+r2 = headless_run(laps=5, seed=7, memory=m2, booth=mb, log=lambda m: None)
+brief = mem_calls[0][1]["content"]
+check("HISTORY" in brief and f"{win}: 1 race(s) remembered, 1 win(s)" in brief, "memory: the AI booth gets the history")
+check("Luca Moretti and Sam Carter made contact at Spa" in brief or "Sam Carter and Luca Moretti made contact at Spa"
+      in brief, "memory: and the rivalries between the drivers on track")
+check("Kate's predictions in earlier races: 2 right, 5 wrong" in brief, "memory: and the booth's own record")
+said2 = [ln.text for _, ln in r2.audio.spoken]
+check(any("last time out" in t or "in a row" in t for t in said2), "memory: the booth brings up last race's winner")
+check(len(m2.data["races"]) == 2, "memory: the second race is added")
+m3 = Memory(os.path.join(tempfile.mkdtemp(), "memory.json"), log=lambda m: None)
+headless_run(laps=4, seed=3, memory=m3, cfg=dict(memory=False), log=lambda m: None)
+check(not m3.data["races"], "memory: switched off, nothing is remembered")
+m2.forget()
+check(not Memory(mpath, log=lambda m: None).data["races"], "memory: Forget clears it")
+
+# ---------------------------------------------------------------- league roster
+from simcast import roster as roster_mod  # noqa: E402
+rdir = tempfile.mkdtemp()
+rpath = os.path.join(rdir, "league.csv")
+with open(rpath, "w", encoding="utf-8-sig") as fh:
+    fh.write("Name;No.;Team;Pronouns;Sponsors;Say as\n"
+             "Luca Moretti;12;Scuderia Rossa;they;Acme Oil / Bolt Energy;\n"
+             "Sam Carter;#7;Blue Arrow;she;;\n"
+             "Okafor;3;;he;Zed Watches;Oh-KAH-for\n")
+ents = roster_mod.parse(open(rpath, encoding="utf-8-sig").read())
+check(ents["luca moretti"]["number"] == "12" and ents["luca moretti"]["sponsors"] == ["Acme Oil", "Bolt Energy"] and
+      ents["sam carter"]["gender"] == "f" and ents["sam carter"]["number"] == "7",
+      "roster: a semicolon spreadsheet with its own headings is read")
+rc = headless_run(laps=3, seed=7, cfg=dict(roster_file=rpath, booth_tone="loose"), log=lambda m: None)
+rw = rc.director.writer
+byname = {c.name: c for c in rc.tracker.cars.values()}
+mor = byname["Luca Moretti"]
+oka = next(c for c in rc.tracker.cars.values() if c.call == "Okafor")
+check(rw.pronoun(mor.id) == "they" and rw.pronoun(byname["Sam Carter"].id) == "she" and rw.pronoun(oka.id) == "he",
+      "roster: its pronouns win over the guess from the name")
+check(rw.sponsors.of(mor) == ["Acme Oil", "Bolt Energy"], "roster: its sponsors win over made-up ones")
+check(rw.car_words(mor.id, "Acme Oil").startswith("the number 12 Acme Oil"), f"roster: 'the number 12 ...' "
+      f"({rw.car_words(mor.id, 'Acme Oil')})")
+check(rw.n(oka.id) == "Oh-KAH-for", "roster: Say as is how the booth says the name")
+rbrief = ai_mod.race_brief(rc.tracker, rw, [], [])
+check("#12 Scuderia Rossa," in rbrief and "(they)" in rbrief, "roster: the AI booth gets numbers, teams and pronouns")
+tpl = roster_mod.write_template(os.path.join(rdir, "new.csv"), ["Ana Lima", "Bo Chen"])
+check(set(roster_mod.parse(open(tpl, encoding="utf-8-sig").read())) == {"ana lima", "bo chen"},
+      "roster: Make one writes a roster that reads back")
+
+# ---------------------------------------------------------------- more from the sims: weather, tyres, fuel, incidents
+yaml = """WeekendInfo:
+ TrackDisplayName: Spa
+ TrackLength: 7.00 km
+ TrackAirTemp: 21.50 C
+ TrackSurfaceTemp: 34.20 C
+ TrackSkies: Partly Cloudy
+DriverInfo:
+ DriverCarIdx: 1
+ DriverTires:
+ - TireIndex: 0
+   TireCompoundType: "Hard"
+ - TireIndex: 1
+   TireCompoundType: "Wet"
+ Drivers:
+ - CarIdx: 0
+   UserName: Ana Lima
+   TeamName: Lima Racing
+   CarNumber: "12"
+   CarScreenName: Porsche 911 GT3 R
+   CurDriverIncidentCount: 4
+ - CarIdx: 1
+   UserName: Bo Chen
+   TeamName: Bo Chen
+   CarNumber: "7"
+   CarScreenName: BMW M4 GT3
+   CurDriverIncidentCount: 0
+SessionInfo:
+ Sessions:
+ - SessionNum: 0
+   SessionType: Race
+   SessionLaps: 20
+"""
+inf = sc._ir_session_info(yaml)
+check(inf["air_temp"] == 21.5 and inf["track_temp"] == 34.2 and inf["sky"] == "partly cloudy" and
+      inf["tyres"] == {0: "hard", 1: "wet"}, "iRacing: air and track temperature, sky and the tyre compounds")
+check(inf["drivers"][0]["number"] == "12" and inf["drivers"][0]["team"] == "Lima Racing" and
+      inf["drivers"][0]["incidents"] == 4 and inf["drivers"][1]["team"] is None,
+      "iRacing: car numbers, teams (not a solo driver's own name) and incident points")
+check(sc._car_number("Ferrari AF Corse 2023 #51") == "51" and sc._car_number("Ferrari 499P") is None,
+      "LMU/rF2: the car number from the entry name")
+fe = sc.field_entry(3, "X Y", "GT3", 1, 2, 0.5, number="#12", incidents=4, tyre="soft", penalties=1)
+check(fe["number"] == "12" and fe["incidents"] == 4 and fe["tyre"] == "soft" and fe["penalties"] == 1,
+      "field entries carry numbers, incidents, tyres and penalties")
+
+xtr = RaceTracker(log=lambda m: None)
+xev, t = [], 0.0
+while t < 240:
+    f = frame(pass_scn(t), t, race_laps=20)
+    for e in f.field:
+        e["number"] = str(10 + e["id"])
+        e["tyre"] = "medium" if t < 150 else "soft"
+        e["incidents"] = 0 if t < 100 or e["id"] != 1 else 4
+        e["penalties"] = 0 if t < 120 or e["id"] != 0 else 1
+    f.air_temp, f.track_temp, f.sky, f.rain = 19.0, 31.0, "overcast", 0.5
+    f.fuel = 60.0 - 1.0 * f.laps_done - f.pct
+    f.tyre, f.incidents = "medium", 2
+    xev += [e for e in xtr.update(f, t)]
+    t += 1 / 30
+xk = [e.kind for e in xev]
+check("incident" in xk and next(e for e in xev if e.kind == "incident").cars == (1,),
+      "incidents: four points in one go is news")
+check("penalty" in xk, "penalties: a new one is news")
+check(xtr.cond.get("air_temp") == 19.0 and abs((xtr.cond.get("fuel_per_lap") or 0) - 1.0) < 0.2 and
+      xtr.cond.get("fuel_laps"), f"conditions and the viewer's fuel per lap ({xtr.cond.get('fuel_per_lap')})")
+xw = Writer(xtr, {}, seed=1)
+xb = ai_mod.race_brief(xtr, xw, [], [])
+check("CONDITIONS: air 19C, track 31C, sky overcast, track wet" in xb and "VIEWER'S CAR: fuel for about" in xb,
+      "the AI gets the conditions and the viewer's fuel")
+check("#11" in xb and "on soft tyres" in xb and "4x incident points" in xb and "1 penalty" in xb,
+      "the AI gets numbers, tyres, incident points and penalties for every car")
+from simcast.director import test_event  # noqa: E402
+po = xw.ev_pit_out(test_event("pit_out", 300.0, (0,), pos=2, was=1, lane_time=28.0, tyre="wet", tyre_was="soft"), 300.0)
+check("Off the soft tyres and on to the wet" in po[0].text, "pit stops: a tyre change is called")
+check("Only state facts" in ai_mod.SYSTEM and "argue about them" in ai_mod.SYSTEM,
+      "the AI may use (and argue over) the tyres, fuel and weather it's given")
+
+# ---------------------------------------------------------------- streaming: OBS captions page, Twitch chat
+import socket as _socket  # noqa: E402
+import urllib.request as _ur  # noqa: E402
+from simcast import stream  # noqa: E402
+_s = _socket.socket()
+_s.bind(("127.0.0.1", 0))
+free_port = _s.getsockname()[1]
+_s.close()
+cap_lines = [{"seq": 1, "who": "lead", "name": "Ben", "text": "Lights out!"},
+             {"seq": 2, "who": "analyst", "name": "Kate", "text": "Here we go."}]
+srv = stream.CaptionServer(lambda: cap_lines, free_port, log=lambda m: None)
+check(srv.start(), "OBS captions: the page is served on this PC")
+try:
+    page = _ur.urlopen(f"http://127.0.0.1:{free_port}/", timeout=5).read().decode()
+    first = json.loads(_ur.urlopen(f"http://127.0.0.1:{free_port}/lines?since=-1", timeout=5).read())
+    after = json.loads(_ur.urlopen(f"http://127.0.0.1:{free_port}/lines?since=1", timeout=5).read())
+finally:
+    srv.stop()
+check("transparent" in page and "/lines?since=" in page, "OBS captions: a transparent page that follows the lines")
+check([x["text"] for x in first["lines"]] == ["Here we go."] and after["lines"][0]["colour"] == stream.COLOURS["analyst"],
+      "OBS captions: a new page starts at the latest line; each line comes with the speaker's colour")
+check(stream.clean_channel("https://www.twitch.tv/Some_One/") == "some_one" and stream.clean_channel("#ab") == "",
+      "Twitch: the channel from a link or a name")
+tc = stream.TwitchChat(lambda: "x", log=lambda m: None)
+got = tc.feed("@badge=1 :viewer1!viewer1@viewer1.tmi.twitch.tv PRIVMSG #x :Kate is wrong, Okafor has it?", now=10.0)
+check(got and got[0] == "viewer1" and got[1] == "Kate is wrong, Okafor has it?", "Twitch: a chat message is read")
+for bad in ("check out www.spam.com now", "!commands", "AAAAAAAAAAAAAAAAAAAA HELLO", "hi"):
+    check(tc.feed(f":u!u@u PRIVMSG #x :{bad}", now=11.0) is None, f"Twitch: not passed to the booth: {bad!r}")
+tc2 = stream.TwitchChat(lambda: "x", lambda: "!booth", log=lambda m: None)
+check(tc2.feed(":u!u@u PRIVMSG #x :who wins this?", now=1.0) is None and
+      tc2.feed(":u!u@u PRIVMSG #x :!booth who wins this?", now=1.0)[1] == "who wins this?",
+      "Twitch: with !booth only, only messages that ask on purpose")
+check(tc.take(3, now=12.0) and not tc.fresh(now=12.0), "Twitch: a message is answered once")
+
+chat_calls = []
+
+
+def chat_fake(cfg, messages, max_tokens=300, timeout=20.0):
+    t = messages[-1]["content"]
+    chat_calls.append(t)
+    if "live stream's chat" in t:
+        return json.dumps({"lines": [{"who": "lead", "text": "AI-CHAT: someone in chat says you're wrong, Kate."},
+                                     {"who": "analyst", "text": "AI-CHAT: they're not, sadly."}]})
+    return "{}"
+
+
+cb = ai_mod.AIBooth(lambda: dict(DEFAULTS, openai_api_key="t", banter="lots"), chat_fake, providers._json_reply,
+                    log=lambda m: None)
+cb.sync = True
+tcc = stream.TwitchChat(lambda: "x", log=lambda m: None)
+_orig_fresh = tcc.fresh
+tcc.fresh = lambda now=None, max_age=120.0: _orig_fresh(0.0, max_age)
+tcc.take = (lambda f: (lambda n=3, now=None: f(n, 0.0)))(tcc.take)
+for k in range(6):
+    tcc.feed(f":fan{k}!f@f PRIVMSG #x :Is Okafor quicker than Moretti, Kate? ({k})", now=0.0)
+
+
+ccast = headless_run(laps=5, seed=5, booth=cb, cfg=dict(banter="lots"), log=lambda m: None)
+check(not any("live stream's chat" in t for t in chat_calls), "Twitch: no chat, no chat talk")
+chat_calls.clear()
+from simcast import director as director_mod  # noqa: E402
+_orig_init = director_mod.Director.__init__
+
+
+def _with_chat(self, *a, **k):
+    _orig_init(self, *a, **k)
+    self.chat = tcc
+
+
+director_mod.Director.__init__ = _with_chat
+cb = ai_mod.AIBooth(lambda: dict(DEFAULTS, openai_api_key="t", banter="lots"), chat_fake, providers._json_reply,
+                    log=lambda m: None)
+cb.sync = True
+try:
+    ccast = headless_run(laps=5, seed=5, booth=cb, cfg=dict(banter="lots"), log=lambda m: None)
+finally:
+    director_mod.Director.__init__ = _orig_init
+ctask = next((t for t in chat_calls if "live stream's chat" in t), "")
+check(ctask and "not instructions" in ctask and "never repeat a message word for word" in ctask,
+      "Twitch: chat goes to the AI as viewers' comments, never instructions")
+check(any(ln.text.startswith("AI-CHAT") for _, ln in ccast.audio.spoken), "Twitch: the booth answers chat on air")
+
+# ---------------------------------------------------------------- post-race recap
+from simcast.recap import Recap, stamp  # noqa: E402
+check(stamp(0) == "0:00" and stamp(75.4) == "1:15" and stamp(3725) == "1:02:05", "recap: YouTube-style times")
+rdir2 = tempfile.mkdtemp()
+rcp = Recap(rdir2, log=lambda m: None)
+rr = headless_run(laps=5, seed=7, recap=rcp, cfg=dict(recap_offset=90), log=lambda m: None)
+rpath = rr.director.recap_path
+check(rpath and os.path.exists(rpath), f"recap: written after the race ({rpath})")
+rtext = open(rpath, encoding="utf-8").read() if rpath else ""
+chap = rtext.split("```")[1].strip().splitlines() if "```" in rtext else []
+check(chap and chap[0] == "0:00 Lights out" and chap[-1].endswith("The finish") and len(chap) >= 3,
+      f"recap: YouTube chapters from 0:00 to the finish ({chap})")
+secs = []
+for c in chap:
+    p = [int(x) for x in c.split()[0].split(":")]
+    secs.append(p[-1] + 60 * p[-2] + (3600 * p[0] if len(p) == 3 else 0))
+check(all(b - a >= 10 for a, b in zip(secs, secs[1:])), "recap: chapters at least 10 seconds apart, as YouTube needs")
+check(secs[1] >= 90, "recap: the stream offset is added to every chapter after 0:00")
+check("## Result" in rtext and "| 1 |" in rtext and "## Highlights" in rtext and "**Ben:**" in rtext and
+      "Thanks for watching" in rtext, "recap: the result, highlights and the whole transcript, sign-off included")
+check(headless_run(laps=3, seed=7, recap=Recap(rdir2, log=lambda m: None), cfg=dict(recap=False),
+                   log=lambda m: None).director.recap_path is None, "recap: switched off, nothing is written")
+
+# ---------------------------------------------------------------- ElevenLabs: the most emotional voices
+from simcast import eleven  # noqa: E402
+import urllib.error as _ue  # noqa: E402
+check(engine_of("eleven:abc123") == ("eleven", "abc123"), "ElevenLabs: its voices are an engine of their own")
+check(eleven.cue("gutted") == "[sad]" and eleven.cue("amused") == "[laughs]" and eleven.cue("") == "",
+      "ElevenLabs: a line's mood becomes an emotion cue")
+sent = []
+
+
+class _Resp:
+    def __init__(self, data):
+        self.data = data
+
+    def read(self, n=-1):
+        d, self.data = self.data, b""
+        return d
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *a):
+        return False
+
+
+def _fake_urlopen(req, timeout=0):
+    body = json.loads(req.data.decode()) if req.data else None
+    sent.append((req.full_url, req.headers.get("Xi-api-key"), body))
+    if req.full_url.endswith("/voices"):
+        return _Resp(json.dumps({"voices": [{"voice_id": "v1", "name": "Rory", "labels": {"accent": "irish"}}]}).encode())
+    if body and body["model_id"] == "eleven_v3" and "refuse" in body["text"]:
+        raise _ue.HTTPError(req.full_url, 403, "no v3", {}, None)
+    return _Resp(b"ID3fake-mp3")
+
+
+_orig_open = eleven.urllib.request.urlopen
+eleven.urllib.request.urlopen = _fake_urlopen
+try:
+    ecfg = dict(DEFAULTS, elevenlabs_api_key="sk-test", booth_tone="unhinged")
+    vs = eleven.fetch_voices(ecfg)
+    out_mp3 = os.path.join(tempfile.mkdtemp(), "x.mp3")
+    eleven.synth(ecfg, "v1", "Into the lead!", "thrilled", out_mp3)
+    first = sent[-1]
+    eleven.synth(dict(ecfg, elevenlabs_api_key="sk-other"), "v1", "refuse this", "angry", out_mp3)
+    fell = sent[-1]
+finally:
+    eleven.urllib.request.urlopen = _orig_open
+check(vs == [("Rory (Irish) - ElevenLabs (your key)", "eleven:v1")] and eleven.voices(ecfg) == vs,
+      "ElevenLabs: the voices on the account are listed")
+check(first[1] == "sk-test" and first[2]["text"] == "[excited] Into the lead!" and first[2]["model_id"] == "eleven_v3"
+      and first[2]["voice_settings"]["style"] >= 0.7 and open(out_mp3, "rb").read() == b"ID3fake-mp3",
+      "ElevenLabs: v3 with the emotion cue, and an unhinged booth lets the voice go")
+check(fell[2]["model_id"] == "eleven_multilingual_v2" and fell[2]["text"] == "refuse this",
+      "ElevenLabs: an account without v3 falls back to v2, without the cue")
+
+# ---------------------------------------------------------------- faster reactions: streamed line by line
+reply = ('```json\n{"lines": [{"who": "analyst", "text": "That {brace} \\"quote\\" move was huge.", "energy": 2, '
+         '"mood": "excited"}, {"who": "lead", "text": "And it is not over.", "mood": "tense"}]}\n```')
+lsr = ai_mod.LineStream()
+items = []
+for k in range(0, len(reply), 7):
+    items += [(k, x) for x in lsr.feed(reply[k:k + 7])]
+check([x["text"] for _, x in items] == ['That {brace} "quote" move was huge.', "And it is not over."] and
+      items[0][0] < len(reply) * 0.7, "streaming: each line is picked out as soon as it's whole, braces and quotes "
+      "in the text and all")
+order = []
+
+
+def fake_stream(cfg, msgs, on_text, max_tokens=0, timeout=0):
+    for k in range(0, len(reply), 9):
+        order.append("piece")
+        on_text(reply[k:k + 9])
+    order.append("done")
+    return reply
+
+
+sb = ai_mod.AIBooth(lambda: dict(DEFAULTS, openai_api_key="t"), lambda *a, **k: "{}", providers._json_reply,
+                    log=lambda m: None, stream_fn=fake_stream)
+sb.sync = True
+got = []
+sb.request("react", "brief", lambda lines, info: (order.append("line"), got.extend(lines)), opener="analyst")
+check([ln.who for ln in got] == ["analyst", "lead"] and got[0].mood == "excited",
+      "streaming: the reaction comes through line by line, still answering itself")
+check(order.index("line") < order.index("done"), "streaming: the first line is out before the reply has finished")
+conv = []
+sb.last_req = -1e9
+sb.request("chat", "brief", lambda lines, info: conv.append(lines), purpose="convo")
+check(conv == [] and order.count("done") == 1, "streaming: conversations (fetched ahead) use the ordinary request")
+sb2 = ai_mod.AIBooth(lambda: dict(DEFAULTS, openai_api_key="t"), fake_chat, providers._json_reply,
+                     log=lambda m: None, stream_fn=lambda cfg, m, on_text, max_tokens=0, timeout=0:
+                     (on_text(fake_chat(cfg, m)), fake_chat(cfg, m))[1])
+sb2.sync = True
+calls.clear()
+scast = headless_run(laps=5, seed=5, booth=sb2, log=lambda m: None)
+check(any(ln.text.startswith("AI-REACT") for _, ln in scast.audio.spoken), "streaming: reactions are heard in a race")
+
+try:
+    __import__("openai")
+    _oc, _ac = providers.openai_client, providers.ai_chat
+    providers.openai_client = lambda *a, **k: (_ for _ in ()).throw(ConnectionError("no network"))
+    providers.ai_chat = lambda cfg, m, max_tokens=0, timeout=0: '{"lines": []}'
+    pieces = []
+    try:
+        whole = providers.ai_chat_stream(dict(DEFAULTS, openai_api_key="t"), [], pieces.append)
+    finally:
+        providers.openai_client, providers.ai_chat = _oc, _ac
+    check(whole == '{"lines": []}' and pieces == [whole], "streaming: if it can't stream, the ordinary request is used")
+except ImportError:
+    pass
+
+# ---------------------------------------------------------------- cost estimate
+from simcast.usage import Meter, parse_rates  # noqa: E402
+check(parse_rates("openai 2/8, elevenlabs 200; junk") == {"openai": (2.0, 8.0), "elevenlabs": (200.0,)},
+      "cost: rates read as written")
+mt = Meter()
+mt.chat("openai", 1_000_000, 100_000)
+mt.speech("elevenlabs", 10_000)
+check(abs(Meter.cost(mt.race) - (2.0 + 0.8 + 2.0)) < 1e-6, "cost: tokens and characters priced with the default rates")
+check(abs(Meter.cost(mt.race, "openai 1/1") - (1.0 + 0.1 + 2.0)) < 1e-6, "cost: edited rates win")
+mt.race_t0 -= 600
+summ = mt.summary()
+check("about $4.80" in summ and "OpenAI 1000.0k tokens in, 100.0k out" in summ and "ElevenLabs 10.0k chars" in summ
+      and "30-minute race is about $14.40" in summ, f"cost: the summary for Settings ({summ})")
+mt.new_race()
+check(not mt.race and "Last race: about $4.80" in mt.summary(), "cost: a new race starts the count again")
+check(Meter().summary() == "Nothing paid for has been used yet.", "cost: nothing used, nothing to pay")
+
 done()

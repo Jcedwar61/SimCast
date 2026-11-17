@@ -5,6 +5,9 @@ The provider code comes from SimCoach (same author, MIT licence); SimCast doesn'
 Automatic models: when a key is added, SimCast asks the provider which models the key can use (in the
 background) and picks the best one for live commentary from PREFERRED. Until that answer is in, or if it can't
 be asked, the first model in PREFERRED is used. A model picked by hand in Settings always wins.
+Each job gets the model that suits it: reactions to a big moment have seconds to arrive, so they go to the
+quickest good model; the booth's conversations are fetched ahead of time, so they go to the strongest writer
+(the newest full-size model, not a lite or reasoning one).
 """
 from __future__ import annotations
 
@@ -33,7 +36,8 @@ RETIRED_OPENAI_MODELS = ("gpt-4o", "gpt-4.1", "gpt-4-", "gpt-3.5")
 AI_PROVIDERS = OrderedDict((
     ("openai", {"name": "OpenAI", "label": "OpenAI (GPT)", "base_url": None, "env": "OPENAI_API_KEY",
                 "models": OPENAI_MODELS, "key_url": "https://platform.openai.com/api-keys",
-                "tokens": "max_completion_tokens", "extra": {}}),
+                # Live commentary: light thinking, so the answer arrives while the moment is still on screen.
+                "tokens": "max_completion_tokens", "extra": {"reasoning_effort": "low"}}),
     ("gemini", {"name": "Gemini", "label": "Google Gemini", "env": "GEMINI_API_KEY",
                 "base_url": "https://generativelanguage.googleapis.com/v1beta/openai/",
                 "models": GEMINI_MODELS, "key_url": "https://aistudio.google.com/apikey",
@@ -46,6 +50,7 @@ AI_PROVIDERS = OrderedDict((
 
 
 _OPENAI_CLIENTS = {}
+_NO_PARAM: set = set()        # (provider, model, option) a model has refused: not sent to it again
 
 
 _OPENAI_LOCK = threading.Lock()
@@ -121,7 +126,7 @@ def openai_chat(key, model, messages, max_tokens=300, timeout=20.0, provider="op
     name = spec["name"]
     client = openai_client(key, spec["base_url"]).with_options(timeout=timeout)
     kw = {"model": model, "messages": messages}
-    extra = dict(spec["extra"])
+    extra = {k: v for k, v in spec["extra"].items() if (provider, model, k) not in _NO_PARAM}
     param = [spec["tokens"]]
 
     def request(budget):
@@ -138,6 +143,7 @@ def openai_chat(key, model, messages, max_tokens=300, timeout=20.0, provider="op
                 if bad is None:
                     raise
                 extra.pop(bad)
+                _NO_PARAM.add((provider, model, bad))
 
     budgets = (max_tokens, max(1024, max_tokens * 4))
     for attempt, budget in enumerate(budgets):
@@ -151,6 +157,14 @@ def openai_chat(key, model, messages, max_tokens=300, timeout=20.0, provider="op
         if choice.finish_reason == "content_filter":
             raise OpenAIReplyError(f"{name} filtered that answer. Try asking it another way.")
         text = (msg.content or "").strip()
+        try:                                                  # for the cost estimate in Settings > AI
+            from .usage import METER, estimate_tokens
+            u = getattr(r, "usage", None)
+            METER.chat(provider, getattr(u, "prompt_tokens", None) or
+                       sum(estimate_tokens(m.get("content")) for m in messages),
+                       getattr(u, "completion_tokens", None) or estimate_tokens(text))
+        except Exception:
+            pass
         cut = choice.finish_reason == "length"
         if text and not cut:
             return text
@@ -192,6 +206,86 @@ def ai_chat_ex(cfg, messages, max_tokens=300, timeout=20.0):
 
 def ai_chat(cfg, messages, max_tokens=300, timeout=20.0):
     return ai_chat_ex(cfg, messages, max_tokens, timeout)[0]
+
+
+def ai_chat_stream(cfg, messages, on_text, max_tokens=300, timeout=20.0):
+    """Like ai_chat, but the reply is streamed: on_text(piece) is called as it arrives, and the whole reply is
+    returned at the end. If streaming fails before anything has arrived, the ordinary request (with its fallback
+    to other providers) is used instead."""
+    import openai
+    p = ai_provider(cfg)
+    spec = AI_PROVIDERS[p]
+    model = ai_model(cfg, p)
+    got = []
+    try:
+        client = openai_client(ai_key(cfg, p), spec["base_url"]).with_options(timeout=timeout)
+        extra = {k: v for k, v in spec["extra"].items() if (p, model, k) not in _NO_PARAM}
+        kw = {"model": model, "messages": messages, "stream": True, spec["tokens"]: max(max_tokens, 600)}
+        if extra:
+            kw["extra_body"] = extra
+        try:
+            stream = client.chat.completions.create(**kw)
+        except openai.BadRequestError as e:
+            if spec["tokens"] == "max_completion_tokens" and _mct_unsupported(e):
+                kw["max_tokens"] = kw.pop("max_completion_tokens")
+            bad = next((k for k in extra if re.search(rf"\b{re.escape(k)}\b", str(e))), None)
+            if bad:
+                _NO_PARAM.add((p, model, bad))
+                extra.pop(bad)
+                kw["extra_body"] = extra
+            stream = client.chat.completions.create(**kw)
+        for chunk in stream:
+            if not chunk.choices:
+                continue
+            piece = getattr(chunk.choices[0].delta, "content", None)
+            if piece:
+                got.append(piece)
+                on_text(piece)
+        text = "".join(got).strip()
+        if text:
+            try:
+                from .usage import METER, estimate_tokens
+                METER.chat(p, sum(estimate_tokens(m.get("content")) for m in messages), estimate_tokens(text))
+            except Exception:
+                pass
+            return text
+        raise OpenAIReplyError(f"{spec['name']} sent an empty answer.")
+    except Exception:
+        if got:
+            raise                                    # half a reply already went out: don't ask again
+        text = ai_chat(cfg, messages, max_tokens, timeout)
+        on_text(text)
+        return text
+
+
+CONVO_CHOICES = ("auto", "same", "openai", "gemini", "deepseek")
+CONVO_ORDER = ("deepseek", "gemini", "openai")       # Automatic: the first of these with a key, after the main one
+
+
+def convo_provider(cfg):
+    """Who writes the booth's conversations (the quiet spells and the chat that runs on from them): a second
+    provider working alongside the main one, so reactions and conversation are written at the same time.
+    'same' or no other key: the main provider."""
+    primary = ai_provider(cfg)
+    pick = (cfg or {}).get("ai_convo") or "auto"
+    if pick in AI_PROVIDERS:
+        return pick if ai_key(cfg, pick) else primary
+    if pick == "auto":
+        return next((p for p in CONVO_ORDER if p != primary and ai_key(cfg, p)), primary)
+    return primary
+
+
+def convo_cfg(cfg):
+    """The settings as the conversation booth sees them: its provider first, fallback as set."""
+    return dict(cfg, ai_provider=convo_provider(cfg))
+
+
+def convo_chat(cfg, messages, max_tokens=300, timeout=20.0):
+    return ai_chat_ex(convo_cfg(cfg), messages, max_tokens, timeout)[0]
+
+
+def convo_label(cfg):
+    return ai_label(dict(convo_cfg(cfg), _purpose="convo"))
 
 
 def openai_problem(e, provider="openai"):
@@ -328,11 +422,43 @@ def detected(cfg, provider):
         return _DETECTED.get((provider, _fp(ai_key(cfg, provider))))
 
 
-def best_model(cfg, provider):
+PURPOSES = ("react", "convo")
+
+
+def _version(m):
+    v = re.search(r"(\d+(?:\.\d+)?)", m)
+    return float(v.group(1)) if v else 0.0
+
+
+def rank_for(models, purpose):
+    """The models best first for a job. 'react' keeps the speed-first order. 'convo' wants the best writer:
+    full-size models over lite/mini/nano/flash ones, the newest version first, and reasoning models last
+    (they think for longer than a conversation can wait)."""
+    models = list(models)
+    if purpose != "convo":
+        return models
+
+    def penalty(m):
+        m = m.lower()
+        p = 0
+        if any(x in m for x in ("lite", "nano", "mini")):
+            p += 2
+        if "flash" in m:
+            p += 1
+        if "reasoner" in m or re.match(r"o\d", m):
+            p += 4
+        if "pro" in m:
+            p -= 1
+        return p
+    return sorted(models, key=lambda m: (penalty(m), -_version(m), models.index(m)))
+
+
+def best_model(cfg, provider, purpose=None):
+    purpose = purpose or (cfg or {}).get("_purpose") or "react"
     d = detected(cfg, provider)
     if d and d["chat"]:
-        return d["chat"][0]
-    return PREFERRED.get(provider, OPENAI_MODELS)[0]
+        return rank_for(d["chat"], purpose)[0]
+    return rank_for(PREFERRED.get(provider, OPENAI_MODELS), purpose)[0]
 
 
 def model_choices(cfg, provider):

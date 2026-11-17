@@ -13,13 +13,14 @@ from .audio import BroadcastAudio, SimAudio
 from .link import DUCK_LEVELS, SimCoachLink
 from .demo import DemoRace
 from .director import Director
+from .memory import Memory
 from .race import RaceTracker
 from .solo import RallyTracker, SoloTracker, StageStore
 from . import ai as ai_mod
-from . import providers, sims
+from . import persona, providers, sims
 
 APP_NAME = "SimCast"
-APP_VERSION = "1.4"
+APP_VERSION = "1.5"
 APP_DIR = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), "SimCast")
 CONFIG_PATH = os.path.join(APP_DIR, "config.json")
 LOG_PATH = os.path.join(APP_DIR, "simcast.log")
@@ -47,16 +48,35 @@ DEFAULTS = {
     "volume": 0.9, "audio_out": "", "simcoach_duck": "under",
     "chatter": "normal", "focus": "balanced", "pit_reporter": True, "ai_colour": True,
     "driver_name": "", "ai_provider": "openai", "ai_fallback": True,
-    "openai_api_key": "", "gemini_api_key": "", "deepseek_api_key": "",
+    "openai_api_key": "", "gemini_api_key": "", "deepseek_api_key": "", "elevenlabs_api_key": "",
     "openai_model": "auto", "gemini_model": "auto", "deepseek_model": "auto", "openai_tts_model": "auto",
     "f1_port": 20777, "dr2_port": 20779, "udp_share_simhub": True, "game_setup": True, "guide_seen": False,
     "demo_laps": 8, "captions": False, "captions_pos": None, "window": None,
     "check_updates": True, "update_skip": "",
+    "booth_tone": "broadcast", "swearing": False, "banter": "normal", "driver_pronouns": "auto",
+    "ai_convo": "auto", "drive_mode": "stream", "race_sponsor": "",
+    "memory": True, "roster_file": "", "obs_captions": False, "obs_port": 8686, "twitch_channel": "",
+    "twitch_chat": True, "twitch_only_booth": False,
+    "recap": True, "recap_offset": 0, "ai_rates": "", "hotkey_skip": "", "hotkey_mute": "", "hotkey_me": "", "hotkey_mode": "", "my_sponsors": "", "driver_sponsors": "", "invent_sponsors": True,
 }
+STYLES = {   # the booth in one click; Custom is anything else
+    "tv": {"chatter": "normal", "focus": "balanced", "booth_tone": "broadcast", "swearing": False, "banter": "normal"},
+    "late": {"chatter": "chatty", "focus": "balanced", "booth_tone": "loose", "swearing": True, "banter": "lots"},
+    "pub": {"chatter": "chatty", "focus": "me", "booth_tone": "unhinged", "swearing": True, "banter": "lots"},
+}
+
+
+def style_of(cfg):
+    """The style the settings match, or 'custom'."""
+    return next((k for k, v in STYLES.items() if all(cfg.get(x) == y for x, y in v.items())), "custom")
+
+
 CHOICES = {"tts": ("on", "off"), "chatter": ("quiet", "normal", "chatty"),
            "focus": ("field", "balanced", "me"), "ai_provider": ("openai", "gemini", "deepseek"),
-           "simcoach_duck": tuple(DUCK_LEVELS)}
-SECRET_KEYS = ("openai_api_key", "gemini_api_key", "deepseek_api_key")
+           "simcoach_duck": tuple(DUCK_LEVELS), "booth_tone": persona.TONES, "banter": persona.BANTER,
+           "driver_pronouns": persona.PRONOUN_CHOICES, "ai_convo": providers.CONVO_CHOICES,
+           "drive_mode": ("stream", "driver")}
+SECRET_KEYS = ("openai_api_key", "gemini_api_key", "deepseek_api_key", "elevenlabs_api_key")
 ROLE_LABEL = {"lead": "lead", "analyst": "analyst", "pit": "pit lane"}
 
 
@@ -95,6 +115,20 @@ def clean_config(cfg):
         cfg["demo_laps"] = 8
     for k in ("lead_name", "analyst_name", "pit_name", "driver_name"):
         cfg[k] = " ".join(str(cfg.get(k) or "").split())[:40]
+    for k in ("race_sponsor", "my_sponsors"):
+        cfg[k] = " ".join(str(cfg.get(k) or "").split())[:120]
+    cfg["driver_sponsors"] = str(cfg.get("driver_sponsors") or "").strip()[:2000]
+    for k in ("swearing", "invent_sponsors"):
+        cfg[k] = bool(cfg.get(k, DEFAULTS[k]))
+    try:
+        cfg["obs_port"] = max(1024, min(65535, int(cfg.get("obs_port") or 8686)))
+    except (TypeError, ValueError):
+        cfg["obs_port"] = 8686
+    cfg["twitch_channel"] = str(cfg.get("twitch_channel") or "").strip()[:80]
+    try:
+        cfg["recap_offset"] = max(0, min(36000, int(cfg.get("recap_offset") or 0)))
+    except (TypeError, ValueError):
+        cfg["recap_offset"] = 0
     cfg["check_updates"] = bool(cfg.get("check_updates", True))
     cfg["update_skip"] = str(cfg.get("update_skip") or "")[:40]
     return cfg
@@ -119,6 +153,9 @@ class SimCast:
         self.log = log
         sims._LOG[0] = log
         self.lines: deque = deque(maxlen=200)
+        self.line_seq = 0                                  # numbers the lines, for the OBS captions page
+        self.captions_server = None
+        self.chat = None
         self.events_seen = 0
         self.stages = StageStore(os.path.join(APP_DIR, "stages.json") if save else None)
         self.mode = "field"
@@ -131,10 +168,21 @@ class SimCast:
             audio.on_line = self._on_line
         self.audio = audio
         self.booth = ai_mod.AIBooth(self.config, providers.ai_chat, providers._json_reply,
-                                    label_fn=providers.ai_label, log=log) if booth else None
+                                    label_fn=providers.ai_label, log=log,
+                                    stream_fn=providers.ai_chat_stream) if booth else None
+        # a second booth for the conversations, on its own provider (DeepSeek, say) and its own thread
+        self.convo_booth = ai_mod.AIBooth(self.config, providers.convo_chat, providers._json_reply,
+                                          label_fn=providers.convo_label, log=log) if booth else None
         if booth:
             providers.detect_in_background(self.cfg, log=log)
-        self.director = Director(self.tracker, self.audio, self.config, booth=self.booth, log=log)
+            from . import eleven
+            eleven.fetch_in_background(self.cfg, log=log)
+        self.director = Director(self.tracker, self.audio, self.config, booth=self.booth, log=log,
+                                 convo_booth=self.convo_booth)
+        self.memory = Memory(os.path.join(APP_DIR, "memory.json"), log=log) if save else None
+        self.director.set_memory(self.memory)
+        from .recap import Recap
+        self.director.recap = Recap(os.path.join(APP_DIR, "Recaps"), log=log) if save else None
         self.status = "Waiting for a sim..."
         self.source = None
         self.demo = None
@@ -162,6 +210,15 @@ class SimCast:
             self.cfg = clean_config(self.cfg)
             if self.save_enabled:
                 save_config(self.cfg)
+        if self.captions_server is not None or self.chat is not None or any(
+                k in (changes or {}) for k in ("obs_captions", "obs_port", "twitch_channel", "twitch_chat")):
+            try:
+                self.sync_stream()
+            except Exception as e:
+                self.log(f"Streaming: {e}")
+        if self.booth is not None and (changes or {}).get("elevenlabs_api_key"):
+            from . import eleven
+            eleven.fetch_in_background(self.cfg, log=self.log)
         if self.booth is not None and any(k in SECRET_KEYS for k in (changes or {})):
             providers.detect_in_background(self.cfg, log=self.log)
 
@@ -173,9 +230,11 @@ class SimCast:
     def _on_line(self, line, t):
         cfg = self.config()
         name = cfg.get(f"{line.who}_name") or line.who
-        self.lines.append({"who": line.who, "name": name, "text": line.text, "energy": line.energy,
+        self.line_seq += 1
+        self.lines.append({"seq": self.line_seq, "who": line.who, "name": name, "text": line.text, "energy": line.energy,
+                           "mood": getattr(line, "mood", ""),
                            "t": time.time()})
-        self.director.heard(line)
+        self.director.heard(line, t)
         self.log(f"{name.upper():>6} | {line.text}")
 
     # -------------------------------------------------------------- frames in
@@ -220,6 +279,55 @@ class SimCast:
             if ev:
                 self.events_seen += len(ev)
                 self.director.add(ev, now)
+            self.director.recording = self.demo is None       # demo races aren't remembered
+            try:
+                self.director.driver_input(frame, now)
+            except Exception as e:
+                self._error("Driver mode", e)
+
+    # -------------------------------------------------------------- streaming: OBS captions, Twitch chat
+    def sync_stream(self):
+        """Start or stop the OBS captions page and the Twitch chat reader to match the settings."""
+        from . import stream
+        cfg = self.config()
+        want = bool(cfg.get("obs_captions"))
+        srv = self.captions_server
+        if srv is not None and (not want or srv.port != int(cfg.get("obs_port") or 8686)):
+            srv.stop()
+            self.captions_server = srv = None
+        if want and srv is None:
+            srv = stream.CaptionServer(lambda: list(self.lines), cfg.get("obs_port") or 8686, log=self.log)
+            if srv.start():
+                self.captions_server = srv
+        if stream.clean_channel(cfg.get("twitch_channel")) and self.chat is None:
+            self.chat = stream.TwitchChat(lambda: self.config().get("twitch_channel"),
+                                          lambda: "!booth" if self.config().get("twitch_only_booth") else "",
+                                          log=self.log)
+            self.chat.start()
+        self.director.chat = self.chat if cfg.get("twitch_chat", True) else None
+
+    # -------------------------------------------------------------- hotkeys
+    def toggle_air(self):
+        d = self.director
+        d.on_air = not d.on_air
+        if not d.on_air:
+            self.audio.interrupt(None)
+        self.log("Booth " + ("on air" if d.on_air else "off air"))
+
+    def hotkey(self, action, now=None):
+        """A key or wheel button was pressed (hotkeys.py)."""
+        now = time.monotonic() if now is None else now
+        if action == "skip":
+            self.audio.interrupt(None)
+        elif action == "mute":
+            self.toggle_air()
+        elif action == "mode":
+            new = "stream" if self.cfg.get("drive_mode") == "driver" else "driver"
+            self.update_settings({"drive_mode": new})
+            self.log("Mode: " + ("Driving" if new == "driver" else "Stream"))
+        elif action == "me":
+            with self.lock:
+                self.director.talk_about_me(now)
 
     def tick(self, now):
         with self.lock:
@@ -356,14 +464,18 @@ class SimCast:
             s["call"] = self.director.writer.n(s["id"])
             standings.append(s)
         public = {k: v for k, v in cfg.items() if k in DEFAULTS and k not in SECRET_KEYS}
-        public["keys"] = {k: bool(providers.ai_key(cfg, k.split("_")[0])) for k in SECRET_KEYS}
+        public["keys"] = {k: bool(providers.ai_key(cfg, k.split("_")[0])) for k in SECRET_KEYS
+                          if k.split("_")[0] in providers.AI_PROVIDERS}
+        public["keys"]["elevenlabs_api_key"] = bool(str(cfg.get("elevenlabs_api_key") or "").strip())
         return {
             "app": APP_NAME, "version": APP_VERSION, "status": self.status, "source": self.source, "mode": self.mode,
             "session": tr.session, "track": tr.track, "lap": lap, "laps": tr.race_laps or None,
             "time_left": tr.time_left, "flag": tr.flag, "started": tr.started, "finished": tr.finished,
             "standings": standings, "lines": list(self.lines)[-40:], "on_air": self.director.on_air,
             "speaking": self.audio.speaking(time.monotonic()),
-            "ai": self.booth.label() if self.booth else "", "ai_error": self.booth.last_error if self.booth else "",
+            "ai": self.booth.label() if self.booth else "",
+            "ai_convo": (lambda c: c if c and c != (self.booth.label() if self.booth else "") else "")(
+                self.convo_booth.label() if self.convo_booth else ""), "ai_error": self.booth.last_error if self.booth else "",
             "demo": self.demo is not None, "settings": public, "errors": list(self.errors),
             "voice_note": getattr(self.audio, "engine_note", ""),
             "simcoach": bool(getattr(self.audio, "link", None) and self.audio.link.connected()),
@@ -372,7 +484,8 @@ class SimCast:
         }
 
 
-def headless_run(laps=6, seed=3, cfg=None, booth=None, max_t=3600.0, log=print, events=True):
+def headless_run(laps=6, seed=3, cfg=None, booth=None, max_t=3600.0, log=print, events=True, convo_booth=None,
+                 memory=None, recap=None):
     """A whole demo race on a simulated clock with silent audio: returns the SimCast (lines in .lines and
     .audio.spoken). Used by --test and the tests."""
     cfg = dict(DEFAULTS, **(cfg or {}))
@@ -382,6 +495,16 @@ def headless_run(laps=6, seed=3, cfg=None, booth=None, max_t=3600.0, log=print, 
         cast.booth = booth
         cast.director.booth = booth
         booth.clock = lambda: clock[0]
+    if convo_booth is not None:
+        cast.convo_booth = cast.director.convo_booth = convo_booth
+        convo_booth.clock = lambda: clock[0]
+    if memory is not None:
+        cast.memory = memory
+        cast.director.set_memory(memory)                  # the test race counts as a real one
+    if recap is not None:
+        cast.director.recap = recap
+    import random
+    cast.director.writer.rng = random.Random(seed)        # the same race, said the same way: tests repeat exactly
     demo = DemoRace(laps=laps, seed=seed, player_name=cfg.get("driver_name", ""), events=events)
     dt = 1.0 / LOOP_HZ
     clock = [0.0]
@@ -393,4 +516,5 @@ def headless_run(laps=6, seed=3, cfg=None, booth=None, max_t=3600.0, log=print, 
         if demo.finished and cast.director.wrapped and not audio.speaking(t):
             break
         clock[0] += dt
+    cast.director.finish_recap(demo=True)
     return cast

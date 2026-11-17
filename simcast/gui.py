@@ -11,8 +11,8 @@ import tkinter as tk
 from collections import deque
 from tkinter import ttk
 
-from . import providers, update
-from .app import APP_DIR, APP_NAME, APP_VERSION, DEFAULTS, file_log
+from . import hotkeys, providers, update
+from .app import APP_DIR, APP_NAME, APP_VERSION, DEFAULTS, STYLES, file_log, style_of
 from .link import DUCK_LABELS
 from .audio import VOICE_LABEL, VOICES
 from .guide import TOPICS as GUIDE
@@ -28,6 +28,21 @@ P = {"bg": "#090b10", "panel": "#11151d", "panel2": "#171c26", "line": "#252d3b"
 WHO_COLOUR = {"lead": P["cyan"], "analyst": P["red"], "pit": "#f2f2f2"}
 CHATTER_LABELS = {"quiet": "Quiet", "normal": "Normal", "chatty": "Chatty"}
 FOCUS_LABELS = {"field": "Whole field", "balanced": "Balanced", "me": "Mostly me"}
+STYLE_LABELS = {"tv": "TV broadcast", "late": "Late-night stream", "pub": "Mates down the pub", "custom": "Custom"}
+STYLE_NOTES = {
+    "tv": "A proper television booth: warm, clean, the whole race with your story in it.",
+    "late": "Looser and chattier: more banter and big reactions, the odd swear word, side conversations whenever "
+            "there's time.",
+    "pub": "Completely unhinged and all about you: rants, feuds, conspiracy theories and plenty of swearing, all "
+           "set off by the racing.",
+    "custom": "Your own mix: set it under Fine-tune.",
+}
+TONE_LABELS = {"broadcast": "Professional", "loose": "Loose", "unhinged": "Unhinged"}
+BANTER_LABELS = {"rare": "Rarely", "normal": "Sometimes", "lots": "Whenever there's time"}
+DRIVE_LABELS = {"stream": "Stream (the full show)", "driver": "Driving (quiet in traffic and braking zones)"}
+CONVO_LABELS = {"auto": "Automatic (a second provider with a key)", "same": "The same as above",
+                "openai": "OpenAI", "gemini": "Google Gemini", "deepseek": "DeepSeek"}
+PRONOUN_LABELS = {"auto": "From my name", "he": "He", "she": "She", "they": "They"}
 PROVIDERS = {"openai": "OpenAI", "gemini": "Google Gemini", "deepseek": "DeepSeek"}
 
 
@@ -462,10 +477,14 @@ class SimCastWindow:
         self.cast.audio.interrupt(None)
 
     def toggle_air(self):
-        d = self.cast.director
-        d.on_air = not d.on_air
-        if not d.on_air:
-            self.cast.audio.interrupt(None)
+        self.cast.toggle_air()
+
+    def _hotkey(self, action):
+        """From the hotkey thread: act on the engine at once (it's thread safe)."""
+        try:
+            self.cast.hotkey(action)
+        except Exception as e:
+            self.cast.log(f"Hotkey {action}: {e}")
 
     def toggle_captions(self, on):
         if on and self.captions is None:
@@ -601,6 +620,12 @@ class SimCastWindow:
         self.settings_win = SettingsWindow(self)
 
     def run(self):
+        self.hotkeys = hotkeys.Hotkeys(self.cast.config, self._hotkey, log=self.cast.log)
+        self.hotkeys.start()
+        try:
+            self.cast.sync_stream()                     # OBS captions page and Twitch chat, if switched on
+        except Exception as e:
+            self.cast.log(f"Streaming: {e}")
         self.loop.start()
         self.root.after(100, self.poll)
         self.root.mainloop()
@@ -634,7 +659,8 @@ class Captions:
         pos = app.cast.cfg.get("captions_pos")
         sw, sh = w.winfo_screenwidth(), w.winfo_screenheight()
         x, y = (pos if isinstance(pos, list) and len(pos) == 2 else (sw // 2 - 450, sh - 220))
-        w.geometry(f"900x110+{int(x)}+{int(y)}")
+        self.width, self.home_y = 900, int(y)  # home_y: where the user put it; long lines may lift it
+        w.geometry(f"{self.width}x110+{int(x)}+{int(y)}")
         self.bar = tk.Frame(w, bg=P["cyan"], width=6)
         self.bar.pack(side="left", fill="y")
         inner = tk.Frame(w, bg=P["bg"], padx=16, pady=10)
@@ -661,7 +687,20 @@ class Captions:
         self.bar.configure(bg=WHO_COLOUR.get(ln["who"], P["cyan"]))
         self.who.configure(text=ln["name"].upper(), fg=WHO_COLOUR.get(ln["who"], P["mut"]))
         self.text.configure(text=ln["text"], fg=P["fg"])
+        self._fit()
         self.hide_at = time.monotonic() + 2.0 + len(ln["text"].split()) * 0.38
+
+    def _fit(self):
+        """Grow or shrink the window's height so the whole line fits, keeping it on screen."""
+        w = self.win
+        try:
+            w.update_idletasks()
+            h = max(110, w.winfo_reqheight())
+            x, sh = w.winfo_x(), w.winfo_screenheight()
+            y = min(self.home_y, max(0, sh - h))  # grow upwards rather than run off the bottom of the screen
+            w.geometry(f"{self.width}x{h}+{x}+{y}")
+        except Exception:
+            pass
 
     def idle(self):
         if self.hide_at and time.monotonic() > self.hide_at:
@@ -675,6 +714,7 @@ class Captions:
         self.win.geometry(f"+{e.x_root - self._off[0]}+{e.y_root - self._off[1]}")
 
     def _drop(self, e):
+        self.home_y = self.win.winfo_y()
         self.app.cast.update_settings({"captions_pos": [self.win.winfo_x(), self.win.winfo_y()]})
 
     def close(self):
@@ -685,7 +725,7 @@ class Captions:
 
 
 class SettingsWindow:
-    """Settings, in five tabs: Commentary, Voices, AI, Sims, About."""
+    """Settings, in seven tabs: Commentary, Booth, Voices, AI, Sims, Stream, About."""
 
     def __init__(self, app):
         self.app = app
@@ -710,26 +750,60 @@ class SettingsWindow:
 
         # ---------------------------------------------------------------- Commentary
         f = page("Commentary")
-        self.row(f, 0, "How chatty", self.radios(f, "chatter", CHATTER_LABELS, cfg))
-        self.row(f, 1, "Follow", self.radios(f, "focus", FOCUS_LABELS, cfg))
-        self.row(f, 2, "Your name", self.entry(f, "driver_name", cfg))
-        self.note(f, 3, "As the booth should say it. Empty: the name your sim uses.")
-        self.row(f, 4, "Pit lane", self.check(f, "pit_reporter", "A pit-lane reporter covers the stops", cfg))
+        self._style_block(f, cfg)
+        self.row(f, 6, "Your name", self.entry(f, "driver_name", cfg))
+        self.note(f, 7, "As the booth should say it. Empty: the name your sim uses.")
+        self.row(f, 8, "Call me", self.radios(f, "driver_pronouns", PRONOUN_LABELS, cfg))
+        self.note(f, 9, "Other drivers are 'he' or 'she' when their first name makes it clear, 'they' when it "
+                        "doesn't.")
+        self.row(f, 10, "Pit lane", self.check(f, "pit_reporter", "A pit-lane reporter covers the stops", cfg))
         laps = ttk.Frame(f, style="Card.TFrame")
         self.entry(laps, "demo_laps", cfg, width=5).pack(side="left")
         ttk.Label(laps, text="  laps", style="Card.TLabel", foreground=P["mut"]).pack(side="left")
-        self.row(f, 5, "Demo race", laps, sticky="w")
+        self.row(f, 11, "Demo race", laps, sticky="w")
+        self.row(f, 12, "Mode", self.radios(f, "drive_mode", DRIVE_LABELS, cfg))
+        self.note(f, 13, "Driving: the booth holds back while you brake into a corner, race a car within a second, "
+                        "or go off, and stops a side conversation when someone gets alongside. What happened is "
+                        "called on the next straight. Stream: the full show for viewers.")
+
+        # ---------------------------------------------------------------- Booth
+        f = page("Booth")
+        self.row(f, 5, "Race sponsor", self.entry(f, "race_sponsor", cfg, width=44))
+        self.row(f, 6, "Your sponsors", self.entry(f, "my_sponsors", cfg, width=44))
+        self.note(f, 7, "Comma-separated, e.g. Acme Oil, Bolt Energy.")
+        self.row(f, 8, "Other drivers", self.entry(f, "driver_sponsors", cfg, width=44))
+        self.note(f, 9, "Name: sponsors, separated by semicolons, e.g. Okafor: Acme Oil, Bolt; Lewis Hamilton: Zed "
+                        "Watches.")
+        self.row(f, 10, "", self.check(f, "invent_sponsors", "Make up sponsors for anyone without any", cfg))
+        self.row(f, 11, "Memory", self.check(f, "memory", "Remember races: results, rivalries and who called what",
+                                             cfg),
+                 ttk.Button(f, text="Forget", style="Small.TButton", command=self._forget))
+        self.note(f, 12, "So the booth can say 'these two made contact at Spa last time out'. Demo races aren't "
+                         "remembered. Drivers are matched by name.")
+        rf = ttk.Frame(f, style="Card.TFrame")
+        self.entry(rf, "roster_file", cfg, width=34).pack(side="left", fill="x", expand=True)
+        ttk.Button(rf, text="Browse", style="Small.TButton", command=self._browse_roster).pack(side="left", padx=(6, 0))
+        ttk.Button(rf, text="Make one", style="Small.TButton", command=self._make_roster).pack(side="left", padx=(6, 0))
+        self.row(f, 13, "League roster", rf)
+        self.note(f, 14, "A spreadsheet (CSV) with Driver, Number, Team, Pronouns, Sponsors and Say as. It wins over "
+                         "the guesses above and gives the booth 'the number 12 Porsche'. Make one starts it with the "
+                         "drivers on track now.")
 
         # ---------------------------------------------------------------- Voices
         f = page("Voices")
         self.row(f, 0, "Speech", self.check(f, "tts", "The booth speaks (off: text only)", cfg, on="on", off="off"))
         self.voice_boxes = {}
+        from . import eleven
+        self.all_voices = VOICES + eleven.voices(cfg)
+        labels_of = {v: n for n, v in self.all_voices}
         r = 1
         for who, label in (("lead", "Lead commentator"), ("analyst", "Analyst"), ("pit", "Pit-lane reporter")):
             self.row(f, r, label, self.entry(f, f"{who}_name", cfg),
                      ttk.Button(f, text="Test", style="Small.TButton", command=lambda w=who: self.test_voice(w)))
-            cb = ttk.Combobox(f, state="readonly", width=44, values=[n for n, _ in VOICES], height=18)
-            cb.set(VOICE_LABEL.get(cfg.get(f"{who}_voice"), VOICES[0][0]))
+            cb = ttk.Combobox(f, state="readonly", width=44, values=[n for n, _ in self.all_voices], height=18)
+            cur = cfg.get(f"{who}_voice")
+            cb.set(labels_of.get(cur) or VOICE_LABEL.get(cur) or
+                   ("ElevenLabs voice (add your key to list it)" if str(cur).startswith("eleven:") else VOICES[0][0]))
             self.voice_boxes[who] = cb
             self.row(f, r + 1, "   voice", cb)
             r += 2
@@ -753,23 +827,35 @@ class SettingsWindow:
         self.note(f, r + 5, "Microsoft and Google voices need the internet. Kokoro voices run on this PC (a one-time "
                             "download of about 115 MB). OpenAI voices use your OpenAI key and are the most lifelike. "
                             "If a voice can't be reached, the line is spoken by Kokoro, Google or Windows instead.")
+        self.row(f, r + 6, "ElevenLabs key", self.entry(f, "elevenlabs_api_key", cfg, show="•"),
+                 ttk.Label(f, text="✓ set" if cast.state()["settings"]["keys"].get("elevenlabs_api_key") else "",
+                           style="Card.TLabel", foreground=P["green"]))
+        self.note(f, r + 7, "Emotion: the free voices (Microsoft, Google, Kokoro) can only change pace, pitch and "
+                            "volume, so 'angry' mostly sounds faster and louder. OpenAI voices are told how to say "
+                            "each line and carry real feeling. ElevenLabs voices carry the most: each line's mood "
+                            "goes in as a cue ([excited], [sighs], [laughs]...). With a key, the voices on your "
+                            "ElevenLabs account appear in the lists above (reopen Settings after adding it).")
 
         # ---------------------------------------------------------------- AI
         f = page("AI")
         self.note(f, 0, "Without AI the booth calls every moment from its own lines. With a key, the two commentators "
-                        "talk to each other: the analyst answers the calls, quiet spells become a back-and-forth, "
-                        "and there's a sign-off at the end. Keys stay on this PC.", span=3)
+                        "talk to each other: the analyst answers the calls, quiet spells become real conversations "
+                        "that run on for a few exchanges, every line gets its emotion, and there's a sign-off at the end. Keys stay on this PC.", span=3)
         self.row(f, 1, "AI commentary", self.check(f, "ai_colour", "On", cfg))
         self.row(f, 2, "Use first", self.combo(f, "ai_provider", list(PROVIDERS), PROVIDERS, cfg))
         self.row(f, 3, "", self.check(f, "ai_fallback", "If it's down or out of credit, use another provider with a key", cfg))
+        self.row(f, 4, "Conversations", self.combo(f, "ai_convo", list(CONVO_LABELS), CONVO_LABELS, cfg))
+        self.note(f, 5, "A second AI that writes the booth's conversations alongside the first, so the chat keeps "
+                        "flowing while the big moments are answered. Automatic uses DeepSeek (or another provider) "
+                        "when it has a key.")
         has = cast.state()["settings"]["keys"]
         self.model_boxes = {}
-        r = 4
+        r = 6
         for p, label in PROVIDERS.items():
             self.row(f, r, f"{label} key", self.entry(f, f"{p}_api_key", cfg, show="•"),
                      ttk.Label(f, text="✓ set" if has.get(f"{p}_api_key") else "", style="Card.TLabel",
                                foreground=P["green"]))
-            cb = ttk.Combobox(f, state="readonly", width=44)
+            cb = ttk.Combobox(f, state="readonly", width=60)
             self._fill_models(cb, p, cfg)
             self.model_boxes[p] = cb
             self.row(f, r + 1, "   model", cb)
@@ -784,9 +870,15 @@ class SettingsWindow:
                        command=lambda: self._import(imp)).grid(row=r + 1, column=1, sticky="w", pady=(6, 0))
         st = cast.state()
         ttk.Label(f, style="Card.TLabel", foreground=P["green"] if st["ai"] else P["mut"], wraplength=500,
-                  text=(f"Now using: {st['ai']}" if st["ai"] else "No AI key yet: the booth uses its own lines.") +
+                  text=(f"Now using: {st['ai']} for reactions" if st["ai"] else "No AI key yet: the booth uses its own lines.") +
+                       (f"\nConversations: {st['ai_convo']}" if st.get("ai_convo") else "") +
                        (f"\nLast problem: {st['ai_error']}" if st.get("ai_error") else "")
                   ).grid(row=r + 2, column=0, columnspan=3, sticky="w", pady=(10, 0))
+        from .usage import DEFAULT_RATES, METER
+        self.row(f, r + 3, "Cost rates", self.entry(f, "ai_rates", cfg, width=60))
+        self.note(f, r + 4, f"{METER.summary(cfg.get('ai_rates') or '')} Rough estimate: dollars per million tokens "
+                            f"(in/out) and per million characters for voices. Empty uses these defaults, which may be "
+                            f"out of date: {DEFAULT_RATES}.", span=3)
 
         # ---------------------------------------------------------------- Sims
         f = page("Sims")
@@ -808,6 +900,46 @@ class SettingsWindow:
                         "Assetto Corsa (with the CrewChiefEx app). Your car only: AC EVO, Assetto Corsa without "
                         "CrewChiefEx. Rally stages: EA SPORTS WRC, DiRT Rally 2.0, AC Rally. The Guide has the "
                         "one-time game settings.", span=3)
+        r = 8
+        self.hotkey_vars = {}
+        for act in hotkeys.ACTIONS:
+            self.row(f, r, hotkeys.ACTION_LABEL[act], self._hotkey_row(f, act, cfg))
+            r += 1
+        self.note(f, r, "Click Set, then press a key or a button on your wheel or button box. They work while the sim "
+                        "has the focus.")
+
+        # ---------------------------------------------------------------- Stream
+        f = page("Stream")
+        self.row(f, 0, "OBS captions", self.check(f, "obs_captions", "Show the captions on a page for OBS", cfg))
+        port = ttk.Frame(f, style="Card.TFrame")
+        self.entry(port, "obs_port", cfg, width=8).pack(side="left")
+        url = f"http://127.0.0.1:{cfg.get('obs_port') or 8686}/"
+        ttk.Label(port, text="   " + url, style="Card.TLabel").pack(side="left")
+        ttk.Button(port, text="Copy", style="Small.TButton",
+                   command=lambda: (self.win.clipboard_clear(), self.win.clipboard_append(url))).pack(side="left", padx=8)
+        self.row(f, 1, "Port", port, sticky="w")
+        self.note(f, 2, "In OBS: Sources > + > Browser, paste the address, width 1600, height 300. The background is "
+                        "transparent; each line shows with the speaker's name in their colour, then fades. Add "
+                        "?lines=1 to the address to show one line at a time.")
+        self.row(f, 3, "Twitch channel", self.entry(f, "twitch_channel", cfg))
+        self.row(f, 4, "", self.check(f, "twitch_chat", "The booth answers the odd message in a quiet spell", cfg))
+        self.row(f, 5, "", self.check(f, "twitch_only_booth", "Only messages that start with !booth", cfg))
+        self.note(f, 6, "Chat is read without logging in, and nothing is ever posted. It needs an AI key: the AI picks "
+                        "a message, puts it in its own words and answers it ('Kate, someone in chat says you're "
+                        "wrong'). Abuse, spam, links and attempts to make the booth say something are ignored, and "
+                        "chat is never read out word for word.")
+        self.row(f, 7, "Recap", self.check(f, "recap", "Write a recap after each race", cfg),
+                 ttk.Button(f, text="Open folder", style="Small.TButton",
+                            command=lambda: (os.makedirs(os.path.join(APP_DIR, "Recaps"), exist_ok=True),
+                                             _open_path(os.path.join(APP_DIR, "Recaps")))))
+        off = ttk.Frame(f, style="Card.TFrame")
+        self.entry(off, "recap_offset", cfg, width=8).pack(side="left")
+        ttk.Label(off, text="  seconds from the start of your stream to lights out", style="Card.TLabel",
+                  foreground=P["mut"]).pack(side="left")
+        self.row(f, 8, "Offset", off, sticky="w")
+        self.note(f, 9, "The result, YouTube chapters to paste into the description, the highlights and the whole "
+                        "transcript, with timestamps from lights out (plus the offset). In Recaps next to the "
+                        "settings.")
 
         # ---------------------------------------------------------------- About
         f = page("About")
@@ -843,7 +975,151 @@ class SettingsWindow:
         y = app.root.winfo_rooty() + 50
         w.geometry(f"+{max(0, x)}+{max(0, y)}")
 
+    # ---------------------------------------------------------------- the style presets
+    def _style_block(self, f, cfg):
+        """Style: one click for the whole feel of the booth. The settings it sets live under Fine-tune, and
+        touching any of them makes the style Custom."""
+        box = f
+        self._style_parent = f
+        cur = style_of(cfg)
+        self.style_var = tk.StringVar(value=cur)
+        fr = ttk.Frame(box, style="Card.TFrame")
+        for k, lab in STYLE_LABELS.items():
+            ttk.Radiobutton(fr, text=lab, value=k, variable=self.style_var,
+                            command=lambda: self._apply_style()).pack(side="left", padx=(0, 14))
+        self.row(box, 0, "Style", fr)
+        self.style_note = ttk.Label(box, text=STYLE_NOTES[cur], style="Card.TLabel", foreground=P["mut"],
+                                    font=self.f["small"], wraplength=520, justify="left")
+        self.style_note.grid(row=1, column=1, columnspan=2, sticky="w", pady=(0, 6))
+        self.fine_btn = ttk.Button(box, text="Fine-tune  ▸", style="Small.TButton", command=self._toggle_fine)
+        self.fine_btn.grid(row=2, column=1, sticky="w", pady=(0, 6))
+        d = self.fine = ttk.Frame(box, style="Card.TFrame")
+        d.columnconfigure(1, weight=1)
+        self._fine_cols = d
+        self.row(d, 0, "How chatty", self.radios(d, "chatter", CHATTER_LABELS, cfg))
+        self.row(d, 1, "Follow", self.radios(d, "focus", FOCUS_LABELS, cfg))
+        self.row(d, 2, "Personality", self.radios(d, "booth_tone", TONE_LABELS, cfg))
+        self.note(d, 3, "Professional: a TV booth. Loose: more banter, ribbing and big reactions. Unhinged: wild "
+                        "overreactions, rants, feuds and conspiracy theories, always set off by the race or by what "
+                        "was just said.")
+        self.row(d, 4, "Language", self.check(d, "swearing", "Let them swear when a moment earns it", cfg))
+        self.row(d, 5, "Random chat", self.radios(d, "banter", BANTER_LABELS, cfg))
+        self.note(d, 6, "How often the booth wanders into side conversations in the quiet spells. They always start "
+                        "from something on track and come back to the race.")
+        self._applying = False
+        for k in ("chatter", "focus", "booth_tone", "banter"):
+            self.v[k].trace_add("write", lambda *a: self._style_follow())
+        self.v["swearing"][1].trace_add("write", lambda *a: self._style_follow())
+        if cur == "custom":
+            self._toggle_fine()
+
+    def _style_values(self):
+        out = {k: self.v[k].get() for k in ("chatter", "focus", "booth_tone", "banter")}
+        out["swearing"] = bool(self.v["swearing"][1].get())
+        return out
+
+    def _apply_style(self):
+        s = self.style_var.get()
+        self.style_note.configure(text=STYLE_NOTES.get(s, ""))
+        if s == "custom":
+            if not self.fine.winfo_manager():
+                self._toggle_fine()
+            return
+        self._applying = True
+        try:
+            for k, val in STYLES[s].items():
+                if k == "swearing":
+                    self.v[k][1].set(bool(val))
+                else:
+                    self.v[k].set(val)
+        finally:
+            self._applying = False
+
+    def _style_follow(self):
+        """A setting under Fine-tune was changed by hand: the style is whichever one now matches, or Custom."""
+        if self._applying:
+            return
+        s = style_of(self._style_values())
+        self.style_var.set(s)
+        self.style_note.configure(text=STYLE_NOTES.get(s, ""))
+
+    def _toggle_fine(self):
+        if self.fine.winfo_manager():
+            self.fine.grid_remove()
+            self.fine_btn.configure(text="Fine-tune  ▸")
+        else:
+            self.fine.grid(row=3, column=0, columnspan=3, sticky="ew")
+            self.fine_btn.configure(text="Fine-tune  ▾")
+            try:                                   # line its labels up with the rest of the page
+                self.win.update_idletasks()
+                w = self._style_parent.grid_bbox(0, 0)[2]
+                self.fine.columnconfigure(0, minsize=w)
+            except Exception:
+                pass
+
     # ---------------------------------------------------------------- widgets
+    def _browse_roster(self):
+        from tkinter import filedialog
+        p = filedialog.askopenfilename(parent=self.win, title="League roster",
+                                       filetypes=[("Spreadsheet (CSV)", "*.csv"), ("All files", "*.*")])
+        if p:
+            self.v["roster_file"].set(p)
+
+    def _make_roster(self):
+        from tkinter import filedialog
+        from . import roster
+        p = filedialog.asksaveasfilename(parent=self.win, title="Save the roster as", defaultextension=".csv",
+                                         initialfile="SimCast roster.csv", filetypes=[("Spreadsheet (CSV)", "*.csv")])
+        if not p:
+            return
+        tr = self.app.cast.tracker
+        names = [c.name for c in sorted(getattr(tr, "cars", {}).values(), key=lambda c: c.position or 99)]
+        roster.write_template(p, names)
+        self.v["roster_file"].set(p)
+        _open_path(p)
+
+    def _forget(self):
+        from tkinter import messagebox
+        mem = getattr(self.app.cast, "memory", None)
+        if mem is not None and messagebox.askyesno("Forget", "Forget every race the booth remembers?",
+                                                   parent=self.win):
+            mem.forget()
+
+    def _hotkey_row(self, f, act, cfg):
+        fr = ttk.Frame(f, style="Card.TFrame")
+        var = tk.StringVar(value=cfg.get(f"hotkey_{act}") or "")
+        self.v[f"hotkey_{act}"] = var
+        shown = ttk.Label(fr, text=hotkeys.describe(var.get()), style="Card.TLabel", width=34)
+        shown.pack(side="left")
+
+        def got(binding):
+            def apply():
+                if binding:
+                    var.set(binding)
+                shown.configure(text=hotkeys.describe(var.get()))
+                btn.configure(text="Set")
+            try:
+                self.win.after(0, apply)
+            except Exception:
+                pass
+
+        def learn():
+            hk = getattr(self.app, "hotkeys", None)
+            if hk is None or hk._thread is None:
+                shown.configure(text="Hotkeys work on Windows only")
+                return
+            btn.configure(text="Press...")
+            shown.configure(text="Press a key or a wheel button")
+            hk.learn(got)
+
+        def clear():
+            var.set("")
+            shown.configure(text=hotkeys.describe(""))
+        btn = ttk.Button(fr, text="Set", style="Small.TButton", command=learn)
+        btn.pack(side="left", padx=(6, 0))
+        ttk.Button(fr, text="Clear", style="Small.TButton", command=clear).pack(side="left", padx=(6, 0))
+        return fr
+
     def row(self, f, r, label, widget, extra=None, sticky="ew"):
         ttk.Label(f, text=label, style="Card.TLabel", foreground=P["mut"]).grid(row=r, column=0, sticky="w",
                                                                                padx=(0, 14), pady=4)
@@ -877,9 +1153,11 @@ class SettingsWindow:
         return ttk.Combobox(f, textvariable=var, values=[labels[x] for x in values], state="readonly", width=44)
 
     def _fill_models(self, cb, p, cfg):
-        best = providers.best_model(cfg, p)
+        best = providers.best_model(cfg, p, "react")
+        talk = providers.best_model(cfg, p, "convo")
         choices = providers.model_choices(cfg, p)
-        labels = [f"Automatic (best: {best})"] + choices
+        labels = [f"Automatic (best: {best})" if talk == best else
+                  f"Automatic (reactions: {best}, conversations: {talk})"] + choices
         cb.configure(values=labels)
         cur = cfg.get(f"{p}_model") or providers.AUTO
         cb.set(labels[0] if cur == providers.AUTO or cur not in choices else cur)
@@ -896,7 +1174,7 @@ class SettingsWindow:
         self.app.cast.update_settings(keys)
         self.win.destroy()
         self.app.open_settings()
-        self.app.settings_win.nb.select(2)
+        self.app.settings_win.nb.select(3)
 
     def _collect(self):
         out = {}
@@ -908,15 +1186,17 @@ class SettingsWindow:
                 out[k] = back.get(txt, txt)
             else:
                 out[k] = var.get()
-        by_label = {n: v for n, v in VOICES}
+        by_label = {n: v for n, v in getattr(self, "all_voices", VOICES)}
         for who, cb in self.voice_boxes.items():
-            out[f"{who}_voice"] = by_label.get(cb.get(), DEFAULTS[f"{who}_voice"])
+            cur = self.app.cast.cfg.get(f"{who}_voice")
+            out[f"{who}_voice"] = by_label.get(cb.get(), cur if str(cur).startswith("eleven:") else
+                                                DEFAULTS[f"{who}_voice"])
         for p, cb in self.model_boxes.items():
             val = cb.get()
             out[f"{p}_model"] = providers.AUTO if val.startswith("Automatic") else val
         val = self.tts_box.get()
         out["openai_tts_model"] = providers.AUTO if val.startswith("Automatic") else val
-        for k in ("demo_laps", "f1_port"):
+        for k in ("demo_laps", "f1_port", "obs_port", "recap_offset"):
             try:
                 out[k] = int(out.get(k) or DEFAULTS[k])
             except ValueError:

@@ -109,20 +109,42 @@ A race of about 30 minutes makes a few dozen short requests. With OpenAI voices 
 """),
     ("Settings", """
 ## Commentary
+- Style: the feel of the booth in one click. TV broadcast is a proper television booth. Late-night stream is looser and chattier, with the odd swear word. Mates down the pub is unhinged, sweary and all about you. Fine-tune shows the settings a style sets (how chatty, follow, personality, language, random chat); change one and the style becomes Custom.
 - How chatty: Quiet waits longer before filling a silence, Chatty fills it quickly. Big moments are always called.
 - Follow: Whole field is a neutral broadcast. Balanced (the default) makes your race one of the stories. Mostly me keeps the focus on you.
 - Your name: how the booth says it. Empty: the name your sim uses.
+- Call me: He, She or They for you (From my name reads your first name). Other drivers are he or she when their first name makes it clear, and they when it doesn't.
 - Pit-lane reporter: a third voice for pit stops.
+- Hotkeys (Settings > Sims): a key or a button on your wheel or button box for Skip this line, Booth on/off air, Talk about me and Driving/Stream. Click Set and press it. They work while the sim has the focus.
+- Mode: Driving keeps the booth quiet while you brake into a corner, race a car within a second, or go off the track, and stops a side conversation when someone gets alongside; anything that happened meanwhile is called on the next straight. Stream is the full show for viewers.
+
+## Booth
+- Personality: Professional is a TV booth. Loose brings more banter, ribbing and big reactions. Unhinged brings wild overreactions, rants, feuds and conspiracy theories, always set off by the race or by what was just said.
+- Language: let them swear when a moment earns it. Off keeps it clean.
+- Random chat: how often the booth wanders into side conversations in the quiet spells (Rarely, Sometimes, or Whenever there's time). They start from something on track and come back to the race.
+- Emotion: every line has a feeling, from the racing and the conversation: excited at a pass, angry at a clumsy lunge, gutted when a race ends early, tense in a close fight, amused or annoyed at each other. The voices change pace, pitch and volume to match (OpenAI voices are told exactly how to say it), and the louder the personality, the bigger the swings.
+- With an AI key (OpenAI by default), quiet spells become real conversations: the booth waits a moment for the AI rather than reaching for a stock line, and keeps a good conversation going for a few more exchanges (more with Random chat on Whenever there's time).
+- Memory: the booth remembers real races (not the demo) between sessions: results, wins and streaks, contact and lead changes between drivers, and each commentator's prediction record. Two drivers with history meet again and the booth brings it up. Forget clears it. It lives in %APPDATA%\\SimCast\\memory.json.
+- League roster: a spreadsheet (CSV) with a row per driver: Driver, Number, Team, Pronouns, Sponsors (separated by ;) and Say as (how to say the name). What it says wins over every guess, and the booth gets "the number 12 Porsche" and the team names. Make one starts a roster with the drivers on track; it's read again whenever you save it.
+- Sponsors: the race's title sponsor, your own sponsors, and other drivers' (Name: sponsor, sponsor; separated by semicolons). Make up sponsors gives everyone else fictional backers. The booth works them in now and then, the way TV booths do.
 
 ## Voices
 Names and voices of the three commentators, Play on (the sound device), Volume and Speed.
 
+Emotion depends on the voice. The free voices (Microsoft, Google, Kokoro) can only change pace, pitch and volume, so "angry" mostly sounds faster and louder. OpenAI voices are told how to say each line and carry real feeling. ElevenLabs voices carry the most: add your ElevenLabs key in Settings > Voices and the voices on your account appear in the lists; each line's mood goes in as an emotion cue ([excited], [sighs], [laughs]), and the louder the booth's personality, the looser the voice gets.
+
 ## AI
-AI commentary on or off, the provider to use first, keys, and the model (Automatic is best).
+AI commentary on or off, the provider to use first, keys, and the model. Automatic is best: it picks for each job, the quickest good model for reactions to big moments (they have seconds to arrive) and the strongest writer for conversations (they're fetched ahead of time). Cost rates: SimCast counts the tokens and voice characters each race uses and shows a rough cost under the keys (and in the recap), with a 30-minute estimate at the current rate. The default rates may be out of date; type your own as "openai 2/8, deepseek 0.3/1.2, elevenlabs 200" (dollars per million tokens in/out, or per million characters for voices). Conversations: a second AI (DeepSeek, Gemini or OpenAI) that writes the booth's conversations alongside the first, so the chat keeps flowing while big moments are answered; Automatic uses DeepSeek, or another provider, when it has a key.
 
 ## Sims
 - Set up games automatically (EA WRC, DiRT Rally 2.0, ACC).
 - F1 25 port, and sharing UDP port 20777 with SimHub.
+- What the booth knows depends on the sim. iRacing adds air and track temperature, the sky, track wetness, car numbers, teams, tyre compounds and every driver's incident points; Le Mans Ultimate and rFactor 2 add temperatures, cloud, rain, car numbers, tyre compounds and penalties; ACC adds car numbers and the rain forecast. With fuel and tyres in the data, the AI argues strategy: whether the fuel reaches the flag, who's on the wrong tyre, rain on the way.
+
+## Stream
+- OBS captions: a page on this PC with the captions, for a Browser source in OBS (the address is in Settings > Stream; width 1600, height 300). Transparent background, the speaker's name in their colour, each line fades out. Add ?lines=1 for one line at a time.
+- Twitch channel: the booth reads your chat (without logging in; nothing is ever posted) and, with an AI key, answers the odd message in a quiet spell in its own words. Abuse, spam, links and attempts to make it say something are ignored. Tick "Only messages that start with !booth" to make viewers ask on purpose.
+- Recap: after each race, a file in Recaps (next to the settings; Settings > Stream > Open folder) with the result, YouTube chapters ready to paste into a video description, the highlights and the whole transcript, all timestamped from lights out. Offset adds the time from the start of your stream or recording to lights out, so the chapters line up with the video.
 
 ## About
 - Updates: SimCast checks for a new version when it starts and every 12 hours. A new version shows a bar at the top of the window. Install update downloads the setup wizard from GitHub, checks it against the checksum published for the release, and runs it: it closes SimCast and updates it, keeping your settings. Not now skips that version. Nothing is installed until you click.

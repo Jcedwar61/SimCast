@@ -2,8 +2,9 @@
 voices: the lead (play-by-play), the analyst (colour) and the pit-lane reporter.
 
 These lines are instant (no network), so the big moments are called the moment they happen; the AI booth
-(ai.py) adds colour and analysis on top when it's switched on. Drivers are named, never 'he' or 'she': the
-sims don't say, and a wrong guess is worse than a name.
+(ai.py) adds colour and analysis on top when it's switched on. Drivers are called by name; where the booth needs a
+pronoun it reads the first name (persona.py), and a name that isn't clearly a man's or a woman's stays 'they'.
+The booth's personality, random chat and sponsor mentions are in banter.py.
 """
 from __future__ import annotations
 
@@ -12,6 +13,7 @@ import re
 from collections import deque
 from dataclasses import dataclass
 
+from .banter import BanterMixin
 from .race import CAUTION_FLAGS, call_name
 
 LEAD, ANALYST, PIT = "lead", "analyst", "pit"
@@ -47,9 +49,10 @@ class Line:
     who: str
     text: str
     energy: int = 1          # 0 calm, 1 engaged, 2 excited, 3 the big moments
+    mood: str = ""           # how it's said: excited, angry, gutted, ... (persona.MOODS); "" lets the energy decide
 
     def as_dict(self):
-        return {"who": self.who, "text": self.text, "energy": self.energy}
+        return {"who": self.who, "text": self.text, "energy": self.energy, "mood": self.mood}
 
 
 _ONES = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve",
@@ -163,7 +166,7 @@ def mins_words(s) -> str:
     return f"{num_words(m)} minutes"
 
 
-class Writer:
+class Writer(BanterMixin):
     """Turns Events (race.py) into Lines. Keeps track of which phrasings were used lately so the booth doesn't
     sound like a loop, and which drivers were mentioned (the director uses that to spread the airtime)."""
 
@@ -218,6 +221,9 @@ class Writer:
         if c.player and (self.cfg.get("driver_name") or "").strip():
             nm = self.cfg["driver_name"].strip()
             return nm if full else nm.split()[-1] if len(nm.split()) > 1 else nm
+        ent = self.roster.find(c) if getattr(self.cfg, "get", None) and self.cfg.get("roster_file") else None
+        if ent and ent["say"]:
+            return ent["say"]                               # the roster says how to say it
         if full:
             return c.name
         same = [o for o in self.tr.cars.values() if o.call == c.call and o.id != c.id and not o.gone]
@@ -257,7 +263,7 @@ class Writer:
         for ln in lines or []:
             if not ln:
                 continue
-            ln = Line(ln.who, _sentences(ln.text), ln.energy)
+            ln = Line(ln.who, _sentences(ln.text), ln.energy, ln.mood)
             if ln.who in (LEAD, ANALYST) and ln.who == who and run >= FLOOR_MAX:
                 other = ANALYST if ln.who == LEAD else LEAD
                 out.append(Line(other, self.pick("brk_" + other, BREAKS[other]), 1))
@@ -424,6 +430,10 @@ class Writer:
             return []                                         # settled by a stop or a spin, not by the racing
         right = [w for w in (LEAD, ANALYST) if w in rec and rec[w] == winner]
         wrong = [w for w in (LEAD, ANALYST) if w in rec and rec[w] != winner]
+        hook = getattr(self, "on_call_settled", None)
+        if hook:
+            for w in right + wrong:
+                hook(self._name(w), w in right)                # into the booth's memory across races
         wn = self.n(winner, now)
         if right and wrong:
             r, w = right[0], wrong[0]
@@ -503,12 +513,12 @@ class Writer:
         self._pick_i = 0
         f = getattr(self, "ev_" + e.kind, None)
         lines = f(e, now) if f else []
-        lines = [Line(ln.who, ln.text[:1].upper() + ln.text[1:], ln.energy) for ln in (lines or []) if ln and ln.text]
+        lines = [Line(ln.who, ln.text[:1].upper() + ln.text[1:], ln.energy, ln.mood) for ln in (lines or []) if ln and ln.text]
         if interrupting and lines and lines[0].who == LEAD and lines[0].energy >= 2 and \
                 e.kind in ("overtake", "stopped", "moment", "contact", "retired"):
             cut = self.pick("cut", ["Oh, hang on!", "Wait a moment!", "Oh, look at this!", "Hold on!", ""])
             if cut:
-                lines[0] = Line(LEAD, f"{cut} {lines[0].text}", lines[0].energy)
+                lines[0] = Line(LEAD, f"{cut} {lines[0].text}", lines[0].energy, lines[0].mood)
         return self.floor(lines)
 
     def ev_intro(self, e, now):
@@ -892,6 +902,11 @@ class Writer:
             f"Stop done for {nm}, rejoining in {place(pos)}{lane_s}.",
             f"And {nm} is away, back out in {place(pos)}{lane_s}.",
         ])
+        ty, was_ty = d.get("tyre"), d.get("tyre_was")
+        if ty and was_ty and ty != was_ty:
+            report += f" Off the {was_ty} tyres and on to the {ty}."
+        elif ty and self._mia and self.chance(0.4):
+            report += f" On {ty} tyres."
         if cmp_ and self._mia:
             report += " " + cmp_
         out = [Line(who, report, 1)]
@@ -1031,6 +1046,20 @@ class Writer:
             f"Have a look at {self.n(a, now)} again. Did anything come off there?",
             "Hard racing, and they've both paid a little for it.",
         ], energy=3)
+
+    def ev_incident(self, e, now):
+        """iRacing incident points: a jump of four or more is contact or a big moment the sim has scored."""
+        a = e.cars[0]
+        pts, tot = e.data.get("points", 4), e.data.get("total", 0)
+        nm = self.n(a, now)
+        out = [Line(LEAD, self.pick("inc", [
+            f"That's {num_words(pts)} incident points for {nm}. Something's happened there.",
+            f"{nm} has just picked up {num_words(pts)} incident points.",
+        ]), 1)]
+        if tot >= 12:
+            out.append(Line(ANALYST, f"That's {num_words(tot)} for the race now. {nm} needs to keep it clean from "
+                                     "here.", 1))
+        return out
 
     def ev_penalty(self, e, now):
         a = e.cars[0]
@@ -1669,6 +1698,8 @@ class Writer:
         self.moments.clear()
         self.passes = self.lead_changes = 0
         self.asides_done.clear()
+        self.__dict__.pop("_ob_used", None)
+        self.__dict__.pop("_hist_told", None)
         self.last_aside = -1e9
 
     def covered(self, key, now, window=PAIR_TTL):
@@ -1802,14 +1833,14 @@ class Writer:
         return any(c.in_pit and not c.gone for c in self.tr.cars.values() if now - (c.pit_in_t or 0) < 40)
 
     # --- asides: the side conversations a real booth drifts into between stories, always about this race
-    ASIDE_GAP = 55.0             # seconds between side conversations at the least
 
     def _aside(self, now, focus="balanced"):
         """Now and then, a side conversation: what it's like in the car in a fight like this one, the race in
         numbers, who wins it, what the pit lane looks like, the viewer's driver's afternoon. Random, but always
         tied to what is on the screen, and never the same one twice in a race."""
         tr = self.tr
-        if now - self.last_aside < self.ASIDE_GAP or not tr.started or tr.finished or not self.chance(0.4):
+        gap, odds = self.aside_pace()
+        if now - self.last_aside < gap or not tr.started or tr.finished or not self.chance(odds):
             return []
         ld = tr.leader()
         left = self._laps_left()
@@ -1818,6 +1849,11 @@ class Writer:
         topics = ["numbers", "defend", "chase", "stops", "final", "start", "viewer", "swap", "winner", "pitview",
                   "pressure"]
         self.rng.shuffle(topics)
+        if self.chance({"rare": 0.15, "normal": 0.35, "lots": 0.7}.get(self.cfg.get("banter"), 0.35)):
+            lines = self._banter(now)                 # a random conversation: a sponsor read or a tangent
+            if lines:
+                self.last_aside = now
+                return lines
         if focus == "me" and "viewer" in topics:
             topics.remove("viewer")
             topics.insert(0, "viewer")

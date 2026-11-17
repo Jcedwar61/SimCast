@@ -252,7 +252,8 @@ class ACCBroadcast:
                 ms = lambda x: x / 1000.0 if 0 < x < 2 ** 31 - 1 else None
                 out.append(field_entry(idx, e.get("name") or f"Car {idx}", f"#{e.get('number', idx)}", st["pos"],
                                        st["laps"], st["spline"], st["loc"] in CAR_LOCATION_PIT, ms(st["last"]),
-                                       ms(st["best"]), None, None, player=idx == me, speed=float(st["kmh"])))
+                                       ms(st["best"]), None, None, player=idx == me, speed=float(st["kmh"]),
+                                       number=e.get("number")))
             return out or None
 
     def events(self):

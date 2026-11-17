@@ -107,12 +107,18 @@ class Frame:
     energy: Optional[float] = None
     energy_lap: Optional[float] = None
     track_limits: Optional[int] = None
+    air_temp: Optional[float] = None      # deg C
+    track_temp: Optional[float] = None    # deg C
+    sky: Optional[str] = None             # 'clear', 'partly cloudy', 'overcast', ...
+    tyre: Optional[str] = None            # the player's tyre compound, as the sim names it
+    incidents: Optional[int] = None       # the player's incident points (iRacing)
     field: Optional[list] = None          # every car in the session: see field_entry()
     sim_events: Optional[list] = None     # race events the sim itself reports (F1: overtakes, fastest lap, ...)
 
 
 def field_entry(cid, name, car, position, laps, pct, in_pit=False, last=None, best=None, status=None, pits=None,
-                player=False, speed=None, cls=None):
+                player=False, speed=None, cls=None, number=None, team=None, incidents=None, tyre=None,
+                penalties=None):
     """One car of Frame.field, the whole grid, for SimCast's commentary. Times in seconds (None when the sim doesn't
     say or the value isn't believable), pct is the fraction of the current lap, laps the laps completed, status one of
     None/'running', 'finished', 'dnf', 'dsq'. Kept small and plain so a capture or a test can build one by hand."""
@@ -122,7 +128,11 @@ def field_entry(cid, name, car, position, laps, pct, in_pit=False, last=None, be
             "position": max(0, int(position or 0)), "laps": max(0, int(laps or 0)),
             "pct": float(pct) % 1.0 if pct is not None and pct == pct else 0.0, "in_pit": bool(in_pit),
             "last": t(last), "best": t(best), "status": status, "pits": pits, "player": bool(player),
-            "speed": float(speed) if speed is not None and 0.0 <= speed < 600.0 else None}
+            "speed": float(speed) if speed is not None and 0.0 <= speed < 600.0 else None,
+            "number": str(number).strip("# ") if number not in (None, "") else None, "team": team or None,
+            "incidents": int(incidents) if isinstance(incidents, (int, float)) and 0 <= incidents < 1000 else None,
+            "tyre": tyre or None,
+            "penalties": int(penalties) if isinstance(penalties, (int, float)) and 0 <= penalties < 100 else None}
 
 
 class Reader:
@@ -826,6 +836,22 @@ class ACEvoReader(Reader):
 
 
 
+def _car_number(vehicle_name):
+    """'Ferrari AF Corse 2023 #51' -> '51' (rF2 and LMU put the number in the entry's name)."""
+    m = re.search(r"#\s*(\d{1,3})\b", vehicle_name or "")
+    return m.group(1) if m else None
+
+
+def _rf2_tyre(tel):
+    """TelemInfoV01.mFrontTireCompoundName (@620, 18 chars): 'Soft', 'Medium', 'Wet'... None if it doesn't read
+    as a name (an older plugin layout)."""
+    try:
+        s = _cstr(tel, 620, 18).strip()
+    except Exception:
+        return None
+    return s.lower() if s and s.isprintable() and re.fullmatch(r"[A-Za-z0-9 \-]{2,18}", s) else None
+
+
 class _RF2Family(Reader):
     """LMU and rFactor 2 share Studio 397's TelemInfoV01 / VehicleScoringInfoV01 records."""
 
@@ -883,6 +909,13 @@ class _RF2Family(Reader):
         water, oil = _d(tel, 364), _d(tel, 372)
         fr.water_temp = water if 1.0 < water < 250.0 else None
         fr.oil_temp = oil if 1.0 < oil < 250.0 else None
+        air, trk, cloud = _d(sc_info, 228), _d(sc_info, 236), _d(sc_info, 212)   # mAmbientTemp, mTrackTemp, mDarkCloud
+        fr.air_temp = air if -40 < air < 60 else None
+        fr.track_temp = trk if -40 < trk < 90 else None
+        if 0.0 <= cloud <= 1.0:
+            fr.sky = "clear" if cloud < 0.2 else "partly cloudy" if cloud < 0.5 else "cloudy" if cloud < 0.8 else \
+                "overcast"
+        fr.tyre = _rf2_tyre(tel)
         rain, wet = _d(sc_info, 220), _d(sc_info, 332)
         if 0.0 <= rain <= 1.0 and 0.0 <= wet <= 1.0:
             fr.rain = max(rain, wet if wet >= 0.15 else 0.0)
@@ -923,7 +956,8 @@ class _RF2Family(Reader):
             out.append(field_entry(vid, _cstr(v, 4, 32), nice_name(_cstr(v, 36, 64)), _U_b(v, 199)[0],
                                    _U_h(v, 100)[0], _d(v, 104) / lap_len if lap_len > 0 else 0.0, bool(v[198]),
                                    _d(v, 168), _d(v, 144), {1: "finished", 2: "dnf", 3: "dsq"}.get(fin),
-                                   _U_h(v, 192)[0], player=vid == me, cls=_cstr(v, 200, 32)))
+                                   _U_h(v, 192)[0], player=vid == me, cls=_cstr(v, 200, 32),
+                                   number=_car_number(_cstr(v, 36, 64)), penalties=_U_h(v, 194)[0]))
         return out
 
     def _paused(self, tel):
@@ -1485,14 +1519,24 @@ def _ir_session_info(text):
             continue
         name = field("UserName", body) or ""
         skip = field("CarIsPaceCar", body) == "1" or field("IsSpectator", body) == "1"
+        inc = num(field("CurDriverIncidentCount", body))
         drivers[int(idx)] = {"name": name, "car": field("CarScreenName", body) or "", "skip": skip,
-                             "cls": field("CarClassShortName", body) or ""}
+                             "cls": field("CarClassShortName", body) or "", "number": field("CarNumber", body),
+                             "team": field("TeamName", body) if field("TeamName", body) != name else None,
+                             "incidents": int(inc) if inc is not None else None}
         if skip:
             continue
         cars += 1
         if info["car_idx"] is not None and int(idx) == info["car_idx"]:
             info["car"] = field("CarScreenName", body) or info["car"]
     info["cars"], info["drivers"] = cars, drivers
+    info["air_temp"], info["track_temp"] = num(field("TrackAirTemp")), num(field("TrackSurfaceTemp"))
+    sky = (field("TrackSkies") or "").lower()
+    info["sky"] = sky or None
+    tyres = {}
+    for m in re.finditer(r"TireIndex:\s*(\d+)\s*\n\s*TireCompoundType:\s*\"?([^\"\n]+)", text):
+        tyres[int(m.group(1))] = m.group(2).strip().lower()
+    info["tyres"] = tyres
     sessions = {}
     for blk in re.split(r"^\s*-\s+SessionNum:\s*", text, flags=re.MULTILINE)[1:]:
         n = num(blk.split("\n", 1)[0])
@@ -1516,7 +1560,8 @@ class IRacingReader(Reader):
             "FuelLevel", "PlayerCarPosition", "PlayerCarIdx", "SessionNum", "SessionState", "SessionFlags",
             "SessionTimeRemain", "WaterTemp", "OilTemp", "CarIdxPosition", "CarIdxF2Time", "IsOnTrack",
             "CarIdxLapDistPct", "CarIdxLapCompleted", "CarIdxOnPitRoad", "CarIdxLastLapTime", "CarIdxBestLapTime",
-            "CarIdxTrackSurface")
+            "CarIdxTrackSurface", "AirTemp", "TrackTempCrew", "TrackWetness", "Precipitation",
+            "PlayerCarMyIncidentCount", "CarIdxTireCompound", "PlayerTireCompound")
 
     def __init__(self):
         self.m = None
@@ -1615,6 +1660,20 @@ class IRacingReader(Reader):
             if b is not None and fr.gap_behind:
                 fr.car_behind = {"name": names.get(b, {}).get("name", ""), "position": fr.position + 1,
                                  "car": names.get(b, {}).get("car", ""), "gap_s": fr.gap_behind}
+        air, trk = g("AirTemp"), g("TrackTempCrew")
+        fr.air_temp = air if air is not None and -40 < air < 60 else info.get("air_temp")
+        fr.track_temp = trk if trk is not None and -40 < trk < 90 else info.get("track_temp")
+        fr.sky = info.get("sky")
+        wet = g("TrackWetness")
+        if isinstance(wet, int) and 1 <= wet <= 7:
+            fr.rain = (wet - 1) / 6.0                          # 1 dry ... 7 extremely wet
+        pr = g("Precipitation")
+        if pr is not None and 0.0 <= pr <= 1.0:
+            fr.precip = pr
+        inc = g("PlayerCarMyIncidentCount")
+        fr.incidents = inc if isinstance(inc, int) and 0 <= inc < 1000 else None
+        tc = g("PlayerTireCompound")
+        fr.tyre = info.get("tyres", {}).get(tc) if isinstance(tc, int) else None
         fr.field = self._field(g, info, me, pos)
         return fr
 
@@ -1625,6 +1684,7 @@ class IRacingReader(Reader):
         if not pct or not done or not pos:
             return None
         last, best, surf = g("CarIdxLastLapTime"), g("CarIdxBestLapTime"), g("CarIdxTrackSurface")
+        tyres, names = g("CarIdxTireCompound"), info.get("tyres", {})
         out = []
         for idx, d in info["drivers"].items():
             if d.get("skip") or not 0 <= idx < len(pct) or (surf and idx < len(surf) and surf[idx] < 0):
@@ -1633,7 +1693,9 @@ class IRacingReader(Reader):
                                    done[idx], pct[idx], bool(pit[idx]) if pit and idx < len(pit) else False,
                                    last[idx] if last and idx < len(last) else None,
                                    best[idx] if best and idx < len(best) else None, player=idx == me,
-                                   cls=d.get("cls")))
+                                   cls=d.get("cls"), number=d.get("number"), team=d.get("team"),
+                                   incidents=d.get("incidents"),
+                                   tyre=names.get(tyres[idx]) if tyres and idx < len(tyres) else None))
         return out
 
 

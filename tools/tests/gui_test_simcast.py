@@ -77,7 +77,15 @@ win.open_settings()
 pump(0.8)
 sw = win.settings_win
 check(sw is not None and sw.win.winfo_ismapped(), "settings: opens")
+check(sw.style_var.get() == "tv" and not sw.fine.winfo_manager(), "style: TV broadcast, the details tucked away")
+sw.style_var.set("pub")
+sw._apply_style()
+check(sw.v["booth_tone"].get() == "unhinged" and sw.v["swearing"][1].get() and sw.v["banter"].get() == "lots",
+      "style: Mates down the pub sets the booth loose in one click")
+sw.style_var.set("tv")
+sw._apply_style()
 sw.v["chatter"].set("chatty")
+check(sw.style_var.get() == "custom", "style: changing a detail by hand makes it Custom")
 sw.v["driver_name"].set("Sam C")
 sw.voice_boxes["analyst"].set("Emma (British) - Kokoro, offline")
 sw.model_boxes["openai"].set(sw.model_boxes["openai"].cget("values")[1])
@@ -92,6 +100,7 @@ if SHOTS:
         print(f"(screenshot failed: {e})")
 sw.save()
 pump(0.3)
+check(cast.cfg["booth_tone"] == "broadcast" and not cast.cfg["swearing"], "style: saved as set")
 check(cast.cfg["chatter"] == "chatty" and cast.cfg["driver_name"] == "Sam C" and
       cast.cfg["analyst_voice"] == "kokoro:bf_emma", "settings: saved (Kokoro voice for the analyst)")
 check(cast.cfg["openai_model"] not in ("", "auto") and cast.cfg["gemini_model"] == "auto",
@@ -102,11 +111,11 @@ sw2 = win.settings_win
 labels = sw2.voice_boxes["lead"].cget("values")
 check(any("Kokoro" in x for x in labels) and any("Google" in x for x in labels) and any("OpenAI" in x for x in labels)
       and any("Microsoft" in x for x in labels), "settings: Microsoft, Kokoro, Google and OpenAI voices offered")
-check(sw2.model_boxes["openai"].cget("values")[0].startswith("Automatic (best: "), "settings: model on Automatic")
-for i in range(5):
+check(sw2.model_boxes["openai"].cget("values")[0].startswith("Automatic ("), "settings: model on Automatic")
+for i in range(7):
     sw2.nb.select(i)
     pump(0.2)
-    if i in (1, 2, 4):
+    if i in (1, 2, 3, 5, 6):
         if SHOTS:
             try:
                 from PIL import ImageGrab
@@ -190,7 +199,7 @@ check("up to date" in win.update_status.get(), "updates: Check now says when you
 win.open_settings()
 pump(0.4)
 sw3 = win.settings_win
-sw3.nb.select(4)
+sw3.nb.select(6)
 check("check_updates" in sw3.v and sw3.v["check_updates"][1].get() is True, "updates: the switch is in Settings > About")
 sw3.v["check_updates"][1].set(False)
 sw3.save()
