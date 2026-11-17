@@ -783,6 +783,14 @@ class SettingsWindow:
                  ttk.Button(f, text="Forget", style="Small.TButton", command=self._forget))
         self.note(f, 12, "So the booth can say 'these two made contact at Spa last time out'. Demo races aren't "
                          "remembered. Drivers are matched by name.")
+        rf = ttk.Frame(f, style="Card.TFrame")
+        self.entry(rf, "roster_file", cfg, width=34).pack(side="left", fill="x", expand=True)
+        ttk.Button(rf, text="Browse", style="Small.TButton", command=self._browse_roster).pack(side="left", padx=(6, 0))
+        ttk.Button(rf, text="Make one", style="Small.TButton", command=self._make_roster).pack(side="left", padx=(6, 0))
+        self.row(f, 13, "League roster", rf)
+        self.note(f, 14, "A spreadsheet (CSV) with Driver, Number, Team, Pronouns, Sponsors and Say as. It wins over "
+                         "the guesses above and gives the booth 'the number 12 Porsche'. Make one starts it with the "
+                         "drivers on track now.")
 
         # ---------------------------------------------------------------- Voices
         f = page("Voices")
@@ -913,6 +921,26 @@ class SettingsWindow:
         w.geometry(f"+{max(0, x)}+{max(0, y)}")
 
     # ---------------------------------------------------------------- widgets
+    def _browse_roster(self):
+        from tkinter import filedialog
+        p = filedialog.askopenfilename(parent=self.win, title="League roster",
+                                       filetypes=[("Spreadsheet (CSV)", "*.csv"), ("All files", "*.*")])
+        if p:
+            self.v["roster_file"].set(p)
+
+    def _make_roster(self):
+        from tkinter import filedialog
+        from . import roster
+        p = filedialog.asksaveasfilename(parent=self.win, title="Save the roster as", defaultextension=".csv",
+                                         initialfile="SimCast roster.csv", filetypes=[("Spreadsheet (CSV)", "*.csv")])
+        if not p:
+            return
+        tr = self.app.cast.tracker
+        names = [c.name for c in sorted(getattr(tr, "cars", {}).values(), key=lambda c: c.position or 99)]
+        roster.write_template(p, names)
+        self.v["roster_file"].set(p)
+        _open_path(p)
+
     def _forget(self):
         from tkinter import messagebox
         mem = getattr(self.app.cast, "memory", None)

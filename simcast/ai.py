@@ -110,7 +110,7 @@ def race_brief(tr, writer, events, transcript, max_cars=14):
     if me:
         i = st.index(me)
         keep |= {k for k in range(i - 2, i + 3) if 0 <= k < len(st)}
-    lines.append("STANDINGS (pos, name [call name] (pronoun), car, interval to car ahead, gap to leader, last lap, best lap, "
+    lines.append("STANDINGS (pos, name [call name] (pronoun), #number and team when known, car, interval to car ahead, gap to leader, last lap, best lap, "
                  "pit stops, notes):")
     for k, s in enumerate(st):
         if k not in keep:
@@ -136,6 +136,9 @@ def race_brief(tr, writer, events, transcript, max_cars=14):
         car = tr.car(s["id"])
         pr = writer.pronoun(s["id"]) if hasattr(writer, "pronoun") else "they"
         model = f" {car.car}," if car is not None and car.car else ""
+        ent = writer.roster.find(car) if car is not None and hasattr(writer, "roster") else None
+        if ent:
+            model = (f" #{ent['number']}" if ent["number"] else "") + (f" {ent['team']}," if ent["team"] else "") + model
         lines.append(f"{s['pos']}. {name} [{call}] ({pr}){model} {iv} {gap} last {_t(s['last'])} best {_t(s['best'])} "
                      f"stops {s['pits']} {', '.join(notes)}".rstrip())
     if len(st) > len(keep):

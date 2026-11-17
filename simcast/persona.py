@@ -257,8 +257,9 @@ def parse_driver_sponsors(text: str):
 class Sponsors:
     """Who is backed by whom, worked out from the settings each time they're asked for (they can change mid-race)."""
 
-    def __init__(self, cfg_fn):
+    def __init__(self, cfg_fn, roster=None):
         self.cfg_fn = cfg_fn
+        self.roster = roster                      # roster.Roster: a league's own list wins over everything
 
     def title(self, track=""):
         cfg = self.cfg_fn()
@@ -272,6 +273,9 @@ class Sponsors:
         if car is None:
             return []
         cfg = self.cfg_fn()
+        ent = self.roster.find(car) if self.roster is not None else None
+        if ent and ent["sponsors"]:
+            return list(ent["sponsors"])
         if car.player:
             mine = parse_sponsor_list(cfg.get("my_sponsors"))
             if mine:

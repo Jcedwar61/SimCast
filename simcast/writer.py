@@ -221,6 +221,9 @@ class Writer(BanterMixin):
         if c.player and (self.cfg.get("driver_name") or "").strip():
             nm = self.cfg["driver_name"].strip()
             return nm if full else nm.split()[-1] if len(nm.split()) > 1 else nm
+        ent = self.roster.find(c) if getattr(self.cfg, "get", None) and self.cfg.get("roster_file") else None
+        if ent and ent["say"]:
+            return ent["say"]                               # the roster says how to say it
         if full:
             return c.name
         same = [o for o in self.tr.cars.values() if o.call == c.call and o.id != c.id and not o.gone]

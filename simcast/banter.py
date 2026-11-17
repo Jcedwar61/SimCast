@@ -92,10 +92,34 @@ class BanterMixin:
         c = self.tr.car(cid)
         if c is None:
             return None
+        if c.player and self.cfg.get("driver_pronouns", "auto") != "auto":
+            return persona.from_choice(self.cfg.get("driver_pronouns"), "")
+        ent = self.roster.find(c)
+        if ent and ent["gender"]:
+            return None if ent["gender"] == "x" else ent["gender"]   # the roster says, the booth doesn't guess
         if c.player:
             nm = (self.cfg.get("driver_name") or "").strip() or c.name
-            return persona.from_choice(self.cfg.get("driver_pronouns", "auto"), nm)
+            return persona.from_choice("auto", nm)
         return persona.name_gender(c.name)
+
+    @property
+    def roster(self):
+        r = self.__dict__.get("_roster")
+        if r is None:
+            from .roster import Roster
+            r = self._roster = Roster(lambda: self.cfg)
+        return r
+
+    def car_words(self, cid, sponsor=None):
+        """'the number 12 Vantor Lubricants Porsche', as much of it as is known."""
+        c = self.tr.car(cid)
+        if c is None:
+            return "the car"
+        ent = self.roster.find(c)
+        num = f"number {ent['number']} " if ent and ent["number"] else ""
+        make = persona.car_make(c.car)
+        sp = f"{sponsor} " if sponsor else ""
+        return f"the {num}{sp}{make or 'car'}"
 
     def pronoun(self, cid):
         return persona.pronoun(self.gender(cid))
@@ -104,7 +128,7 @@ class BanterMixin:
     def sponsors(self):
         sp = getattr(self, "_sponsors", None)
         if sp is None:
-            sp = self._sponsors = persona.Sponsors(lambda: self.cfg)
+            sp = self._sponsors = persona.Sponsors(lambda: self.cfg, self.roster)
         return sp
 
     # ------------------------------------------------------------------ settings
@@ -226,8 +250,7 @@ class BanterMixin:
             return []
         self._sponsor_t = now
         nm = self.n(c.id, now)
-        make = persona.car_make(c.car)
-        car = f"the {lst[0]} {make}" if make else f"the {lst[0]} car"
+        car = self.car_words(c.id, lst[0])
         from .writer import Line
         if e.kind == "winner":
             txt = self.pick("sp_win", [f"Champagne all round at {lst[0]} tonight.",
@@ -299,8 +322,7 @@ class BanterMixin:
             return []
         c = self.tr.car(pick[0])
         nm = self.n(c.id, now)
-        make = persona.car_make(c.car)
-        what = f"{lst[0]} {make}" if make else f"{lst[0]} car"
+        what = self.car_words(c.id, lst[0])[4:]                  # 'number 12 Vantor Porsche' 
         out = [Line(LEAD, self.pick("sp_car", [
             f"Look at the {what} of {nm}. Lovely-looking thing.",
             f"{nm} in the {what}" + (f", with {lst[1]} on board as well." if len(lst) > 1 else "."),
@@ -400,7 +422,7 @@ class BanterMixin:
             return []
         nm = self.n(p[0], now)
         return [Line(ANALYST, f"For the record, I said before the start {nm} would be the one to watch.", 1),
-                Line(LEAD, f"You did not. You said that about everyone. You said it about the safety car once.", 1),
+                Line(LEAD, "You did not. You said that about everyone. You said it about the safety car once.", 1),
                 Line(ANALYST, "The safety car had a very good race that day.", 1),
                 Line(LEAD, f"Fine. {nm}, {place_of(self, p[0])}. Happy?", 1)]
 

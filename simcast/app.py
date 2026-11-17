@@ -55,7 +55,7 @@ DEFAULTS = {
     "check_updates": True, "update_skip": "",
     "booth_tone": "broadcast", "swearing": False, "banter": "normal", "driver_pronouns": "auto",
     "ai_convo": "auto", "drive_mode": "stream", "race_sponsor": "",
-    "memory": True, "hotkey_skip": "", "hotkey_mute": "", "hotkey_me": "", "hotkey_mode": "", "my_sponsors": "", "driver_sponsors": "", "invent_sponsors": True,
+    "memory": True, "roster_file": "", "hotkey_skip": "", "hotkey_mute": "", "hotkey_me": "", "hotkey_mode": "", "my_sponsors": "", "driver_sponsors": "", "invent_sponsors": True,
 }
 CHOICES = {"tts": ("on", "off"), "chatter": ("quiet", "normal", "chatty"),
            "focus": ("field", "balanced", "me"), "ai_provider": ("openai", "gemini", "deepseek"),

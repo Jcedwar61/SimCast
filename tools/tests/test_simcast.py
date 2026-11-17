@@ -1063,4 +1063,34 @@ check(not m3.data["races"], "memory: switched off, nothing is remembered")
 m2.forget()
 check(not Memory(mpath, log=lambda m: None).data["races"], "memory: Forget clears it")
 
+# ---------------------------------------------------------------- league roster
+from simcast import roster as roster_mod  # noqa: E402
+rdir = tempfile.mkdtemp()
+rpath = os.path.join(rdir, "league.csv")
+with open(rpath, "w", encoding="utf-8-sig") as fh:
+    fh.write("Name;No.;Team;Pronouns;Sponsors;Say as\n"
+             "Luca Moretti;12;Scuderia Rossa;they;Acme Oil / Bolt Energy;\n"
+             "Sam Carter;#7;Blue Arrow;she;;\n"
+             "Okafor;3;;he;Zed Watches;Oh-KAH-for\n")
+ents = roster_mod.parse(open(rpath, encoding="utf-8-sig").read())
+check(ents["luca moretti"]["number"] == "12" and ents["luca moretti"]["sponsors"] == ["Acme Oil", "Bolt Energy"] and
+      ents["sam carter"]["gender"] == "f" and ents["sam carter"]["number"] == "7",
+      "roster: a semicolon spreadsheet with its own headings is read")
+rc = headless_run(laps=3, seed=7, cfg=dict(roster_file=rpath, booth_tone="loose"), log=lambda m: None)
+rw = rc.director.writer
+byname = {c.name: c for c in rc.tracker.cars.values()}
+mor = byname["Luca Moretti"]
+oka = next(c for c in rc.tracker.cars.values() if c.call == "Okafor")
+check(rw.pronoun(mor.id) == "they" and rw.pronoun(byname["Sam Carter"].id) == "she" and rw.pronoun(oka.id) == "he",
+      "roster: its pronouns win over the guess from the name")
+check(rw.sponsors.of(mor) == ["Acme Oil", "Bolt Energy"], "roster: its sponsors win over made-up ones")
+check(rw.car_words(mor.id, "Acme Oil").startswith("the number 12 Acme Oil"), f"roster: 'the number 12 ...' "
+      f"({rw.car_words(mor.id, 'Acme Oil')})")
+check(rw.n(oka.id) == "Oh-KAH-for", "roster: Say as is how the booth says the name")
+rbrief = ai_mod.race_brief(rc.tracker, rw, [], [])
+check("#12 Scuderia Rossa," in rbrief and "(they)" in rbrief, "roster: the AI booth gets numbers, teams and pronouns")
+tpl = roster_mod.write_template(os.path.join(rdir, "new.csv"), ["Ana Lima", "Bo Chen"])
+check(set(roster_mod.parse(open(tpl, encoding="utf-8-sig").read())) == {"ana lima", "bo chen"},
+      "roster: Make one writes a roster that reads back")
+
 done()
