@@ -11,7 +11,7 @@ import tkinter as tk
 from collections import deque
 from tkinter import ttk
 
-from . import providers, update
+from . import hotkeys, providers, update
 from .app import APP_DIR, APP_NAME, APP_VERSION, DEFAULTS, file_log
 from .link import DUCK_LABELS
 from .audio import VOICE_LABEL, VOICES
@@ -468,10 +468,14 @@ class SimCastWindow:
         self.cast.audio.interrupt(None)
 
     def toggle_air(self):
-        d = self.cast.director
-        d.on_air = not d.on_air
-        if not d.on_air:
-            self.cast.audio.interrupt(None)
+        self.cast.toggle_air()
+
+    def _hotkey(self, action):
+        """From the hotkey thread: act on the engine at once (it's thread safe)."""
+        try:
+            self.cast.hotkey(action)
+        except Exception as e:
+            self.cast.log(f"Hotkey {action}: {e}")
 
     def toggle_captions(self, on):
         if on and self.captions is None:
@@ -607,6 +611,8 @@ class SimCastWindow:
         self.settings_win = SettingsWindow(self)
 
     def run(self):
+        self.hotkeys = hotkeys.Hotkeys(self.cast.config, self._hotkey, log=self.cast.log)
+        self.hotkeys.start()
         self.loop.start()
         self.root.after(100, self.poll)
         self.root.mainloop()
@@ -747,6 +753,13 @@ class SettingsWindow:
         self.note(f, 9, "Driving: the booth holds back while you brake into a corner, race a car within a second, "
                         "or go off, and stops a side conversation when someone gets alongside. What happened is "
                         "called on the next straight. Stream: the full show for viewers.")
+        r = 10
+        self.hotkey_vars = {}
+        for act in hotkeys.ACTIONS:
+            self.row(f, r, hotkeys.ACTION_LABEL[act], self._hotkey_row(f, act, cfg))
+            r += 1
+        self.note(f, r, "Click Set, then press a key or a button on your wheel or button box. They work while the sim "
+                        "has the focus.")
 
         # ---------------------------------------------------------------- Booth
         f = page("Booth")
@@ -895,6 +908,41 @@ class SettingsWindow:
         w.geometry(f"+{max(0, x)}+{max(0, y)}")
 
     # ---------------------------------------------------------------- widgets
+    def _hotkey_row(self, f, act, cfg):
+        fr = ttk.Frame(f, style="Card.TFrame")
+        var = tk.StringVar(value=cfg.get(f"hotkey_{act}") or "")
+        self.v[f"hotkey_{act}"] = var
+        shown = ttk.Label(fr, text=hotkeys.describe(var.get()), style="Card.TLabel", width=34)
+        shown.pack(side="left")
+
+        def got(binding):
+            def apply():
+                if binding:
+                    var.set(binding)
+                shown.configure(text=hotkeys.describe(var.get()))
+                btn.configure(text="Set")
+            try:
+                self.win.after(0, apply)
+            except Exception:
+                pass
+
+        def learn():
+            hk = getattr(self.app, "hotkeys", None)
+            if hk is None or hk._thread is None:
+                shown.configure(text="Hotkeys work on Windows only")
+                return
+            btn.configure(text="Press...")
+            shown.configure(text="Press a key or a wheel button")
+            hk.learn(got)
+
+        def clear():
+            var.set("")
+            shown.configure(text=hotkeys.describe(""))
+        btn = ttk.Button(fr, text="Set", style="Small.TButton", command=learn)
+        btn.pack(side="left", padx=(6, 0))
+        ttk.Button(fr, text="Clear", style="Small.TButton", command=clear).pack(side="left", padx=(6, 0))
+        return fr
+
     def row(self, f, r, label, widget, extra=None, sticky="ew"):
         ttk.Label(f, text=label, style="Card.TLabel", foreground=P["mut"]).grid(row=r, column=0, sticky="w",
                                                                                padx=(0, 14), pady=4)

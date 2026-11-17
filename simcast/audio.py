@@ -197,6 +197,7 @@ class SimAudio(BaseAudio):
         self.tick(now)
 
     def tick(self, now):
+        self._now = now
         while self.pending and self.pending[0][0] <= now:
             t, ln, pr = self.pending.pop(0)
             self.spoken.append((t, ln))
@@ -212,6 +213,8 @@ class SimAudio(BaseAudio):
         return True
 
     def interrupt(self, now):
+        if now is None:                                  # the window's buttons and the hotkeys don't know the
+            now = getattr(self, "_now", 0.0)             # simulated clock: use the last time it was seen
         self.tick(now)
         self.pending.clear()
         self.busy_until = now

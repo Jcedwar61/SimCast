@@ -988,4 +988,45 @@ finally:
     SimAudio.say = _orig_say
 check(any(t > 40 and int(t) % 30 < 12 for t in said_at), "stream mode: the full show")
 
+# ---------------------------------------------------------------- hotkeys: a key or a wheel button
+from simcast import hotkeys  # noqa: E402
+
+
+class _Pad:
+    def __init__(self):
+        self.down = set()
+
+    def pressed(self):
+        return set(self.down)
+
+
+pad, fired = _Pad(), []
+hk = hotkeys.Hotkeys(lambda: {"hotkey_skip": "joy:Wheel#3", "hotkey_me": "key:F9"}, fired.append,
+                     log=lambda m: None, source=pad)
+pad.down = {"joy:Wheel#3"}
+hk.step()
+hk.step()                                                     # held down: one press, one action
+pad.down = set()
+hk.step()
+pad.down = {"key:F9", "joy:Wheel#0"}
+hk.step()
+check(fired == ["skip", "me"], f"hotkeys: a wheel button and a key fire their actions once per press ({fired})")
+got = []
+hk.learn(got.append)
+pad.down = {"key:F9", "joy:Wheel#0", "joy:Wheel#5"}
+hk.step()
+check(got == ["joy:Wheel#5"] and fired == ["skip", "me"], "hotkeys: Set takes the next button pressed, and does nothing else")
+check(hotkeys.describe("joy:Fanatec CSL#7") == "Fanatec CSL, button 8" and hotkeys.describe("key:F9") == "F9" and
+      hotkeys.describe("") == "not set", "hotkeys: shown the way a person reads them")
+hc = headless_run(laps=3, seed=2, log=lambda m: None)
+hc.hotkey("mode")
+check(hc.cfg["drive_mode"] == "driver", "hotkeys: Driving/Stream switches the mode")
+hc.hotkey("mute")
+check(not hc.director.on_air, "hotkeys: the booth goes off air")
+hc.hotkey("mute")
+n0 = len(hc.audio.spoken)
+hc.tracker.finished = False
+t_me = hc.audio.spoken[-1][0] + 120.0
+check(hc.director.talk_about_me(t_me) and len(hc.audio.spoken) > n0, "hotkeys: Talk about me puts the viewer's race on air now")
+
 done()

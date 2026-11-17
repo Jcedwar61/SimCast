@@ -53,7 +53,8 @@ DEFAULTS = {
     "demo_laps": 8, "captions": False, "captions_pos": None, "window": None,
     "check_updates": True, "update_skip": "",
     "booth_tone": "broadcast", "swearing": False, "banter": "normal", "driver_pronouns": "auto",
-    "ai_convo": "auto", "drive_mode": "stream", "race_sponsor": "", "my_sponsors": "", "driver_sponsors": "", "invent_sponsors": True,
+    "ai_convo": "auto", "drive_mode": "stream", "race_sponsor": "",
+    "hotkey_skip": "", "hotkey_mute": "", "hotkey_me": "", "hotkey_mode": "", "my_sponsors": "", "driver_sponsors": "", "invent_sponsors": True,
 }
 CHOICES = {"tts": ("on", "off"), "chatter": ("quiet", "normal", "chatty"),
            "focus": ("field", "balanced", "me"), "ai_provider": ("openai", "gemini", "deepseek"),
@@ -238,6 +239,29 @@ class SimCast:
                 self.director.driver_input(frame, now)
             except Exception as e:
                 self._error("Driver mode", e)
+
+    # -------------------------------------------------------------- hotkeys
+    def toggle_air(self):
+        d = self.director
+        d.on_air = not d.on_air
+        if not d.on_air:
+            self.audio.interrupt(None)
+        self.log("Booth " + ("on air" if d.on_air else "off air"))
+
+    def hotkey(self, action, now=None):
+        """A key or wheel button was pressed (hotkeys.py)."""
+        now = time.monotonic() if now is None else now
+        if action == "skip":
+            self.audio.interrupt(None)
+        elif action == "mute":
+            self.toggle_air()
+        elif action == "mode":
+            new = "stream" if self.cfg.get("drive_mode") == "driver" else "driver"
+            self.update_settings({"drive_mode": new})
+            self.log("Mode: " + ("Driving" if new == "driver" else "Stream"))
+        elif action == "me":
+            with self.lock:
+                self.director.talk_about_me(now)
 
     def tick(self, now):
         with self.lock:

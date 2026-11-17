@@ -13,7 +13,7 @@ from collections import deque
 from . import ai as ai_mod
 from .cockpit import CATCH_UP_MAX, DriverLoad
 from .race import Event
-from .writer import ANALYST, LEAD, Writer
+from .writer import ANALYST, LEAD, Line, Writer
 
 CHATTER = {   # seconds of quiet before the booth fills it, and gap after any line
     "quiet": (18.0, 0.6),
@@ -148,6 +148,26 @@ class Director:
                 self.ai_filler = (self.ai_filler[0], self.ai_filler[1] + held)
             self.held_since, self.hold_reason = None, ""
         return False
+
+    def talk_about_me(self, now):
+        """The 'talk about me' button: the viewer's race, now, over any chat (not over a big call)."""
+        me = self.tr.player() if hasattr(self.tr, "player") else None
+        if me is None or not self.on_air:
+            return False
+        if self.audio.speaking(now):
+            if self.audio.current_priority >= CUT_IN:
+                return False
+            self.audio.interrupt(now)
+        lines = self.writer._player_line(me, now) if self.tr.session == "race" and \
+            getattr(self.tr, "started", False) else [Line(LEAD, f"Let's check in on {self.writer.n(me.id, now)}.", 1)]
+        self._air(lines, 60, now)
+        if self.booth is not None:
+            self._ask(f"The viewer has asked the booth to talk about their driver, {self.writer.n(me.id)}, right "
+                      "now. ANALYST picks up straight from the last line with a proper look at their race from the "
+                      "data: position against the grid slot, the gaps either side and whether they're shrinking, "
+                      "pace against the cars around them, the stops, and what they need to do next. LEAD answers. "
+                      "2 or 3 lines.", 55, now, answer=ANALYST)
+        return True
 
     # -------------------------------------------------------------- the loop
     def tick(self, now):

@@ -114,6 +114,7 @@ A race of about 30 minutes makes a few dozen short requests. With OpenAI voices 
 - Your name: how the booth says it. Empty: the name your sim uses.
 - Call me: He, She or They for you (From my name reads your first name). Other drivers are he or she when their first name makes it clear, and they when it doesn't.
 - Pit-lane reporter: a third voice for pit stops.
+- Hotkeys: a key or a button on your wheel or button box for Skip this line, Booth on/off air, Talk about me and Driving/Stream. Click Set and press it. They work while the sim has the focus.
 - Mode: Driving keeps the booth quiet while you brake into a corner, race a car within a second, or go off the track, and stops a side conversation when someone gets alongside; anything that happened meanwhile is called on the next straight. Stream is the full show for viewers.
 
 ## Booth
