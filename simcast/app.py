@@ -113,7 +113,7 @@ def save_config(cfg, path=None):
 
 
 class SimCast:
-    def __init__(self, cfg=None, audio=None, log=print, booth=True, save=True):
+    def __init__(self, cfg=None, audio=None, log=print, booth=True, save=True, seed=None):
         self.cfg = clean_config(dict(DEFAULTS, **(cfg or load_config())))
         self.save_enabled = save
         self.log = log
@@ -134,7 +134,7 @@ class SimCast:
                                     label_fn=providers.ai_label, log=log) if booth else None
         if booth:
             providers.detect_in_background(self.cfg, log=log)
-        self.director = Director(self.tracker, self.audio, self.config, booth=self.booth, log=log)
+        self.director = Director(self.tracker, self.audio, self.config, booth=self.booth, log=log, seed=seed)
         self.status = "Waiting for a sim..."
         self.source = None
         self.demo = None
@@ -377,7 +377,7 @@ def headless_run(laps=6, seed=3, cfg=None, booth=None, max_t=3600.0, log=print, 
     .audio.spoken). Used by --test and the tests."""
     cfg = dict(DEFAULTS, **(cfg or {}))
     audio = SimAudio()
-    cast = SimCast(cfg, audio=audio, log=log, booth=False, save=False)
+    cast = SimCast(cfg, audio=audio, log=log, booth=False, save=False, seed=seed)  # same seed, same broadcast
     if booth is not None:
         cast.booth = booth
         cast.director.booth = booth
