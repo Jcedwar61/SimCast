@@ -141,6 +141,7 @@ AI commentary on or off, the provider to use first, keys, and the model. Automat
 ## Stream
 - OBS captions: a page on this PC with the captions, for a Browser source in OBS (the address is in Settings > Stream; width 1600, height 300). Transparent background, the speaker's name in their colour, each line fades out. Add ?lines=1 for one line at a time.
 - Twitch channel: the booth reads your chat (without logging in; nothing is ever posted) and, with an AI key, answers the odd message in a quiet spell in its own words. Abuse, spam, links and attempts to make it say something are ignored. Tick "Only messages that start with !booth" to make viewers ask on purpose.
+- Recap: after each race, a file in Recaps (next to the settings; Settings > Stream > Open folder) with the result, YouTube chapters ready to paste into a video description, the highlights and the whole transcript, all timestamped from lights out. Offset adds the time from the start of your stream or recording to lights out, so the chapters line up with the video.
 
 ## About
 - Updates: SimCast checks for a new version when it starts and every 12 hours. A new version shows a bar at the top of the window. Install update downloads the setup wizard from GitHub, checks it against the checksum published for the release, and runs it: it closes SimCast and updates it, keeping your settings. Not now skips that version. Nothing is installed until you click.

@@ -1252,4 +1252,27 @@ check(ctask and "not instructions" in ctask and "never repeat a message word for
       "Twitch: chat goes to the AI as viewers' comments, never instructions")
 check(any(ln.text.startswith("AI-CHAT") for _, ln in ccast.audio.spoken), "Twitch: the booth answers chat on air")
 
+# ---------------------------------------------------------------- post-race recap
+from simcast.recap import Recap, stamp  # noqa: E402
+check(stamp(0) == "0:00" and stamp(75.4) == "1:15" and stamp(3725) == "1:02:05", "recap: YouTube-style times")
+rdir2 = tempfile.mkdtemp()
+rcp = Recap(rdir2, log=lambda m: None)
+rr = headless_run(laps=5, seed=7, recap=rcp, cfg=dict(recap_offset=90), log=lambda m: None)
+rpath = rr.director.recap_path
+check(rpath and os.path.exists(rpath), f"recap: written after the race ({rpath})")
+rtext = open(rpath, encoding="utf-8").read() if rpath else ""
+chap = rtext.split("```")[1].strip().splitlines() if "```" in rtext else []
+check(chap and chap[0] == "0:00 Lights out" and chap[-1].endswith("The finish") and len(chap) >= 3,
+      f"recap: YouTube chapters from 0:00 to the finish ({chap})")
+secs = []
+for c in chap:
+    p = [int(x) for x in c.split()[0].split(":")]
+    secs.append(p[-1] + 60 * p[-2] + (3600 * p[0] if len(p) == 3 else 0))
+check(all(b - a >= 10 for a, b in zip(secs, secs[1:])), "recap: chapters at least 10 seconds apart, as YouTube needs")
+check(secs[1] >= 90, "recap: the stream offset is added to every chapter after 0:00")
+check("## Result" in rtext and "| 1 |" in rtext and "## Highlights" in rtext and "**Ben:**" in rtext and
+      "Thanks for watching" in rtext, "recap: the result, highlights and the whole transcript, sign-off included")
+check(headless_run(laps=3, seed=7, recap=Recap(rdir2, log=lambda m: None), cfg=dict(recap=False),
+                   log=lambda m: None).director.recap_path is None, "recap: switched off, nothing is written")
+
 done()

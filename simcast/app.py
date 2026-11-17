@@ -56,7 +56,8 @@ DEFAULTS = {
     "booth_tone": "broadcast", "swearing": False, "banter": "normal", "driver_pronouns": "auto",
     "ai_convo": "auto", "drive_mode": "stream", "race_sponsor": "",
     "memory": True, "roster_file": "", "obs_captions": False, "obs_port": 8686, "twitch_channel": "",
-    "twitch_chat": True, "twitch_only_booth": False, "hotkey_skip": "", "hotkey_mute": "", "hotkey_me": "", "hotkey_mode": "", "my_sponsors": "", "driver_sponsors": "", "invent_sponsors": True,
+    "twitch_chat": True, "twitch_only_booth": False,
+    "recap": True, "recap_offset": 0, "hotkey_skip": "", "hotkey_mute": "", "hotkey_me": "", "hotkey_mode": "", "my_sponsors": "", "driver_sponsors": "", "invent_sponsors": True,
 }
 CHOICES = {"tts": ("on", "off"), "chatter": ("quiet", "normal", "chatty"),
            "focus": ("field", "balanced", "me"), "ai_provider": ("openai", "gemini", "deepseek"),
@@ -112,6 +113,10 @@ def clean_config(cfg):
     except (TypeError, ValueError):
         cfg["obs_port"] = 8686
     cfg["twitch_channel"] = str(cfg.get("twitch_channel") or "").strip()[:80]
+    try:
+        cfg["recap_offset"] = max(0, min(36000, int(cfg.get("recap_offset") or 0)))
+    except (TypeError, ValueError):
+        cfg["recap_offset"] = 0
     cfg["check_updates"] = bool(cfg.get("check_updates", True))
     cfg["update_skip"] = str(cfg.get("update_skip") or "")[:40]
     return cfg
@@ -161,6 +166,8 @@ class SimCast:
                                  convo_booth=self.convo_booth)
         self.memory = Memory(os.path.join(APP_DIR, "memory.json"), log=log) if save else None
         self.director.set_memory(self.memory)
+        from .recap import Recap
+        self.director.recap = Recap(os.path.join(APP_DIR, "Recaps"), log=log) if save else None
         self.status = "Waiting for a sim..."
         self.source = None
         self.demo = None
@@ -209,7 +216,7 @@ class SimCast:
         self.lines.append({"seq": self.line_seq, "who": line.who, "name": name, "text": line.text, "energy": line.energy,
                            "mood": getattr(line, "mood", ""),
                            "t": time.time()})
-        self.director.heard(line)
+        self.director.heard(line, t)
         self.log(f"{name.upper():>6} | {line.text}")
 
     # -------------------------------------------------------------- frames in
@@ -458,7 +465,7 @@ class SimCast:
 
 
 def headless_run(laps=6, seed=3, cfg=None, booth=None, max_t=3600.0, log=print, events=True, convo_booth=None,
-                 memory=None):
+                 memory=None, recap=None):
     """A whole demo race on a simulated clock with silent audio: returns the SimCast (lines in .lines and
     .audio.spoken). Used by --test and the tests."""
     cfg = dict(DEFAULTS, **(cfg or {}))
@@ -474,6 +481,8 @@ def headless_run(laps=6, seed=3, cfg=None, booth=None, max_t=3600.0, log=print, 
     if memory is not None:
         cast.memory = memory
         cast.director.set_memory(memory)                  # the test race counts as a real one
+    if recap is not None:
+        cast.director.recap = recap
     import random
     cast.director.writer.rng = random.Random(seed)        # the same race, said the same way: tests repeat exactly
     demo = DemoRace(laps=laps, seed=seed, player_name=cfg.get("driver_name", ""), events=events)
@@ -487,4 +496,5 @@ def headless_run(laps=6, seed=3, cfg=None, booth=None, max_t=3600.0, log=print, 
         if demo.finished and cast.director.wrapped and not audio.speaking(t):
             break
         clock[0] += dt
+    cast.director.finish_recap(demo=True)
     return cast

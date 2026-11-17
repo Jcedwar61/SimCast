@@ -54,6 +54,9 @@ class Director:
         self.load = DriverLoad()                             # driver mode: is the driver busy right now?
         self.memory = None                                   # memory.Memory: the booth's history across races
         self.chat = None                                     # stream.TwitchChat, when reading chat is on
+        self.recap = None                                    # recap.Recap: the transcript and moments of this race
+        self._recap_done = False
+        self.recap_path = None
         self.recording = False                               # this race goes into it (a real race, not the demo)
         self._remembered = False
         self.held_since = None                               # the booth is holding its tongue since then
@@ -78,6 +81,11 @@ class Director:
             if e.kind == "winner":
                 self.winner_t = now
             self._remember_event(e)
+            if self.recap is not None:
+                try:
+                    self.recap.event(now, e, ai_mod.describe(e, self.writer))
+                except Exception:
+                    pass
             if e.kind == "pit_out" and e.cars:                 # every stop is timed, called on air or not, so the
                 lane = (e.data or {}).get("lane_time")         # pit lane can compare against all of them
                 if lane and lane < 100:
@@ -120,10 +128,27 @@ class Director:
             except Exception as ex:
                 self.log(f"Memory: {ex}")
 
-    def heard(self, line):
+    def heard(self, line, t=None):
         """The audio calls this as each line goes on air."""
         self.transcript.append((line.who, line.text))
         self.writer.heard(line)
+        if self.recap is not None and t is not None:
+            self.recap.line(t, self.writer._name(line.who) or line.who, line.text)
+
+    def finish_recap(self, demo=False):
+        """The race is over and the booth has signed off: write the recap (once)."""
+        if self.recap is None or self._recap_done or not self.tr.finished:
+            return None
+        self._recap_done = True
+        cfg = self.cfg_fn()
+        if not cfg.get("recap", True):
+            return None
+        try:
+            self.recap_path = self.recap.write(self.tr, self.writer, float(cfg.get("recap_offset") or 0), demo=demo)
+        except Exception as ex:
+            self.log(f"Recap: {ex}")
+            self.recap_path = None
+        return self.recap_path
 
     def set_tracker(self, tr):
         self.tr = tr
@@ -141,6 +166,9 @@ class Director:
         self._wrap_asked = None
         self.winner_t = None
         self._remembered = False
+        if self.recap is not None:
+            self.recap.reset()
+        self._recap_done = False
         if self.memory is not None:
             self.memory.current, self.memory.calls_now = [], []     # an unfinished race isn't remembered
         self.writer.forget()
@@ -249,6 +277,8 @@ class Director:
         if self.tr.finished:
             self._end_of_race(now)
             self._wrap(now, idle)
+            if self.wrapped and self.audio.idle_for(now) > 2.0:     # the sign-off has been said, not just queued
+                self.finish_recap(demo=not self.recording)
             return
         if idle >= quiet_s * 0.6:
             self._prefetch_filler(now)

@@ -910,6 +910,18 @@ class SettingsWindow:
                         "a message, puts it in its own words and answers it ('Kate, someone in chat says you're "
                         "wrong'). Abuse, spam, links and attempts to make the booth say something are ignored, and "
                         "chat is never read out word for word.")
+        self.row(f, 7, "Recap", self.check(f, "recap", "Write a recap after each race", cfg),
+                 ttk.Button(f, text="Open folder", style="Small.TButton",
+                            command=lambda: (os.makedirs(os.path.join(APP_DIR, "Recaps"), exist_ok=True),
+                                             _open_path(os.path.join(APP_DIR, "Recaps")))))
+        off = ttk.Frame(f, style="Card.TFrame")
+        self.entry(off, "recap_offset", cfg, width=8).pack(side="left")
+        ttk.Label(off, text="  seconds from the start of your stream to lights out", style="Card.TLabel",
+                  foreground=P["mut"]).pack(side="left")
+        self.row(f, 8, "Offset", off, sticky="w")
+        self.note(f, 9, "The result, YouTube chapters to paste into the description, the highlights and the whole "
+                        "transcript, with timestamps from lights out (plus the offset). In Recaps next to the "
+                        "settings.")
 
         # ---------------------------------------------------------------- About
         f = page("About")
@@ -1082,7 +1094,7 @@ class SettingsWindow:
             out[f"{p}_model"] = providers.AUTO if val.startswith("Automatic") else val
         val = self.tts_box.get()
         out["openai_tts_model"] = providers.AUTO if val.startswith("Automatic") else val
-        for k in ("demo_laps", "f1_port", "obs_port"):
+        for k in ("demo_laps", "f1_port", "obs_port", "recap_offset"):
             try:
                 out[k] = int(out.get(k) or DEFAULTS[k])
             except ValueError:
