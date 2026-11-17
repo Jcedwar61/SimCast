@@ -47,6 +47,9 @@ off at a clumsy lunge, a wrecked race or a stupid strategy call, gutted for a dr
 at a crash, tense in a close fight, amused or annoyed at what the other one just said, sarcastic when a \
 colleague's prediction falls flat. Let it swing with the race and with the conversation, and give every line a \
 mood that matches it.
+- Strategy: when CONDITIONS, tyres, fuel, incident points or penalties are in the data, argue about them: whether \
+the fuel reaches the flag, who's on the wrong tyre for a track this hot or this wet, rain on the way, a driver one \
+more incident from trouble. That's where the best disagreements are.
 - Sponsors: now and then, the way TV booths do, work in a sponsor from SPONSORS: the race's title sponsor \
 ("welcome back to the ... Grand Prix"), or a car's backers ("the Vantor Lubricants Porsche of Okafor"). Only the \
 names given there, never more than one mention in a reply, and not in every reply.
@@ -55,7 +58,8 @@ Never say: "good, clean, hard racing", "lovely racing", "this is worth watching"
 
 Hard rules:
 - Only state facts that are in the RACE DATA. Never invent contact, damage, penalties, team radio, weather, tyre \
-compounds, fuel numbers, what a team has decided, lap times, gaps or history beyond HISTORY. Opinions and \
+compounds, fuel numbers (CONDITIONS, tyres, incident points and penalties are fine when the data gives them), \
+what a team has decided, lap times, gaps or history beyond HISTORY. Opinions and \
 predictions are \
 welcome; invented facts are not. If you don't know, talk about what the data does show.
 - Call drivers by the name given in square brackets.
@@ -134,15 +138,51 @@ def race_brief(tr, writer, events, transcript, max_cars=14):
         if s["grid"]:
             notes.append(f"started P{s['grid']}")
         car = tr.car(s["id"])
+        if car is not None:
+            if car.tyre:
+                notes.append(f"on {car.tyre} tyres")
+            if car.incidents:
+                notes.append(f"{car.incidents}x incident points")
+            if car.penalties:
+                notes.append(f"{car.penalties} penalt{'y' if car.penalties == 1 else 'ies'}")
         pr = writer.pronoun(s["id"]) if hasattr(writer, "pronoun") else "they"
-        model = f" {car.car}," if car is not None and car.car else ""
         ent = writer.roster.find(car) if car is not None and hasattr(writer, "roster") else None
-        if ent:
-            model = (f" #{ent['number']}" if ent["number"] else "") + (f" {ent['team']}," if ent["team"] else "") + model
+        number = (car.number if car is not None else None) or (ent["number"] if ent else None)
+        team = (ent["team"] if ent and ent["team"] else None) or (car.team if car is not None else None)
+        model = (f" #{number}" if number else "") + (f" {team}," if team else "") + \
+            (f" {car.car}," if car is not None and car.car else "")
         lines.append(f"{s['pos']}. {name} [{call}] ({pr}){model} {iv} {gap} last {_t(s['last'])} best {_t(s['best'])} "
                      f"stops {s['pits']} {', '.join(notes)}".rstrip())
     if len(st) > len(keep):
         lines.append(f"(... {len(st) - len(keep)} more cars)")
+    cond = getattr(tr, "cond", {}) or {}
+    bits = []
+    if cond.get("air_temp") is not None:
+        bits.append(f"air {cond['air_temp']:.0f}C")
+    if cond.get("track_temp") is not None:
+        bits.append(f"track {cond['track_temp']:.0f}C")
+    if cond.get("sky"):
+        bits.append(f"sky {cond['sky']}")
+    if cond.get("rain") is not None:
+        r = cond["rain"]
+        bits.append("track dry" if r < 0.1 else "track damp" if r < 0.35 else "track wet" if r < 0.7 else
+                    "track soaking wet")
+    if cond.get("precip"):
+        bits.append(f"raining ({cond['precip']:.0%})")
+    for k, when in (("rain_in_10", "10"), ("rain_in_30", "30")):
+        if cond.get(k):
+            bits.append(f"rain forecast in {when} min ({cond[k]:.0%})")
+    mine = []
+    if cond.get("fuel_laps") is not None:
+        mine.append(f"fuel for about {cond['fuel_laps']:.1f} laps")
+    if cond.get("tyre"):
+        mine.append(f"on {cond['tyre']} tyres")
+    if cond.get("incidents"):
+        mine.append(f"{cond['incidents']}x incident points")
+    if bits:
+        lines.append("CONDITIONS: " + ", ".join(bits) + ".")
+    if mine and me:
+        lines.append("VIEWER'S CAR: " + ", ".join(mine) + ".")
     if tr.fastest:
         lines.append(f"FASTEST LAP: {writer.n(tr.fastest[1])}, {_t(tr.fastest[0])} on lap {tr.fastest[2]}.")
     bats = []
@@ -230,6 +270,10 @@ def describe(e, writer):
         return f"{n(c[0])} (viewer's driver) finished P{d.get('pos')} from P{d.get('grid')} on the grid"
     if k == "contact":
         return f"{n(c[0])} and {n(c[1])} made contact"
+    if k == "incident":
+        return f"{n(c[0])} picked up {d.get('points')} incident points, {d.get('total')} in total"
+    if k == "penalty" and d.get("total"):
+        return f"{n(c[0])} was given a penalty ({d.get('total')} so far)"
     if k == "start":
         return "the race started"
     if k == "final_lap":

@@ -98,6 +98,12 @@ class Car:
         self.gap: Optional[float] = None                 # to the leader
         self.laps_down = 0
         self.mentioned = -1e9
+        self.number = e.get("number")                    # from the sims that say (iRacing, rF2/LMU)
+        self.team = e.get("team")
+        self.incidents = e.get("incidents")
+        self.tyre = e.get("tyre")
+        self.penalties = e.get("penalties")
+        self.tyre_in = None                              # the compound it came into the pits on
 
     def __repr__(self):
         return f"<Car {self.call} P{self.position}>"
@@ -125,6 +131,7 @@ class RaceTracker:
         self.session, self.track = session, track
         self.game = self.player_car = None
         self.cars: dict = {}
+        self.cond: dict = {}                             # weather, temperatures, the viewer's fuel and tyres
         self.order: list = []
         self._cand, self._cand_since = None, 0.0
         self.track_len = 4000.0
@@ -168,6 +175,7 @@ class RaceTracker:
             self._first_seen = now
         self.track_len = f.track_len or self.track_len
         self.race_laps = f.race_laps or 0
+        self._conditions(f)
         prev_tl, self.time_left = self.time_left, f.time_left
         ev: list = []
         self._ingest(f.field, now, dt, ev)
@@ -193,6 +201,7 @@ class RaceTracker:
                 self.player_car = cid
             c.position = e.get("position") or 0
             c.status = e.get("status")
+            self._extras(c, e, now, ev)
             self._move(c, e, now, dt)
             self._pit(c, bool(e.get("in_pit")), now, ev)
             self._lap(c, e, now, ev)
@@ -243,12 +252,57 @@ class RaceTracker:
         c.g = g
         c.dist, c._dist_t = dist, now
 
+    # ------------------------------------------------------------------ what the sims add
+    def _conditions(self, f):
+        """Weather, temperatures and the viewer's fuel and tyres, from the sims that report them."""
+        cond = self.__dict__.setdefault("cond", {})
+        for k in ("air_temp", "track_temp", "sky", "rain", "precip", "rain_in_10", "rain_in_30", "tyre", "incidents"):
+            v = getattr(f, k, None)
+            if v is not None:
+                cond[k] = v
+        fuel = getattr(f, "fuel", None)
+        if fuel and fuel > 0:
+            lap = getattr(f, "laps_done", None)
+            prev = cond.get("_fuel_lap")
+            if prev is None or lap is None or lap < prev[0]:
+                cond["_fuel_lap"] = (lap, fuel)
+            elif lap > prev[0]:
+                used = (prev[1] - fuel) / (lap - prev[0])
+                if 0.05 < used < 50:                         # not a refuel, not a reset
+                    old = cond.get("fuel_per_lap")
+                    cond["fuel_per_lap"] = used if old is None else old * 0.6 + used * 0.4
+                cond["_fuel_lap"] = (lap, fuel)
+            cond["fuel"] = fuel
+            if cond.get("fuel_per_lap"):
+                cond["fuel_laps"] = fuel / cond["fuel_per_lap"]
+
+    def _extras(self, c, e, now, ev):
+        """Numbers, teams, tyres, incident points and penalties. A jump in incident points or a new penalty is
+        news."""
+        for k in ("number", "team", "tyre"):
+            if e.get(k):
+                setattr(c, k, e[k])
+        racing = self.session == "race" and self.started and not self.finished
+        inc = e.get("incidents")
+        if inc is not None:
+            if racing and c.incidents is not None and inc - c.incidents >= 4:
+                ev.append(Event("incident", now, 60 if c.player else 45, (c.id,),
+                                {"points": inc - c.incidents, "total": inc}, ttl=12, key=f"inc{c.id}.{inc}"))
+            c.incidents = inc
+        pen = e.get("penalties")
+        if pen is not None:
+            if racing and c.penalties is not None and pen > c.penalties:
+                ev.append(Event("penalty", now, 70 if c.player else 55, (c.id,), {"total": pen}, ttl=15,
+                                key=f"pen{c.id}.{pen}"))
+            c.penalties = pen
+
     def _pit(self, c, in_pit, now, ev):
         racing = self.session == "race" and self.started
         if in_pit and not c.in_pit:
             c.in_pit = True
             c.pit_lap = True
             c.pit_in_t, c.pit_in_pos = now, c.position
+            c.tyre_in = c.tyre
             if racing and not c.finished:
                 c.pits += 1
                 prio = 85 if c.player else 72 if c.position == 1 else 55 if c.position <= 5 else 38
@@ -264,7 +318,9 @@ class RaceTracker:
             took = (c.pit_out_t - c.pit_in_t) if c.pit_in_t else None
             prio = 80 if c.player else 62 if (c.position or 99) <= 3 or (c.pit_in_pos or 99) <= 3 else 40
             ev.append(Event("pit_out", now, prio, (c.id,), {"pos": c.position, "was": c.pit_in_pos,
-                                                            "lane_time": took}, ttl=14, key=f"pout{c.id}.{c.pits}"))
+                                                            "lane_time": took, "tyre": c.tyre,
+                                                            "tyre_was": c.tyre_in}, ttl=14,
+                            key=f"pout{c.id}.{c.pits}"))
 
     def _lap(self, c, e, now, ev):
         laps = e.get("laps") or 0

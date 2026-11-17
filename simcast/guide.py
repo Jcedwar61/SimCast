@@ -136,6 +136,7 @@ AI commentary on or off, the provider to use first, keys, and the model. Automat
 ## Sims
 - Set up games automatically (EA WRC, DiRT Rally 2.0, ACC).
 - F1 25 port, and sharing UDP port 20777 with SimHub.
+- What the booth knows depends on the sim. iRacing adds air and track temperature, the sky, track wetness, car numbers, teams, tyre compounds and every driver's incident points; Le Mans Ultimate and rFactor 2 add temperatures, cloud, rain, car numbers, tyre compounds and penalties; ACC adds car numbers and the rain forecast. With fuel and tyres in the data, the AI argues strategy: whether the fuel reaches the flag, who's on the wrong tyre, rain on the way.
 
 ## About
 - Updates: SimCast checks for a new version when it starts and every 12 hours. A new version shows a bar at the top of the window. Install update downloads the setup wizard from GitHub, checks it against the checksum published for the release, and runs it: it closes SimCast and updates it, keeping your settings. Not now skips that version. Nothing is installed until you click.

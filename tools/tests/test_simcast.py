@@ -1093,4 +1093,81 @@ tpl = roster_mod.write_template(os.path.join(rdir, "new.csv"), ["Ana Lima", "Bo 
 check(set(roster_mod.parse(open(tpl, encoding="utf-8-sig").read())) == {"ana lima", "bo chen"},
       "roster: Make one writes a roster that reads back")
 
+# ---------------------------------------------------------------- more from the sims: weather, tyres, fuel, incidents
+yaml = """WeekendInfo:
+ TrackDisplayName: Spa
+ TrackLength: 7.00 km
+ TrackAirTemp: 21.50 C
+ TrackSurfaceTemp: 34.20 C
+ TrackSkies: Partly Cloudy
+DriverInfo:
+ DriverCarIdx: 1
+ DriverTires:
+ - TireIndex: 0
+   TireCompoundType: "Hard"
+ - TireIndex: 1
+   TireCompoundType: "Wet"
+ Drivers:
+ - CarIdx: 0
+   UserName: Ana Lima
+   TeamName: Lima Racing
+   CarNumber: "12"
+   CarScreenName: Porsche 911 GT3 R
+   CurDriverIncidentCount: 4
+ - CarIdx: 1
+   UserName: Bo Chen
+   TeamName: Bo Chen
+   CarNumber: "7"
+   CarScreenName: BMW M4 GT3
+   CurDriverIncidentCount: 0
+SessionInfo:
+ Sessions:
+ - SessionNum: 0
+   SessionType: Race
+   SessionLaps: 20
+"""
+inf = sc._ir_session_info(yaml)
+check(inf["air_temp"] == 21.5 and inf["track_temp"] == 34.2 and inf["sky"] == "partly cloudy" and
+      inf["tyres"] == {0: "hard", 1: "wet"}, "iRacing: air and track temperature, sky and the tyre compounds")
+check(inf["drivers"][0]["number"] == "12" and inf["drivers"][0]["team"] == "Lima Racing" and
+      inf["drivers"][0]["incidents"] == 4 and inf["drivers"][1]["team"] is None,
+      "iRacing: car numbers, teams (not a solo driver's own name) and incident points")
+check(sc._car_number("Ferrari AF Corse 2023 #51") == "51" and sc._car_number("Ferrari 499P") is None,
+      "LMU/rF2: the car number from the entry name")
+fe = sc.field_entry(3, "X Y", "GT3", 1, 2, 0.5, number="#12", incidents=4, tyre="soft", penalties=1)
+check(fe["number"] == "12" and fe["incidents"] == 4 and fe["tyre"] == "soft" and fe["penalties"] == 1,
+      "field entries carry numbers, incidents, tyres and penalties")
+
+xtr = RaceTracker(log=lambda m: None)
+xev, t = [], 0.0
+while t < 240:
+    f = frame(pass_scn(t), t, race_laps=20)
+    for e in f.field:
+        e["number"] = str(10 + e["id"])
+        e["tyre"] = "medium" if t < 150 else "soft"
+        e["incidents"] = 0 if t < 100 or e["id"] != 1 else 4
+        e["penalties"] = 0 if t < 120 or e["id"] != 0 else 1
+    f.air_temp, f.track_temp, f.sky, f.rain = 19.0, 31.0, "overcast", 0.5
+    f.fuel = 60.0 - 1.0 * f.laps_done - f.pct
+    f.tyre, f.incidents = "medium", 2
+    xev += [e for e in xtr.update(f, t)]
+    t += 1 / 30
+xk = [e.kind for e in xev]
+check("incident" in xk and next(e for e in xev if e.kind == "incident").cars == (1,),
+      "incidents: four points in one go is news")
+check("penalty" in xk, "penalties: a new one is news")
+check(xtr.cond.get("air_temp") == 19.0 and abs((xtr.cond.get("fuel_per_lap") or 0) - 1.0) < 0.2 and
+      xtr.cond.get("fuel_laps"), f"conditions and the viewer's fuel per lap ({xtr.cond.get('fuel_per_lap')})")
+xw = Writer(xtr, {}, seed=1)
+xb = ai_mod.race_brief(xtr, xw, [], [])
+check("CONDITIONS: air 19C, track 31C, sky overcast, track wet" in xb and "VIEWER'S CAR: fuel for about" in xb,
+      "the AI gets the conditions and the viewer's fuel")
+check("#11" in xb and "on soft tyres" in xb and "4x incident points" in xb and "1 penalty" in xb,
+      "the AI gets numbers, tyres, incident points and penalties for every car")
+from simcast.director import test_event  # noqa: E402
+po = xw.ev_pit_out(test_event("pit_out", 300.0, (0,), pos=2, was=1, lane_time=28.0, tyre="wet", tyre_was="soft"), 300.0)
+check("Off the soft tyres and on to the wet" in po[0].text, "pit stops: a tyre change is called")
+check("Only state facts" in ai_mod.SYSTEM and "argue about them" in ai_mod.SYSTEM,
+      "the AI may use (and argue over) the tyres, fuel and weather it's given")
+
 done()

@@ -902,6 +902,11 @@ class Writer(BanterMixin):
             f"Stop done for {nm}, rejoining in {place(pos)}{lane_s}.",
             f"And {nm} is away, back out in {place(pos)}{lane_s}.",
         ])
+        ty, was_ty = d.get("tyre"), d.get("tyre_was")
+        if ty and was_ty and ty != was_ty:
+            report += f" Off the {was_ty} tyres and on to the {ty}."
+        elif ty and self._mia and self.chance(0.4):
+            report += f" On {ty} tyres."
         if cmp_ and self._mia:
             report += " " + cmp_
         out = [Line(who, report, 1)]
@@ -1041,6 +1046,20 @@ class Writer(BanterMixin):
             f"Have a look at {self.n(a, now)} again. Did anything come off there?",
             "Hard racing, and they've both paid a little for it.",
         ], energy=3)
+
+    def ev_incident(self, e, now):
+        """iRacing incident points: a jump of four or more is contact or a big moment the sim has scored."""
+        a = e.cars[0]
+        pts, tot = e.data.get("points", 4), e.data.get("total", 0)
+        nm = self.n(a, now)
+        out = [Line(LEAD, self.pick("inc", [
+            f"That's {num_words(pts)} incident points for {nm}. Something's happened there.",
+            f"{nm} has just picked up {num_words(pts)} incident points.",
+        ]), 1)]
+        if tot >= 12:
+            out.append(Line(ANALYST, f"That's {num_words(tot)} for the race now. {nm} needs to keep it clean from "
+                                     "here.", 1))
+        return out
 
     def ev_penalty(self, e, now):
         a = e.cars[0]
