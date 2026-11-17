@@ -157,6 +157,14 @@ def openai_chat(key, model, messages, max_tokens=300, timeout=20.0, provider="op
         if choice.finish_reason == "content_filter":
             raise OpenAIReplyError(f"{name} filtered that answer. Try asking it another way.")
         text = (msg.content or "").strip()
+        try:                                                  # for the cost estimate in Settings > AI
+            from .usage import METER, estimate_tokens
+            u = getattr(r, "usage", None)
+            METER.chat(provider, getattr(u, "prompt_tokens", None) or
+                       sum(estimate_tokens(m.get("content")) for m in messages),
+                       getattr(u, "completion_tokens", None) or estimate_tokens(text))
+        except Exception:
+            pass
         cut = choice.finish_reason == "length"
         if text and not cut:
             return text
@@ -235,6 +243,11 @@ def ai_chat_stream(cfg, messages, on_text, max_tokens=300, timeout=20.0):
                 on_text(piece)
         text = "".join(got).strip()
         if text:
+            try:
+                from .usage import METER, estimate_tokens
+                METER.chat(p, sum(estimate_tokens(m.get("content")) for m in messages), estimate_tokens(text))
+            except Exception:
+                pass
             return text
         raise OpenAIReplyError(f"{spec['name']} sent an empty answer.")
     except Exception:

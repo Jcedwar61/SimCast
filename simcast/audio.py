@@ -367,10 +367,14 @@ class BroadcastAudio(BaseAudio):
                 model=tts_model(cfg), voice=voice, input=ln.text, instructions=instructions,
                 response_format="mp3", speed=speed) as resp:
             resp.stream_to_file(path)
+        from .usage import METER
+        METER.speech("openai-voice", len(ln.text))
 
     def _synth_eleven(self, ln, voice, cfg, path):
         from . import eleven
+        from .usage import METER
         eleven.synth(cfg, voice, ln.text, getattr(ln, "mood", ""), path)
+        METER.speech("elevenlabs", len(ln.text))
 
     def _synth_google(self, ln, voice, cfg, path):
         from gtts import gTTS

@@ -79,7 +79,7 @@ class Recap:
         return [(self._rel(t, offset), text) for t, kind, prio, text, _ in self.events
                 if prio >= HIGHLIGHT_MIN and kind not in ("intro", "start_review", "podium") and self._rel(t) > -5]
 
-    def write(self, tr, writer, offset=0.0, demo=False):
+    def write(self, tr, writer, offset=0.0, demo=False, cost=""):
         """The recap file for the race just run. Returns its path, or None if there's nothing to write."""
         if len(self.lines) < 3:
             return None
@@ -107,6 +107,8 @@ class Recap:
         out += [f"{stamp(t)} {title}" for t, title in self.chapters(offset)]
         out += ["```", "", "## Highlights", ""]
         out += [f"- {stamp(t)} {text[:1].upper() + text[1:]}" for t, text in self.highlights(offset)] or ["- (none)"]
+        if cost:
+            out += ["", "## AI and voice cost (estimate)", "", cost]
         out += ["", "## Transcript", ""]
         out += [f"[{stamp(self._rel(t, offset))}] **{name}:** {text}" for t, name, text in self.lines]
         try:

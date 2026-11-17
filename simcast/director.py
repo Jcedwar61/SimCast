@@ -144,7 +144,9 @@ class Director:
         if not cfg.get("recap", True):
             return None
         try:
-            self.recap_path = self.recap.write(self.tr, self.writer, float(cfg.get("recap_offset") or 0), demo=demo)
+            from .usage import METER
+            self.recap_path = self.recap.write(self.tr, self.writer, float(cfg.get("recap_offset") or 0), demo=demo,
+                                               cost=METER.summary(cfg.get("ai_rates") or ""))
         except Exception as ex:
             self.log(f"Recap: {ex}")
             self.recap_path = None
@@ -156,6 +158,11 @@ class Director:
         self.reset()
 
     def reset(self):
+        try:
+            from .usage import METER
+            METER.new_race(self.cfg_fn().get("ai_rates") or "")
+        except Exception:
+            pass
         self.pending.clear()
         self._keys.clear()
         self.followups.clear()

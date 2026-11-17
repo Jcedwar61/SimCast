@@ -874,6 +874,11 @@ class SettingsWindow:
                        (f"\nConversations: {st['ai_convo']}" if st.get("ai_convo") else "") +
                        (f"\nLast problem: {st['ai_error']}" if st.get("ai_error") else "")
                   ).grid(row=r + 2, column=0, columnspan=3, sticky="w", pady=(10, 0))
+        from .usage import DEFAULT_RATES, METER
+        self.row(f, r + 3, "Cost rates", self.entry(f, "ai_rates", cfg, width=60))
+        self.note(f, r + 4, f"{METER.summary(cfg.get('ai_rates') or '')} Rough estimate: dollars per million tokens "
+                            f"(in/out) and per million characters for voices. Empty uses these defaults, which may be "
+                            f"out of date: {DEFAULT_RATES}.", span=3)
 
         # ---------------------------------------------------------------- Sims
         f = page("Sims")

@@ -57,7 +57,7 @@ DEFAULTS = {
     "ai_convo": "auto", "drive_mode": "stream", "race_sponsor": "",
     "memory": True, "roster_file": "", "obs_captions": False, "obs_port": 8686, "twitch_channel": "",
     "twitch_chat": True, "twitch_only_booth": False,
-    "recap": True, "recap_offset": 0, "hotkey_skip": "", "hotkey_mute": "", "hotkey_me": "", "hotkey_mode": "", "my_sponsors": "", "driver_sponsors": "", "invent_sponsors": True,
+    "recap": True, "recap_offset": 0, "ai_rates": "", "hotkey_skip": "", "hotkey_mute": "", "hotkey_me": "", "hotkey_mode": "", "my_sponsors": "", "driver_sponsors": "", "invent_sponsors": True,
 }
 STYLES = {   # the booth in one click; Custom is anything else
     "tv": {"chatter": "normal", "focus": "balanced", "booth_tone": "broadcast", "swearing": False, "banter": "normal"},

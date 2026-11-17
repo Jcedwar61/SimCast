@@ -1371,7 +1371,7 @@ scast = headless_run(laps=5, seed=5, booth=sb2, log=lambda m: None)
 check(any(ln.text.startswith("AI-REACT") for _, ln in scast.audio.spoken), "streaming: reactions are heard in a race")
 
 try:
-    import openai as _oa  # noqa: F401
+    __import__("openai")
     _oc, _ac = providers.openai_client, providers.ai_chat
     providers.openai_client = lambda *a, **k: (_ for _ in ()).throw(ConnectionError("no network"))
     providers.ai_chat = lambda cfg, m, max_tokens=0, timeout=0: '{"lines": []}'
@@ -1383,5 +1383,22 @@ try:
     check(whole == '{"lines": []}' and pieces == [whole], "streaming: if it can't stream, the ordinary request is used")
 except ImportError:
     pass
+
+# ---------------------------------------------------------------- cost estimate
+from simcast.usage import Meter, parse_rates  # noqa: E402
+check(parse_rates("openai 2/8, elevenlabs 200; junk") == {"openai": (2.0, 8.0), "elevenlabs": (200.0,)},
+      "cost: rates read as written")
+mt = Meter()
+mt.chat("openai", 1_000_000, 100_000)
+mt.speech("elevenlabs", 10_000)
+check(abs(Meter.cost(mt.race) - (2.0 + 0.8 + 2.0)) < 1e-6, "cost: tokens and characters priced with the default rates")
+check(abs(Meter.cost(mt.race, "openai 1/1") - (1.0 + 0.1 + 2.0)) < 1e-6, "cost: edited rates win")
+mt.race_t0 -= 600
+summ = mt.summary()
+check("about $4.80" in summ and "OpenAI 1000.0k tokens in, 100.0k out" in summ and "ElevenLabs 10.0k chars" in summ
+      and "30-minute race is about $14.40" in summ, f"cost: the summary for Settings ({summ})")
+mt.new_race()
+check(not mt.race and "Last race: about $4.80" in mt.summary(), "cost: a new race starts the count again")
+check(Meter().summary() == "Nothing paid for has been used yet.", "cost: nothing used, nothing to pay")
 
 done()
