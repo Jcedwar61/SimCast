@@ -2,8 +2,9 @@
 voices: the lead (play-by-play), the analyst (colour) and the pit-lane reporter.
 
 These lines are instant (no network), so the big moments are called the moment they happen; the AI booth
-(ai.py) adds colour and analysis on top when it's switched on. Drivers are named, never 'he' or 'she': the
-sims don't say, and a wrong guess is worse than a name.
+(ai.py) adds colour and analysis on top when it's switched on. Drivers are called by name; where the booth needs a
+pronoun it reads the first name (persona.py), and a name that isn't clearly a man's or a woman's stays 'they'.
+The booth's personality, random chat and sponsor mentions are in banter.py.
 """
 from __future__ import annotations
 
@@ -12,6 +13,7 @@ import re
 from collections import deque
 from dataclasses import dataclass
 
+from .banter import BanterMixin
 from .race import CAUTION_FLAGS, call_name
 
 LEAD, ANALYST, PIT = "lead", "analyst", "pit"
@@ -47,9 +49,10 @@ class Line:
     who: str
     text: str
     energy: int = 1          # 0 calm, 1 engaged, 2 excited, 3 the big moments
+    mood: str = ""           # how it's said: excited, angry, gutted, ... (persona.MOODS); "" lets the energy decide
 
     def as_dict(self):
-        return {"who": self.who, "text": self.text, "energy": self.energy}
+        return {"who": self.who, "text": self.text, "energy": self.energy, "mood": self.mood}
 
 
 _ONES = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve",
@@ -163,7 +166,7 @@ def mins_words(s) -> str:
     return f"{num_words(m)} minutes"
 
 
-class Writer:
+class Writer(BanterMixin):
     """Turns Events (race.py) into Lines. Keeps track of which phrasings were used lately so the booth doesn't
     sound like a loop, and which drivers were mentioned (the director uses that to spread the airtime)."""
 
@@ -257,7 +260,7 @@ class Writer:
         for ln in lines or []:
             if not ln:
                 continue
-            ln = Line(ln.who, _sentences(ln.text), ln.energy)
+            ln = Line(ln.who, _sentences(ln.text), ln.energy, ln.mood)
             if ln.who in (LEAD, ANALYST) and ln.who == who and run >= FLOOR_MAX:
                 other = ANALYST if ln.who == LEAD else LEAD
                 out.append(Line(other, self.pick("brk_" + other, BREAKS[other]), 1))
@@ -503,12 +506,12 @@ class Writer:
         self._pick_i = 0
         f = getattr(self, "ev_" + e.kind, None)
         lines = f(e, now) if f else []
-        lines = [Line(ln.who, ln.text[:1].upper() + ln.text[1:], ln.energy) for ln in (lines or []) if ln and ln.text]
+        lines = [Line(ln.who, ln.text[:1].upper() + ln.text[1:], ln.energy, ln.mood) for ln in (lines or []) if ln and ln.text]
         if interrupting and lines and lines[0].who == LEAD and lines[0].energy >= 2 and \
                 e.kind in ("overtake", "stopped", "moment", "contact", "retired"):
             cut = self.pick("cut", ["Oh, hang on!", "Wait a moment!", "Oh, look at this!", "Hold on!", ""])
             if cut:
-                lines[0] = Line(LEAD, f"{cut} {lines[0].text}", lines[0].energy)
+                lines[0] = Line(LEAD, f"{cut} {lines[0].text}", lines[0].energy, lines[0].mood)
         return self.floor(lines)
 
     def ev_intro(self, e, now):
@@ -1669,6 +1672,7 @@ class Writer:
         self.moments.clear()
         self.passes = self.lead_changes = 0
         self.asides_done.clear()
+        self.__dict__.pop("_ob_used", None)
         self.last_aside = -1e9
 
     def covered(self, key, now, window=PAIR_TTL):
@@ -1802,14 +1806,14 @@ class Writer:
         return any(c.in_pit and not c.gone for c in self.tr.cars.values() if now - (c.pit_in_t or 0) < 40)
 
     # --- asides: the side conversations a real booth drifts into between stories, always about this race
-    ASIDE_GAP = 55.0             # seconds between side conversations at the least
 
     def _aside(self, now, focus="balanced"):
         """Now and then, a side conversation: what it's like in the car in a fight like this one, the race in
         numbers, who wins it, what the pit lane looks like, the viewer's driver's afternoon. Random, but always
         tied to what is on the screen, and never the same one twice in a race."""
         tr = self.tr
-        if now - self.last_aside < self.ASIDE_GAP or not tr.started or tr.finished or not self.chance(0.4):
+        gap, odds = self.aside_pace()
+        if now - self.last_aside < gap or not tr.started or tr.finished or not self.chance(odds):
             return []
         ld = tr.leader()
         left = self._laps_left()
@@ -1818,6 +1822,11 @@ class Writer:
         topics = ["numbers", "defend", "chase", "stops", "final", "start", "viewer", "swap", "winner", "pitview",
                   "pressure"]
         self.rng.shuffle(topics)
+        if self.chance({"rare": 0.15, "normal": 0.35, "lots": 0.7}.get(self.cfg.get("banter"), 0.35)):
+            lines = self._banter(now)                 # a random conversation: a sponsor read or a tangent
+            if lines:
+                self.last_aside = now
+                return lines
         if focus == "me" and "viewer" in topics:
             topics.remove("viewer")
             topics.insert(0, "viewer")

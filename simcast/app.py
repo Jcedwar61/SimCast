@@ -16,7 +16,7 @@ from .director import Director
 from .race import RaceTracker
 from .solo import RallyTracker, SoloTracker, StageStore
 from . import ai as ai_mod
-from . import providers, sims
+from . import persona, providers, sims
 
 APP_NAME = "SimCast"
 APP_VERSION = "1.4"
@@ -52,10 +52,13 @@ DEFAULTS = {
     "f1_port": 20777, "dr2_port": 20779, "udp_share_simhub": True, "game_setup": True, "guide_seen": False,
     "demo_laps": 8, "captions": False, "captions_pos": None, "window": None,
     "check_updates": True, "update_skip": "",
+    "booth_tone": "broadcast", "swearing": False, "banter": "normal", "driver_pronouns": "auto",
+    "ai_convo": "auto", "race_sponsor": "", "my_sponsors": "", "driver_sponsors": "", "invent_sponsors": True,
 }
 CHOICES = {"tts": ("on", "off"), "chatter": ("quiet", "normal", "chatty"),
            "focus": ("field", "balanced", "me"), "ai_provider": ("openai", "gemini", "deepseek"),
-           "simcoach_duck": tuple(DUCK_LEVELS)}
+           "simcoach_duck": tuple(DUCK_LEVELS), "booth_tone": persona.TONES, "banter": persona.BANTER,
+           "driver_pronouns": persona.PRONOUN_CHOICES, "ai_convo": providers.CONVO_CHOICES}
 SECRET_KEYS = ("openai_api_key", "gemini_api_key", "deepseek_api_key")
 ROLE_LABEL = {"lead": "lead", "analyst": "analyst", "pit": "pit lane"}
 
@@ -95,6 +98,11 @@ def clean_config(cfg):
         cfg["demo_laps"] = 8
     for k in ("lead_name", "analyst_name", "pit_name", "driver_name"):
         cfg[k] = " ".join(str(cfg.get(k) or "").split())[:40]
+    for k in ("race_sponsor", "my_sponsors"):
+        cfg[k] = " ".join(str(cfg.get(k) or "").split())[:120]
+    cfg["driver_sponsors"] = str(cfg.get("driver_sponsors") or "").strip()[:2000]
+    for k in ("swearing", "invent_sponsors"):
+        cfg[k] = bool(cfg.get(k, DEFAULTS[k]))
     cfg["check_updates"] = bool(cfg.get("check_updates", True))
     cfg["update_skip"] = str(cfg.get("update_skip") or "")[:40]
     return cfg
@@ -132,9 +140,13 @@ class SimCast:
         self.audio = audio
         self.booth = ai_mod.AIBooth(self.config, providers.ai_chat, providers._json_reply,
                                     label_fn=providers.ai_label, log=log) if booth else None
+        # a second booth for the conversations, on its own provider (DeepSeek, say) and its own thread
+        self.convo_booth = ai_mod.AIBooth(self.config, providers.convo_chat, providers._json_reply,
+                                          label_fn=providers.convo_label, log=log) if booth else None
         if booth:
             providers.detect_in_background(self.cfg, log=log)
-        self.director = Director(self.tracker, self.audio, self.config, booth=self.booth, log=log)
+        self.director = Director(self.tracker, self.audio, self.config, booth=self.booth, log=log,
+                                 convo_booth=self.convo_booth)
         self.status = "Waiting for a sim..."
         self.source = None
         self.demo = None
@@ -174,6 +186,7 @@ class SimCast:
         cfg = self.config()
         name = cfg.get(f"{line.who}_name") or line.who
         self.lines.append({"who": line.who, "name": name, "text": line.text, "energy": line.energy,
+                           "mood": getattr(line, "mood", ""),
                            "t": time.time()})
         self.director.heard(line)
         self.log(f"{name.upper():>6} | {line.text}")
@@ -363,7 +376,9 @@ class SimCast:
             "time_left": tr.time_left, "flag": tr.flag, "started": tr.started, "finished": tr.finished,
             "standings": standings, "lines": list(self.lines)[-40:], "on_air": self.director.on_air,
             "speaking": self.audio.speaking(time.monotonic()),
-            "ai": self.booth.label() if self.booth else "", "ai_error": self.booth.last_error if self.booth else "",
+            "ai": self.booth.label() if self.booth else "",
+            "ai_convo": (lambda c: c if c and c != (self.booth.label() if self.booth else "") else "")(
+                self.convo_booth.label() if self.convo_booth else ""), "ai_error": self.booth.last_error if self.booth else "",
             "demo": self.demo is not None, "settings": public, "errors": list(self.errors),
             "voice_note": getattr(self.audio, "engine_note", ""),
             "simcoach": bool(getattr(self.audio, "link", None) and self.audio.link.connected()),
@@ -372,7 +387,7 @@ class SimCast:
         }
 
 
-def headless_run(laps=6, seed=3, cfg=None, booth=None, max_t=3600.0, log=print, events=True):
+def headless_run(laps=6, seed=3, cfg=None, booth=None, max_t=3600.0, log=print, events=True, convo_booth=None):
     """A whole demo race on a simulated clock with silent audio: returns the SimCast (lines in .lines and
     .audio.spoken). Used by --test and the tests."""
     cfg = dict(DEFAULTS, **(cfg or {}))
@@ -382,6 +397,9 @@ def headless_run(laps=6, seed=3, cfg=None, booth=None, max_t=3600.0, log=print, 
         cast.booth = booth
         cast.director.booth = booth
         booth.clock = lambda: clock[0]
+    if convo_booth is not None:
+        cast.convo_booth = cast.director.convo_booth = convo_booth
+        convo_booth.clock = lambda: clock[0]
     demo = DemoRace(laps=laps, seed=seed, player_name=cfg.get("driver_name", ""), events=events)
     dt = 1.0 / LOOP_HZ
     clock = [0.0]

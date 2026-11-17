@@ -28,6 +28,11 @@ P = {"bg": "#090b10", "panel": "#11151d", "panel2": "#171c26", "line": "#252d3b"
 WHO_COLOUR = {"lead": P["cyan"], "analyst": P["red"], "pit": "#f2f2f2"}
 CHATTER_LABELS = {"quiet": "Quiet", "normal": "Normal", "chatty": "Chatty"}
 FOCUS_LABELS = {"field": "Whole field", "balanced": "Balanced", "me": "Mostly me"}
+TONE_LABELS = {"broadcast": "Professional", "loose": "Loose", "unhinged": "Unhinged"}
+BANTER_LABELS = {"rare": "Rarely", "normal": "Sometimes", "lots": "Whenever there's time"}
+CONVO_LABELS = {"auto": "Automatic (a second provider with a key)", "same": "The same as above",
+                "openai": "OpenAI", "gemini": "Google Gemini", "deepseek": "DeepSeek"}
+PRONOUN_LABELS = {"auto": "From my name", "he": "He", "she": "She", "they": "They"}
 PROVIDERS = {"openai": "OpenAI", "gemini": "Google Gemini", "deepseek": "DeepSeek"}
 
 
@@ -700,7 +705,7 @@ class Captions:
 
 
 class SettingsWindow:
-    """Settings, in five tabs: Commentary, Voices, AI, Sims, About."""
+    """Settings, in six tabs: Commentary, Booth, Voices, AI, Sims, About."""
 
     def __init__(self, app):
         self.app = app
@@ -729,11 +734,32 @@ class SettingsWindow:
         self.row(f, 1, "Follow", self.radios(f, "focus", FOCUS_LABELS, cfg))
         self.row(f, 2, "Your name", self.entry(f, "driver_name", cfg))
         self.note(f, 3, "As the booth should say it. Empty: the name your sim uses.")
-        self.row(f, 4, "Pit lane", self.check(f, "pit_reporter", "A pit-lane reporter covers the stops", cfg))
+        self.row(f, 4, "Call me", self.radios(f, "driver_pronouns", PRONOUN_LABELS, cfg))
+        self.note(f, 5, "Other drivers are 'he' or 'she' when their first name makes it clear, 'they' when it "
+                        "doesn't.")
+        self.row(f, 6, "Pit lane", self.check(f, "pit_reporter", "A pit-lane reporter covers the stops", cfg))
         laps = ttk.Frame(f, style="Card.TFrame")
         self.entry(laps, "demo_laps", cfg, width=5).pack(side="left")
         ttk.Label(laps, text="  laps", style="Card.TLabel", foreground=P["mut"]).pack(side="left")
-        self.row(f, 5, "Demo race", laps, sticky="w")
+        self.row(f, 7, "Demo race", laps, sticky="w")
+
+        # ---------------------------------------------------------------- Booth
+        f = page("Booth")
+        self.row(f, 0, "Personality", self.radios(f, "booth_tone", TONE_LABELS, cfg))
+        self.note(f, 1, "Professional: a TV booth. Loose: more banter, ribbing and big reactions. Unhinged: wild "
+                        "overreactions, rants, feuds and conspiracy theories, always set off by the race or by what "
+                        "was just said.")
+        self.row(f, 2, "Language", self.check(f, "swearing", "Let them swear when a moment earns it", cfg))
+        self.row(f, 3, "Random chat", self.radios(f, "banter", BANTER_LABELS, cfg))
+        self.note(f, 4, "How often the booth wanders into side conversations in the quiet spells. They always start "
+                        "from something on track and come back to the race.")
+        self.row(f, 5, "Race sponsor", self.entry(f, "race_sponsor", cfg, width=44))
+        self.row(f, 6, "Your sponsors", self.entry(f, "my_sponsors", cfg, width=44))
+        self.note(f, 7, "Comma-separated, e.g. Acme Oil, Bolt Energy.")
+        self.row(f, 8, "Other drivers", self.entry(f, "driver_sponsors", cfg, width=44))
+        self.note(f, 9, "Name: sponsors, separated by semicolons, e.g. Okafor: Acme Oil, Bolt; Lewis Hamilton: Zed "
+                        "Watches.")
+        self.row(f, 10, "", self.check(f, "invent_sponsors", "Make up sponsors for anyone without any", cfg))
 
         # ---------------------------------------------------------------- Voices
         f = page("Voices")
@@ -772,14 +798,18 @@ class SettingsWindow:
         # ---------------------------------------------------------------- AI
         f = page("AI")
         self.note(f, 0, "Without AI the booth calls every moment from its own lines. With a key, the two commentators "
-                        "talk to each other: the analyst answers the calls, quiet spells become a back-and-forth, "
-                        "and there's a sign-off at the end. Keys stay on this PC.", span=3)
+                        "talk to each other: the analyst answers the calls, quiet spells become real conversations "
+                        "that run on for a few exchanges, every line gets its emotion, and there's a sign-off at the end. Keys stay on this PC.", span=3)
         self.row(f, 1, "AI commentary", self.check(f, "ai_colour", "On", cfg))
         self.row(f, 2, "Use first", self.combo(f, "ai_provider", list(PROVIDERS), PROVIDERS, cfg))
         self.row(f, 3, "", self.check(f, "ai_fallback", "If it's down or out of credit, use another provider with a key", cfg))
+        self.row(f, 4, "Conversations", self.combo(f, "ai_convo", list(CONVO_LABELS), CONVO_LABELS, cfg))
+        self.note(f, 5, "A second AI that writes the booth's conversations alongside the first, so the chat keeps "
+                        "flowing while the big moments are answered. Automatic uses DeepSeek (or another provider) "
+                        "when it has a key.")
         has = cast.state()["settings"]["keys"]
         self.model_boxes = {}
-        r = 4
+        r = 6
         for p, label in PROVIDERS.items():
             self.row(f, r, f"{label} key", self.entry(f, f"{p}_api_key", cfg, show="•"),
                      ttk.Label(f, text="✓ set" if has.get(f"{p}_api_key") else "", style="Card.TLabel",
@@ -799,7 +829,8 @@ class SettingsWindow:
                        command=lambda: self._import(imp)).grid(row=r + 1, column=1, sticky="w", pady=(6, 0))
         st = cast.state()
         ttk.Label(f, style="Card.TLabel", foreground=P["green"] if st["ai"] else P["mut"], wraplength=500,
-                  text=(f"Now using: {st['ai']}" if st["ai"] else "No AI key yet: the booth uses its own lines.") +
+                  text=(f"Now using: {st['ai']} for reactions" if st["ai"] else "No AI key yet: the booth uses its own lines.") +
+                       (f"\nConversations: {st['ai_convo']}" if st.get("ai_convo") else "") +
                        (f"\nLast problem: {st['ai_error']}" if st.get("ai_error") else "")
                   ).grid(row=r + 2, column=0, columnspan=3, sticky="w", pady=(10, 0))
 
@@ -892,9 +923,11 @@ class SettingsWindow:
         return ttk.Combobox(f, textvariable=var, values=[labels[x] for x in values], state="readonly", width=44)
 
     def _fill_models(self, cb, p, cfg):
-        best = providers.best_model(cfg, p)
+        best = providers.best_model(cfg, p, "react")
+        talk = providers.best_model(cfg, p, "convo")
         choices = providers.model_choices(cfg, p)
-        labels = [f"Automatic (best: {best})"] + choices
+        labels = [f"Automatic (best: {best})" if talk == best else
+                  f"Automatic (reactions: {best}, conversations: {talk})"] + choices
         cb.configure(values=labels)
         cur = cfg.get(f"{p}_model") or providers.AUTO
         cb.set(labels[0] if cur == providers.AUTO or cur not in choices else cur)
@@ -911,7 +944,7 @@ class SettingsWindow:
         self.app.cast.update_settings(keys)
         self.win.destroy()
         self.app.open_settings()
-        self.app.settings_win.nb.select(2)
+        self.app.settings_win.nb.select(3)
 
     def _collect(self):
         out = {}

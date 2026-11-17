@@ -112,13 +112,22 @@ A race of about 30 minutes makes a few dozen short requests. With OpenAI voices 
 - How chatty: Quiet waits longer before filling a silence, Chatty fills it quickly. Big moments are always called.
 - Follow: Whole field is a neutral broadcast. Balanced (the default) makes your race one of the stories. Mostly me keeps the focus on you.
 - Your name: how the booth says it. Empty: the name your sim uses.
+- Call me: He, She or They for you (From my name reads your first name). Other drivers are he or she when their first name makes it clear, and they when it doesn't.
 - Pit-lane reporter: a third voice for pit stops.
+
+## Booth
+- Personality: Professional is a TV booth. Loose brings more banter, ribbing and big reactions. Unhinged brings wild overreactions, rants, feuds and conspiracy theories, always set off by the race or by what was just said.
+- Language: let them swear when a moment earns it. Off keeps it clean.
+- Random chat: how often the booth wanders into side conversations in the quiet spells (Rarely, Sometimes, or Whenever there's time). They start from something on track and come back to the race.
+- Emotion: every line has a feeling, from the racing and the conversation: excited at a pass, angry at a clumsy lunge, gutted when a race ends early, tense in a close fight, amused or annoyed at each other. The voices change pace, pitch and volume to match (OpenAI voices are told exactly how to say it), and the louder the personality, the bigger the swings.
+- With an AI key (OpenAI by default), quiet spells become real conversations: the booth waits a moment for the AI rather than reaching for a stock line, and keeps a good conversation going for a few more exchanges (more with Random chat on Whenever there's time).
+- Sponsors: the race's title sponsor, your own sponsors, and other drivers' (Name: sponsor, sponsor; separated by semicolons). Make up sponsors gives everyone else fictional backers. The booth works them in now and then, the way TV booths do.
 
 ## Voices
 Names and voices of the three commentators, Play on (the sound device), Volume and Speed.
 
 ## AI
-AI commentary on or off, the provider to use first, keys, and the model (Automatic is best).
+AI commentary on or off, the provider to use first, keys, and the model. Automatic is best: it picks for each job, the quickest good model for reactions to big moments (they have seconds to arrive) and the strongest writer for conversations (they're fetched ahead of time). Conversations: a second AI (DeepSeek, Gemini or OpenAI) that writes the booth's conversations alongside the first, so the chat keeps flowing while big moments are answered; Automatic uses DeepSeek, or another provider, when it has a key.
 
 ## Sims
 - Set up games automatically (EA WRC, DiRT Rally 2.0, ACC).

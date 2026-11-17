@@ -25,13 +25,16 @@ CUT_MARGIN = 20              # ... something at least this much smaller
 REACT_MIN = 60               # the AI analyst reacts to events at least this big
 FOLLOWUP_TTL = 12.0
 FILLER_TTL = 45.0
+AI_WAIT = 6.0                # a quiet spell waits this long for the AI booth's conversation before a stock line
+CONTINUE = {"rare": 0, "normal": 1, "lots": 3}    # follow-up exchanges to a conversation, per 'Random chat'
 RETRY_S = 2.5
 
 
 class Director:
-    def __init__(self, tracker, audio, cfg_fn, booth=None, log=print, seed=None):
+    def __init__(self, tracker, audio, cfg_fn, booth=None, log=print, seed=None, convo_booth=None):
         self.tr, self.audio, self.cfg_fn = tracker, audio, cfg_fn
         self.booth = booth                                   # ai.AIBooth or None
+        self.convo_booth = convo_booth                       # a second one for the conversations (its own provider)
         self.log = log
         self.writer = Writer(tracker, cfg_fn(), seed=seed)
         self.pending: list = []
@@ -45,6 +48,8 @@ class Director:
         self.winner_t = None
         self.last_said_t = -1e9
         self.on_air = True
+        self.convo_left, self.convo_t, self.convo_n = 0, -1e9, 0   # an AI conversation still running
+        self._filler_asked = -1e9
 
     # -------------------------------------------------------------- input
     AFTER_FLAG = {"winner", "podium", "player_finish", "retired", "contact", "penalty"}
@@ -83,6 +88,8 @@ class Director:
         self._keys.clear()
         self.followups.clear()
         self.ai_filler = None
+        self.convo_left, self.convo_t, self.convo_n = 0, -1e9, 0
+        self._filler_asked = -1e9
         self.wrapped = False
         self._wrap_asked = None
         self.winner_t = None
@@ -148,7 +155,15 @@ class Director:
                 lines, _ = self.ai_filler
                 self.ai_filler = None
                 self._air(lines, 20, now)
+                if now - self.convo_t > FILLER_TTL:            # a new conversation: it may run on a while
+                    self.convo_left = CONTINUE.get(cfg.get("banter", "normal"), 1)
+                    self.convo_n = 0
+                self.convo_t = now
                 return
+            talk = self._talk_booth()
+            if not mid_story and talk is not None and talk.busy and \
+                    now - self._filler_asked < AI_WAIT:
+                return                                           # the AI's conversation is on its way
             lines = self.writer.filler(now, cfg.get("focus", "balanced"))
             if lines:
                 self._air(lines, 20, now)
@@ -216,6 +231,11 @@ class Director:
         if not lines:
             return
         self.followups.clear()
+        try:
+            self.writer.feel(e, lines)                          # how it's said: the feeling of the moment
+            lines = lines + self.writer.extras(e, lines, now)   # an outburst or a sponsor, per the booth settings
+        except Exception as ex:
+            self.log(f"banter: {ex}")
         self._air(lines, e.priority, now)
         if e.priority >= REACT_MIN and e.kind not in ("start", "caution", "green"):
             self._ask_reaction(e, lines[-1], now)
@@ -226,8 +246,28 @@ class Director:
     def _brief(self):
         return ai_mod.race_brief(self.tr, self.writer, list(self.recent_events), list(self.transcript))
 
-    def _ask(self, task, priority, now, filler=False, answer=LEAD):
-        if self.booth is None or not self.booth.ready():
+    def _talk_booth(self):
+        """The booth that writes the conversations: the second provider's when it has one set up, so it works
+        alongside the main one instead of queueing behind the reactions."""
+        cb = self.convo_booth
+        if cb is not None and self.booth is not None:
+            try:
+                from .providers import ai_provider, convo_provider
+                cfg = self.cfg_fn()
+                if convo_provider(cfg) != ai_provider(cfg) and cb.available() and \
+                        self.clock_ok(cb):
+                    return cb
+            except Exception:
+                pass
+        return self.booth
+
+    @staticmethod
+    def clock_ok(b):
+        return b.clock() >= b.disabled_until                 # a second provider that keeps failing steps aside
+
+    def _ask(self, task, priority, now, filler=False, answer=LEAD, max_tokens=420):
+        booth = self._talk_booth() if filler else self.booth
+        if booth is None or not booth.ready():
             return False
         made = now
 
@@ -237,7 +277,8 @@ class Director:
             else:
                 self.followups.append((lines, made, priority))
         try:
-            return self.booth.request(task, self._brief(), done, opener=answer)
+            return booth.request(task, self._brief(), done, opener=answer, max_tokens=max_tokens,
+                                 purpose="convo" if filler else "react")
         except Exception as e:
             self.log(f"AI booth: {e}")
             return False
@@ -259,8 +300,16 @@ class Director:
             return
         if self.tr.session == "race" and not self.tr.started:
             return
+        if self.convo_left > 0 and now - self.convo_t < 30:
+            task, opener = ai_mod.continue_task(self.writer, self.convo_n + 1)
+            if self._ask(task, 20, now, filler=True, answer=opener):
+                self.convo_left -= 1
+                self.convo_n += 1
+                self._filler_asked = now
+            return
         task, opener = ai_mod.filler_task(self.writer, now, self.cfg_fn().get("focus", "balanced"))
-        self._ask(task, 20, now, filler=True, answer=opener)
+        if self._ask(task, 20, now, filler=True, answer=opener, max_tokens=520):
+            self._filler_asked = now
 
     def _wrap(self, now, idle):
         if self.wrapped or self.winner_t is None or now - self.winner_t < 25 or idle < 3:

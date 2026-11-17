@@ -269,6 +269,10 @@ calls = []
 def fake_chat(cfg, messages, max_tokens=300, timeout=20.0):
     calls.append(messages)
     task = messages[-1]["content"]
+    if "keep talking" in task:
+        return json.dumps({"lines": [{"who": "analyst", "text": f"AI-MORE {len(calls)}: oh, come off it.",
+                                      "energy": 2, "mood": "frustrated"},
+                                     {"who": "lead", "text": f"AI-MORE {len(calls)}: I'm serious!", "mood": "nonsense"}]})
     if "quiet moment" in task:
         return json.dumps({"lines": [{"who": "lead", "text": "AI-FILLER: the gaps are tumbling at the front.", "energy": 1},
                                      {"who": "analyst", "text": "AI-FILLER: and the pace is there.", "energy": 1}]})
@@ -290,7 +294,7 @@ check(any(t.startswith("AI-FILLER") for t in said), "AI booth: quiet spells beco
 check(any(t.startswith("AI-WRAP") for t in said), "AI booth: the sign-off (from a fenced reply)")
 check(not any("xxxx" in t for t in said), "AI booth: an overlong line is dropped")
 prompt = calls[0][0]["content"] + calls[0][1]["content"]
-check("STANDINGS" in prompt and "Only state facts" in prompt and "Never use he" in prompt,
+check("STANDINGS" in prompt and "Only state facts" in prompt and "never a guess" in prompt,
       "AI booth: the prompt carries the race and the rules")
 check(re.search(r"\[Moretti\]", prompt) is not None, "AI booth: drivers listed with their call names")
 check("Answer what the other one just said" in prompt and "disagree" in prompt and "CALLS ON RECORD" in prompt,
@@ -570,7 +574,7 @@ fams = {engine_of(v)[0] for _, v in VOICES}
 check(fams == {"edge", "kokoro", "google", "openai"}, "voices: Microsoft, Kokoro, Google and OpenAI offered")
 from simcast.guide import TOPICS  # noqa: E402
 gtext = " ".join(t for _, t in TOPICS)
-for word in ("Play on", "Demo race", "Captions window", "install-simcast-wine.sh", "Automatic", "CrewChiefEx",
+for word in ("Play on", "Demo race", "Personality", "Random chat", "Sponsors", "Call me", "Captions window", "install-simcast-wine.sh", "Automatic", "CrewChiefEx",
              "EA SPORTS WRC", "DiRT Rally 2.0", "AC Rally", "AC EVO", "ACC", "iRacing", "F1 25", "Le Mans Ultimate",
              "rFactor 2", "Automobilista 2", "RaceRoom", "Assetto Corsa"):
     check(word in gtext, f"guide covers: {word}")
@@ -796,4 +800,146 @@ check(refused("/page", hashlib.sha256(b"<html>not found</html>" * 40000).hexdige
       "updates: a web page instead of a program is thrown away")
 check(refused("/cut", sha), "updates: a download cut short is thrown away")
 srv.shutdown()
+# ---------------------------------------------------------------- pronouns, personality, random chat, sponsors
+from simcast import persona  # noqa: E402
+check(persona.name_gender("Lewis Hamilton") == "m" and persona.name_gender("Sophia Floersch") == "f",
+      "pronouns: a clear first name gives he or she")
+check(all(persona.name_gender(n) is None for n in ("Alex Albon", "Sam C", "L. Hamilton", "xX_Speed_Xx", "Okafor", "")),
+      "pronouns: an unclear name, an initial, a tag or a surname stays they")
+check(persona.from_choice("she", "Lewis Hamilton") == "f" and persona.from_choice("they", "Lewis") is None and
+      persona.from_choice("auto", "Emma Jones") == "f", "pronouns: your own choice wins over your name")
+check(persona.voice_gender("en-GB-SoniaNeural") == "f" and persona.voice_gender("Ryan (British) - Microsoft") == "m"
+      and persona.voice_gender("kokoro:bf_emma") == "f" and persona.voice_gender("openai:alloy") is None,
+      "pronouns: a commentator with an unclear name goes by their voice")
+check(persona.made_up_sponsors("Okafor") == persona.made_up_sponsors("Okafor") and persona.made_up_sponsors("Okafor"),
+      "sponsors: made-up backers are the same every time for a driver")
+check(persona.parse_driver_sponsors("Okafor: Acme Oil, Bolt; Lewis Hamilton = Zed\nnonsense") ==
+      {"okafor": ["Acme Oil", "Bolt"], "lewis hamilton": ["Zed"]}, "sponsors: other drivers' list is read")
+check(persona.car_make("Porsche 911 GT3 R (992)") == "Porsche" and persona.car_make("Aston Martin Vantage") ==
+      "Aston Martin", "sponsors: the car's make for 'the ... Porsche of Okafor'")
+
+calls.clear()
+loud = dict(DEFAULTS, openai_api_key="test", ai_colour=True, booth_tone="unhinged", swearing=True, banter="lots",
+            race_sponsor="Acme Oil", my_sponsors="Bolt Energy", driver_name="Emma Stone", lead_name="Jordan",
+            lead_voice="en-GB-SoniaNeural", analyst_name="Kate")
+booth = ai_mod.AIBooth(lambda: loud, fake_chat, providers._json_reply, log=lambda m: None)
+booth.sync = True
+cast = headless_run(laps=4, seed=3, booth=booth, cfg=loud, log=lambda m: None)
+prompt = calls[0][0]["content"] + calls[0][1]["content"]
+check("UNHINGED" in prompt and "Swearing is allowed" in prompt, "personality: unhinged and swearing reach the AI booth")
+check("Jordan (she/her)" in prompt and "Kate (she/her)" in prompt,
+      "pronouns: the booth's own, from the name or the voice")
+check("(she) " in prompt and re.search(r"\] \((he|she|they)\)", prompt) is not None,
+      "pronouns: every driver in the standings has one, the viewer's from their name")
+check("SPONSORS: race title sponsor Acme Oil" in prompt and "Bolt Energy" in prompt,
+      "sponsors: the race's and the viewer's reach the AI booth")
+more = [ln for _, ln in cast.audio.spoken if ln.text.startswith("AI-MORE")]
+check(len({ln.text.split(":")[0] for ln in more}) >= 2, f"conversation: the AI booth keeps a conversation going "
+      f"({len(more)} follow-up lines)")
+check(any(ln.mood == "frustrated" for ln in more) and all(ln.mood in persona.MOODS or ln.mood == "" for ln in more),
+      "emotion: the AI's moods come through, an unknown one is dropped")
+fill = [ai_mod.filler_task(cast.director.writer, 0, "balanced")[0] for _ in range(60)]
+check(any("random conversation" in t for t in fill) and any("sponsor from SPONSORS" in t for t in fill),
+      "random chat: the AI booth gets tangents and sponsor reads in the quiet spells")
+calls.clear()
+calm = dict(DEFAULTS, openai_api_key="test", ai_colour=True)
+booth = ai_mod.AIBooth(lambda: calm, fake_chat, providers._json_reply, log=lambda m: None)
+booth.sync = True
+headless_run(laps=3, seed=3, booth=booth, log=lambda m: None)
+prompt = calls[0][0]["content"]
+check("Emotion is everything" in prompt and '"mood"' in prompt, "emotion: the AI booth gives every line a mood")
+check("a proper television booth" in prompt and "no swearing" in prompt, "personality: professional and clean by default")
+
+from simcast import banter  # noqa: E402
+SWEARS = ("bloody", "hell", "shit", "damn", "sod ", "f...", "jesus")
+loud_said, clean_said = [], []
+for sd in range(4):
+    c = headless_run(laps=8, seed=sd, cfg=dict(booth_tone="unhinged", swearing=True, banter="lots",
+                                               race_sponsor="Acme Oil"), log=lambda m: None)
+    loud_said += [ln.text for _, ln in c.audio.spoken]
+    c = headless_run(laps=8, seed=sd, cfg=dict(booth_tone="unhinged", swearing=False, banter="lots"), log=lambda m: None)
+    clean_said += [ln.text for _, ln in c.audio.spoken]
+outb = {t.split("{")[0][:18] for _, _, _, t in banter.OUTBURSTS}
+check(any(any(t.startswith(o) for o in outb if o) for t in loud_said), "personality: the unhinged booth has outbursts")
+check(any(ln.mood for _, ln in c.audio.spoken), "emotion: the instant lines carry a mood")
+check(any(ln.mood == "angry" or ln.mood == "gutted" for sd in range(1) for _, ln in c.audio.spoken) or
+      any(ln.mood in ("shocked", "thrilled") for _, ln in c.audio.spoken), "emotion: the big moments sound like it")
+from simcast import audio as audio_mod  # noqa: E402
+from simcast.writer import Line as _L  # noqa: E402
+calm_p = audio_mod._prosody(_L("lead", "x", 1, "gutted"), {"booth_tone": "broadcast"})
+wild_p = audio_mod._prosody(_L("lead", "x", 1, "gutted"), {"booth_tone": "unhinged"})
+check(calm_p[0] < 0 and wild_p[0] < calm_p[0], "emotion: a gutted line is slower, and more so when unhinged")
+check("angry" in persona.mood_direction("angry", "unhinged", True) and "never bleeped" in
+      persona.mood_direction("angry", "unhinged", True), "emotion: OpenAI voices are told how to say it")
+check(any(w in t.lower() for t in loud_said for w in SWEARS), "personality: with swearing on, they swear")
+check(not any(w in t.lower() for t in clean_said for w in ("bloody", "shit", "damn", "sod ", "f...", "jesus")),
+      "personality: with swearing off, nobody swears, however unhinged")
+w = c.director.writer
+check(persona.car_make("GT3 #12") == "" and persona.car_make("LMP2") == "", "sponsors: a class isn't a make")
+w.cfg = dict(w.cfg, race_sponsor="Acme Oil", banter="lots")
+reads = []
+for _ in range(30):
+    w._sponsor_t = -1e9
+    reads += [ln.text for ln in w._tg_sponsor(1000.0)]
+check(any("Acme Oil" in t for t in reads), "sponsors: the race sponsor is read out in the quiet spells")
+check(any(x in t for t in reads for x in persona._BRAND_A), "sponsors: and a car's backers")
+w.cfg = dict(w.cfg, booth_tone="broadcast")
+check(all(lvl >= 1 for k, lvl, sw, t in banter.OUTBURSTS) and w._outburst(type("E", (), {"kind": "overtake",
+      "cars": ()})(), "analyst", 0) == [], "personality: the professional booth has no outbursts")
+
+# ---------------------------------------------------------------- a second AI for the conversations (DeepSeek)
+check(providers.convo_provider(dict(DEFAULTS, openai_api_key="a", deepseek_api_key="b")) == "deepseek",
+      "two AIs: Automatic hands the conversations to DeepSeek when it has a key")
+check(providers.convo_provider(dict(DEFAULTS, openai_api_key="a")) == "openai",
+      "two AIs: with one key, the main provider does both")
+check(providers.convo_provider(dict(DEFAULTS, openai_api_key="a", deepseek_api_key="b", ai_convo="same")) == "openai"
+      and providers.convo_provider(dict(DEFAULTS, ai_provider="deepseek", deepseek_api_key="b", gemini_api_key="c",
+                                        ai_convo="gemini")) == "gemini", "two AIs: picked by hand")
+who = {"main": [], "talk": []}
+
+
+def chat_as(name):
+    def f(cfg, messages, max_tokens=300, timeout=20.0):
+        who[name].append(messages[-1]["content"])
+        return fake_chat(cfg, messages, max_tokens, timeout)
+    return f
+
+
+both = dict(DEFAULTS, openai_api_key="a", deepseek_api_key="b", ai_colour=True, banter="lots")
+main_b = ai_mod.AIBooth(lambda: both, chat_as("main"), providers._json_reply, log=lambda m: None)
+talk_b = ai_mod.AIBooth(lambda: both, chat_as("talk"), providers._json_reply, log=lambda m: None)
+main_b.sync = talk_b.sync = True
+cast = headless_run(laps=5, seed=5, booth=main_b, convo_booth=talk_b, cfg=both, log=lambda m: None)
+check(who["talk"] and all("quiet" in t for t in who["talk"]), f"two AIs: DeepSeek writes the conversations "
+      f"({len(who['talk'])} requests)")
+check(any("carry the conversation" in t.lower() or "has already called it" in t for t in who["main"]) and
+      not any("quiet moment" in t for t in who["main"]), "two AIs: the main one answers the big moments")
+said = [ln.text for _, ln in cast.audio.spoken]
+check(any(t.startswith("AI-FILLER") for t in said) and any(t.startswith("AI-REACT") for t in said),
+      "two AIs: both are heard on air")
+
+# ---------------------------------------------------------------- the best model for each job
+check(providers.best_model(DEFAULTS, "deepseek", "react") == "deepseek-chat" and
+      providers.best_model(DEFAULTS, "deepseek", "convo") == "deepseek-v4-pro",
+      "models: DeepSeek reacts with its quick model and talks with its strongest")
+check(providers.best_model(DEFAULTS, "gemini", "convo") == "gemini-3.1-pro-preview" and
+      providers.best_model(DEFAULTS, "gemini", "react") == "gemini-3.5-flash", "models: so does Gemini")
+oc = providers.best_model(DEFAULTS, "openai", "convo")
+check(oc in providers.OPENAI_MODELS and "mini" not in oc and "reasoner" not in oc,
+      f"models: OpenAI talks with a full-size model ({oc})")
+check(providers.rank_for(["x-mini", "o3", "gpt-7", "gpt-6.5"], "convo")[:2] == ["gpt-7", "gpt-6.5"],
+      "models: a newer model the list doesn't know yet is used for conversations")
+check(providers.ai_model(dict(DEFAULTS, ai_provider="deepseek", deepseek_model="deepseek-reasoner",
+                              _purpose="convo")) == "deepseek-reasoner", "models: one picked by hand always wins")
+seen = []
+pb = ai_mod.AIBooth(lambda: dict(DEFAULTS, openai_api_key="a"),
+                    lambda cfg, m, max_tokens=0, timeout=0: seen.append((cfg.get("_purpose"), timeout)) or "{}",
+                    providers._json_reply, log=lambda m: None)
+pb.sync = True
+pb.request("t", "b", lambda *a: None, purpose="convo")
+pb.last_req = -1e9
+pb.request("t", "b", lambda *a: None)
+check(seen == [("convo", ai_mod.CONVO_TIMEOUT), ("react", ai_mod.TIMEOUT)],
+      "models: each request says what it's for, and a conversation may take longer")
+
 done()

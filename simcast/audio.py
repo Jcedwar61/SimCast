@@ -22,6 +22,7 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 
+from . import persona
 from .writer import ANALYST, LEAD, PIT
 
 VOICES = [   # (label, voice id): Microsoft neural (free, online), Google (free, online), Kokoro (free, on this PC),
@@ -137,6 +138,15 @@ TONE = {
 }
 TONE_ENERGY = ["calm and measured", "engaged and lively", "excited, voice rising, fast",
                "absolutely thrilled, shouting over the crowd, at full pace"]
+
+
+def _prosody(ln, cfg):
+    """(rate %, pitch Hz, volume %) for a line: its energy, then its mood, scaled by the booth's personality."""
+    r, p, v = ENERGY[max(0, min(3, ln.energy))]
+    mr, mp, mv = persona.mood_prosody(getattr(ln, "mood", ""), cfg.get("booth_tone", "broadcast"))
+    return r + mr, p + mp, max(-50, min(50, v + mv))
+
+
 GAP_SAME, GAP_SWITCH = 0.12, 0.28                     # pause between lines: same speaker / a new speaker
 
 
@@ -307,7 +317,7 @@ class BroadcastAudio(BaseAudio):
         if not kokoro_usable():
             tries = [t for t in tries if t[0] != "kokoro"] or [("google", "en-GB")]
         for k, (eng, v) in enumerate(tries):
-            key = hashlib.sha1(f"{eng}|{v}|{ln.energy}|{ln.who}|{cfg.get('speech_rate', 0)}|{ln.text}".encode()).hexdigest()[:20]
+            key = hashlib.sha1(f"{eng}|{v}|{ln.energy}|{getattr(ln, 'mood', '')}|{cfg.get('booth_tone')}|{ln.who}|{cfg.get('speech_rate', 0)}|{ln.text}".encode()).hexdigest()[:20]
             path = os.path.join(self._tmp, key + (".wav" if eng == "kokoro" else ".mp3"))
             if os.path.exists(path) and os.path.getsize(path) > 0:
                 return path
@@ -332,7 +342,7 @@ class BroadcastAudio(BaseAudio):
 
     def _synth_edge(self, ln, voice, cfg, path):
         import edge_tts
-        r, p, v = ENERGY[max(0, min(3, ln.energy))]
+        r, p, v = _prosody(ln, cfg)
         rate = ROLE_RATE.get(ln.who, 0) + r + int(cfg.get("speech_rate", 0))
         loop = getattr(self._tls, "loop", None)
         if loop is None or loop.is_closed():
@@ -346,7 +356,9 @@ class BroadcastAudio(BaseAudio):
         from .providers import tts_model
         client = self.openai_client(cfg)
         instructions = (f"Voice: {TONE.get(ln.who, TONE[LEAD])}. Delivery right now: "
-                        f"{TONE_ENERGY[max(0, min(3, ln.energy))]}. Natural live broadcast, not reading a script.")
+                        f"{TONE_ENERGY[max(0, min(3, ln.energy))]}. "
+                        f"{persona.mood_direction(getattr(ln, 'mood', ''), cfg.get('booth_tone', 'broadcast'), bool(cfg.get('swearing')))} "
+                        "Natural live broadcast, not reading a script.")
         speed = max(0.8, min(1.3, 1.0 + (ROLE_RATE.get(ln.who, 0) + int(cfg.get("speech_rate", 0))) / 100.0))
         with client.audio.speech.with_streaming_response.create(
                 model=tts_model(cfg), voice=voice, input=ln.text, instructions=instructions,
@@ -433,7 +445,7 @@ class BroadcastAudio(BaseAudio):
     def _synth_kokoro(self, ln, voice, cfg, path):
         import wave
         import numpy as np
-        r = ENERGY[max(0, min(3, ln.energy))][0] + ROLE_RATE.get(ln.who, 0) + int(cfg.get("speech_rate", 0))
+        r = _prosody(ln, cfg)[0] + ROLE_RATE.get(ln.who, 0) + int(cfg.get("speech_rate", 0))
         speed = max(0.6, min(1.6, 1.0 + r / 100.0))
         with self._kokoro_run:                                   # one at a time: it's CPU-heavy
             samples, sr = self._kokoro_model().create(ln.text, voice=voice, speed=speed,
