@@ -69,6 +69,10 @@ class Director:
                 pass
             if e.kind == "winner":
                 self.winner_t = now
+            if e.kind == "pit_out" and e.cars:                 # every stop is timed, called on air or not, so the
+                lane = (e.data or {}).get("lane_time")         # pit lane can compare against all of them
+                if lane and lane < 100:
+                    self.writer.lane_times[e.cars[0]] = lane
         if len(self._keys) > 2000:
             for k in [k for k, t in self._keys.items() if now - t > 600]:
                 del self._keys[k]

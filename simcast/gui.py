@@ -814,7 +814,7 @@ class SettingsWindow:
             self.row(f, r, f"{label} key", self.entry(f, f"{p}_api_key", cfg, show="•"),
                      ttk.Label(f, text="✓ set" if has.get(f"{p}_api_key") else "", style="Card.TLabel",
                                foreground=P["green"]))
-            cb = ttk.Combobox(f, state="readonly", width=44)
+            cb = ttk.Combobox(f, state="readonly", width=60)
             self._fill_models(cb, p, cfg)
             self.model_boxes[p] = cb
             self.row(f, r + 1, "   model", cb)

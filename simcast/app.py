@@ -400,6 +400,8 @@ def headless_run(laps=6, seed=3, cfg=None, booth=None, max_t=3600.0, log=print, 
     if convo_booth is not None:
         cast.convo_booth = cast.director.convo_booth = convo_booth
         convo_booth.clock = lambda: clock[0]
+    import random
+    cast.director.writer.rng = random.Random(seed)        # the same race, said the same way: tests repeat exactly
     demo = DemoRace(laps=laps, seed=seed, player_name=cfg.get("driver_name", ""), events=events)
     dt = 1.0 / LOOP_HZ
     clock = [0.0]
