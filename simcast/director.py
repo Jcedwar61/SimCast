@@ -209,12 +209,14 @@ class Director:
         if cfg.get("drive_mode") == "driver" and self.tr.started and not self.tr.finished and \
                 self.tr.session == "race":
             why = self.load.busy(now)
+        self.hold_reason = why
+        if why == "fight":
+            why = ""                                         # a long fight: tick() lets race calls through
         if why:
             if self.held_since is None:
                 self.held_since = now
                 if why == "close" and self.audio.speaking(now) and self.audio.current_priority < 50:
                     self.audio.interrupt(now)                # no chat about biscuits side by side into Turn 1
-            self.hold_reason = why
             return True
         if self.held_since is not None:
             held = min(CATCH_UP_MAX, now - self.held_since)
@@ -223,7 +225,7 @@ class Director:
             self.followups = type(self.followups)((ln, made + held, p) for ln, made, p in self.followups)
             if self.ai_filler:
                 self.ai_filler = (self.ai_filler[0], self.ai_filler[1] + held)
-            self.held_since, self.hold_reason = None, ""
+            self.held_since = None
         return False
 
     def talk_about_me(self, now):
@@ -281,6 +283,8 @@ class Director:
                 if self._wrap_asked is not None:
                     self.wrapped = True
                 return
+        if self.hold_reason == "fight":
+            return                                           # in a long fight: race calls, but no chat
         if self.tr.finished:
             self._end_of_race(now)
             self._wrap(now, idle)

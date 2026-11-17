@@ -957,6 +957,12 @@ check(ld.busy(12.5) == "close", "driver mode: and stays busy until there's a rea
 ld.update(_NS(brake=0.0, speed=40.0, gap_ahead=1.3, gap_behind=4.0), 13.0)
 check(ld.busy(13.0) == "", "driver mode: free on a gap")
 check(ld.busy(20.0) == "", "driver mode: no telemetry, nothing to hold for")
+lf = cockpit.DriverLoad()
+for k in range(40):
+    lf.update(_NS(brake=0.0, speed=40.0, gap_ahead=0.4, gap_behind=4.0), 100.0 + k * 0.5)
+check(lf.busy(119.5) == "fight", "driver mode: a long fight lets race calls out between the corners")
+lf.update(_NS(brake=0.5, speed=40.0, gap_ahead=0.4, gap_behind=4.0), 120.0)
+check(lf.busy(120.0) == "close", "driver mode: but never in the braking zone")
 
 said_at = []
 _orig_say = SimAudio.say
@@ -980,6 +986,25 @@ finally:
 quiet = [t for t in said_at if t > 40 and int(t) % 30 < 12 and not c.tracker.finished]
 check(not quiet, f"driver mode: nothing starts while the driver is busy ({quiet[:3]})")
 check(sum(1 for t in said_at if t > 40) > 10, "driver mode: the booth catches up on the straights")
+fill_at = []
+_orig_fill = Writer.filler
+
+
+def _fill_spy(self, now, focus="balanced"):
+    fill_at.append(now)
+    return _orig_fill(self, now, focus)
+
+
+SimAudio.say, Writer.filler = _rec, _fill_spy
+cockpit.DriverLoad.busy = lambda self, now: "fight" if now > 40 else ""
+said_at.clear()
+try:
+    fc = headless_run(laps=5, seed=4, cfg=dict(drive_mode="driver"), log=lambda m: None)
+finally:
+    SimAudio.say, cockpit.DriverLoad.busy, Writer.filler = _orig_say, _orig_busy, _orig_fill
+check(sum(1 for t in said_at if 40 < t) > 10, "driver mode: in a long fight the race is still called")
+check(not [t for t in fill_at if t > 40 and not fc.tracker.finished],
+      "driver mode: but no side conversations until it's over")
 said_at.clear()
 SimAudio.say = _rec
 try:

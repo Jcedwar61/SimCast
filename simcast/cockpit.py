@@ -11,6 +11,7 @@ BRAKE_HOLD = 0.8           # seconds after the brake comes off before the booth 
 CLOSE_IN, CLOSE_OUT = 0.7, 1.0   # seconds to the next car: busy under CLOSE_IN, free again over CLOSE_OUT
 OFF_HOLD = 2.5             # seconds of quiet after a trip off the track
 CATCH_UP_MAX = 15.0        # a moment held back this long at most is still worth calling afterwards
+LONG_FIGHT = 15.0          # close to a car this long: a fight, not a moment; race calls go out between the corners
 
 
 class DriverLoad:
@@ -18,6 +19,7 @@ class DriverLoad:
         self.brake_until = -1e9
         self.off_until = -1e9
         self.close = False
+        self.close_since = None
         self.last_t = None
 
     def update(self, frame, now, tracker=None):
@@ -40,12 +42,19 @@ class DriverLoad:
             self.close = near < CLOSE_IN
         if getattr(frame, "in_pit", False):
             self.close = False                     # the pit lane is a quiet place to talk
+        if self.close:
+            self.close_since = now if self.close_since is None else self.close_since
+        else:
+            self.close_since = None
 
     def busy(self, now):
         """Why the driver is busy right now ('close', 'braking', 'off'), or '' when the booth can talk."""
         if self.last_t is None or now - self.last_t > 2.0:
             return ""                              # no telemetry: nothing to hold for
         if self.close:
+            if self.close_since is not None and now - self.close_since > LONG_FIGHT and now >= self.brake_until \
+                    and now >= self.off_until:
+                return "fight"                     # a long fight, on a straight: race calls only, no chat
             return "close"
         if now < self.off_until:
             return "off"
