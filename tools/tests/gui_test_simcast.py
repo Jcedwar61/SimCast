@@ -77,7 +77,15 @@ win.open_settings()
 pump(0.8)
 sw = win.settings_win
 check(sw is not None and sw.win.winfo_ismapped(), "settings: opens")
+check(sw.style_var.get() == "tv" and not sw.fine.winfo_manager(), "style: TV broadcast, the details tucked away")
+sw.style_var.set("pub")
+sw._apply_style()
+check(sw.v["booth_tone"].get() == "unhinged" and sw.v["swearing"][1].get() and sw.v["banter"].get() == "lots",
+      "style: Mates down the pub sets the booth loose in one click")
+sw.style_var.set("tv")
+sw._apply_style()
 sw.v["chatter"].set("chatty")
+check(sw.style_var.get() == "custom", "style: changing a detail by hand makes it Custom")
 sw.v["driver_name"].set("Sam C")
 sw.voice_boxes["analyst"].set("Emma (British) - Kokoro, offline")
 sw.model_boxes["openai"].set(sw.model_boxes["openai"].cget("values")[1])
@@ -92,6 +100,7 @@ if SHOTS:
         print(f"(screenshot failed: {e})")
 sw.save()
 pump(0.3)
+check(cast.cfg["booth_tone"] == "broadcast" and not cast.cfg["swearing"], "style: saved as set")
 check(cast.cfg["chatter"] == "chatty" and cast.cfg["driver_name"] == "Sam C" and
       cast.cfg["analyst_voice"] == "kokoro:bf_emma", "settings: saved (Kokoro voice for the analyst)")
 check(cast.cfg["openai_model"] not in ("", "auto") and cast.cfg["gemini_model"] == "auto",

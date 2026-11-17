@@ -59,6 +59,18 @@ DEFAULTS = {
     "twitch_chat": True, "twitch_only_booth": False,
     "recap": True, "recap_offset": 0, "hotkey_skip": "", "hotkey_mute": "", "hotkey_me": "", "hotkey_mode": "", "my_sponsors": "", "driver_sponsors": "", "invent_sponsors": True,
 }
+STYLES = {   # the booth in one click; Custom is anything else
+    "tv": {"chatter": "normal", "focus": "balanced", "booth_tone": "broadcast", "swearing": False, "banter": "normal"},
+    "late": {"chatter": "chatty", "focus": "balanced", "booth_tone": "loose", "swearing": True, "banter": "lots"},
+    "pub": {"chatter": "chatty", "focus": "me", "booth_tone": "unhinged", "swearing": True, "banter": "lots"},
+}
+
+
+def style_of(cfg):
+    """The style the settings match, or 'custom'."""
+    return next((k for k, v in STYLES.items() if all(cfg.get(x) == y for x, y in v.items())), "custom")
+
+
 CHOICES = {"tts": ("on", "off"), "chatter": ("quiet", "normal", "chatty"),
            "focus": ("field", "balanced", "me"), "ai_provider": ("openai", "gemini", "deepseek"),
            "simcoach_duck": tuple(DUCK_LEVELS), "booth_tone": persona.TONES, "banter": persona.BANTER,

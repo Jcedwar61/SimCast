@@ -12,7 +12,7 @@ from collections import deque
 from tkinter import ttk
 
 from . import hotkeys, providers, update
-from .app import APP_DIR, APP_NAME, APP_VERSION, DEFAULTS, file_log
+from .app import APP_DIR, APP_NAME, APP_VERSION, DEFAULTS, STYLES, file_log, style_of
 from .link import DUCK_LABELS
 from .audio import VOICE_LABEL, VOICES
 from .guide import TOPICS as GUIDE
@@ -28,6 +28,15 @@ P = {"bg": "#090b10", "panel": "#11151d", "panel2": "#171c26", "line": "#252d3b"
 WHO_COLOUR = {"lead": P["cyan"], "analyst": P["red"], "pit": "#f2f2f2"}
 CHATTER_LABELS = {"quiet": "Quiet", "normal": "Normal", "chatty": "Chatty"}
 FOCUS_LABELS = {"field": "Whole field", "balanced": "Balanced", "me": "Mostly me"}
+STYLE_LABELS = {"tv": "TV broadcast", "late": "Late-night stream", "pub": "Mates down the pub", "custom": "Custom"}
+STYLE_NOTES = {
+    "tv": "A proper television booth: warm, clean, the whole race with your story in it.",
+    "late": "Looser and chattier: more banter and big reactions, the odd swear word, side conversations whenever "
+            "there's time.",
+    "pub": "Completely unhinged and all about you: rants, feuds, conspiracy theories and plenty of swearing, all "
+           "set off by the racing.",
+    "custom": "Your own mix: set it under Fine-tune.",
+}
 TONE_LABELS = {"broadcast": "Professional", "loose": "Loose", "unhinged": "Unhinged"}
 BANTER_LABELS = {"rare": "Rarely", "normal": "Sometimes", "lots": "Whenever there's time"}
 DRIVE_LABELS = {"stream": "Stream (the full show)", "driver": "Driving (quiet in traffic and braking zones)"}
@@ -741,40 +750,24 @@ class SettingsWindow:
 
         # ---------------------------------------------------------------- Commentary
         f = page("Commentary")
-        self.row(f, 0, "How chatty", self.radios(f, "chatter", CHATTER_LABELS, cfg))
-        self.row(f, 1, "Follow", self.radios(f, "focus", FOCUS_LABELS, cfg))
-        self.row(f, 2, "Your name", self.entry(f, "driver_name", cfg))
-        self.note(f, 3, "As the booth should say it. Empty: the name your sim uses.")
-        self.row(f, 4, "Call me", self.radios(f, "driver_pronouns", PRONOUN_LABELS, cfg))
-        self.note(f, 5, "Other drivers are 'he' or 'she' when their first name makes it clear, 'they' when it "
+        self._style_block(f, cfg)
+        self.row(f, 6, "Your name", self.entry(f, "driver_name", cfg))
+        self.note(f, 7, "As the booth should say it. Empty: the name your sim uses.")
+        self.row(f, 8, "Call me", self.radios(f, "driver_pronouns", PRONOUN_LABELS, cfg))
+        self.note(f, 9, "Other drivers are 'he' or 'she' when their first name makes it clear, 'they' when it "
                         "doesn't.")
-        self.row(f, 6, "Pit lane", self.check(f, "pit_reporter", "A pit-lane reporter covers the stops", cfg))
+        self.row(f, 10, "Pit lane", self.check(f, "pit_reporter", "A pit-lane reporter covers the stops", cfg))
         laps = ttk.Frame(f, style="Card.TFrame")
         self.entry(laps, "demo_laps", cfg, width=5).pack(side="left")
         ttk.Label(laps, text="  laps", style="Card.TLabel", foreground=P["mut"]).pack(side="left")
-        self.row(f, 7, "Demo race", laps, sticky="w")
-        self.row(f, 8, "Mode", self.radios(f, "drive_mode", DRIVE_LABELS, cfg))
-        self.note(f, 9, "Driving: the booth holds back while you brake into a corner, race a car within a second, "
+        self.row(f, 11, "Demo race", laps, sticky="w")
+        self.row(f, 12, "Mode", self.radios(f, "drive_mode", DRIVE_LABELS, cfg))
+        self.note(f, 13, "Driving: the booth holds back while you brake into a corner, race a car within a second, "
                         "or go off, and stops a side conversation when someone gets alongside. What happened is "
                         "called on the next straight. Stream: the full show for viewers.")
-        r = 10
-        self.hotkey_vars = {}
-        for act in hotkeys.ACTIONS:
-            self.row(f, r, hotkeys.ACTION_LABEL[act], self._hotkey_row(f, act, cfg))
-            r += 1
-        self.note(f, r, "Click Set, then press a key or a button on your wheel or button box. They work while the sim "
-                        "has the focus.")
 
         # ---------------------------------------------------------------- Booth
         f = page("Booth")
-        self.row(f, 0, "Personality", self.radios(f, "booth_tone", TONE_LABELS, cfg))
-        self.note(f, 1, "Professional: a TV booth. Loose: more banter, ribbing and big reactions. Unhinged: wild "
-                        "overreactions, rants, feuds and conspiracy theories, always set off by the race or by what "
-                        "was just said.")
-        self.row(f, 2, "Language", self.check(f, "swearing", "Let them swear when a moment earns it", cfg))
-        self.row(f, 3, "Random chat", self.radios(f, "banter", BANTER_LABELS, cfg))
-        self.note(f, 4, "How often the booth wanders into side conversations in the quiet spells. They always start "
-                        "from something on track and come back to the race.")
         self.row(f, 5, "Race sponsor", self.entry(f, "race_sponsor", cfg, width=44))
         self.row(f, 6, "Your sponsors", self.entry(f, "my_sponsors", cfg, width=44))
         self.note(f, 7, "Comma-separated, e.g. Acme Oil, Bolt Energy.")
@@ -889,6 +882,13 @@ class SettingsWindow:
                         "Assetto Corsa (with the CrewChiefEx app). Your car only: AC EVO, Assetto Corsa without "
                         "CrewChiefEx. Rally stages: EA SPORTS WRC, DiRT Rally 2.0, AC Rally. The Guide has the "
                         "one-time game settings.", span=3)
+        r = 8
+        self.hotkey_vars = {}
+        for act in hotkeys.ACTIONS:
+            self.row(f, r, hotkeys.ACTION_LABEL[act], self._hotkey_row(f, act, cfg))
+            r += 1
+        self.note(f, r, "Click Set, then press a key or a button on your wheel or button box. They work while the sim "
+                        "has the focus.")
 
         # ---------------------------------------------------------------- Stream
         f = page("Stream")
@@ -956,6 +956,88 @@ class SettingsWindow:
         x = app.root.winfo_rootx() + (app.root.winfo_width() - w.winfo_reqwidth()) // 2
         y = app.root.winfo_rooty() + 50
         w.geometry(f"+{max(0, x)}+{max(0, y)}")
+
+    # ---------------------------------------------------------------- the style presets
+    def _style_block(self, f, cfg):
+        """Style: one click for the whole feel of the booth. The settings it sets live under Fine-tune, and
+        touching any of them makes the style Custom."""
+        box = f
+        self._style_parent = f
+        cur = style_of(cfg)
+        self.style_var = tk.StringVar(value=cur)
+        fr = ttk.Frame(box, style="Card.TFrame")
+        for k, lab in STYLE_LABELS.items():
+            ttk.Radiobutton(fr, text=lab, value=k, variable=self.style_var,
+                            command=lambda: self._apply_style()).pack(side="left", padx=(0, 14))
+        self.row(box, 0, "Style", fr)
+        self.style_note = ttk.Label(box, text=STYLE_NOTES[cur], style="Card.TLabel", foreground=P["mut"],
+                                    font=self.f["small"], wraplength=520, justify="left")
+        self.style_note.grid(row=1, column=1, columnspan=2, sticky="w", pady=(0, 6))
+        self.fine_btn = ttk.Button(box, text="Fine-tune  ▸", style="Small.TButton", command=self._toggle_fine)
+        self.fine_btn.grid(row=2, column=1, sticky="w", pady=(0, 6))
+        d = self.fine = ttk.Frame(box, style="Card.TFrame")
+        d.columnconfigure(1, weight=1)
+        self._fine_cols = d
+        self.row(d, 0, "How chatty", self.radios(d, "chatter", CHATTER_LABELS, cfg))
+        self.row(d, 1, "Follow", self.radios(d, "focus", FOCUS_LABELS, cfg))
+        self.row(d, 2, "Personality", self.radios(d, "booth_tone", TONE_LABELS, cfg))
+        self.note(d, 3, "Professional: a TV booth. Loose: more banter, ribbing and big reactions. Unhinged: wild "
+                        "overreactions, rants, feuds and conspiracy theories, always set off by the race or by what "
+                        "was just said.")
+        self.row(d, 4, "Language", self.check(d, "swearing", "Let them swear when a moment earns it", cfg))
+        self.row(d, 5, "Random chat", self.radios(d, "banter", BANTER_LABELS, cfg))
+        self.note(d, 6, "How often the booth wanders into side conversations in the quiet spells. They always start "
+                        "from something on track and come back to the race.")
+        self._applying = False
+        for k in ("chatter", "focus", "booth_tone", "banter"):
+            self.v[k].trace_add("write", lambda *a: self._style_follow())
+        self.v["swearing"][1].trace_add("write", lambda *a: self._style_follow())
+        if cur == "custom":
+            self._toggle_fine()
+
+    def _style_values(self):
+        out = {k: self.v[k].get() for k in ("chatter", "focus", "booth_tone", "banter")}
+        out["swearing"] = bool(self.v["swearing"][1].get())
+        return out
+
+    def _apply_style(self):
+        s = self.style_var.get()
+        self.style_note.configure(text=STYLE_NOTES.get(s, ""))
+        if s == "custom":
+            if not self.fine.winfo_manager():
+                self._toggle_fine()
+            return
+        self._applying = True
+        try:
+            for k, val in STYLES[s].items():
+                if k == "swearing":
+                    self.v[k][1].set(bool(val))
+                else:
+                    self.v[k].set(val)
+        finally:
+            self._applying = False
+
+    def _style_follow(self):
+        """A setting under Fine-tune was changed by hand: the style is whichever one now matches, or Custom."""
+        if self._applying:
+            return
+        s = style_of(self._style_values())
+        self.style_var.set(s)
+        self.style_note.configure(text=STYLE_NOTES.get(s, ""))
+
+    def _toggle_fine(self):
+        if self.fine.winfo_manager():
+            self.fine.grid_remove()
+            self.fine_btn.configure(text="Fine-tune  ▸")
+        else:
+            self.fine.grid(row=3, column=0, columnspan=3, sticky="ew")
+            self.fine_btn.configure(text="Fine-tune  ▾")
+            try:                                   # line its labels up with the rest of the page
+                self.win.update_idletasks()
+                w = self._style_parent.grid_bbox(0, 0)[2]
+                self.fine.columnconfigure(0, minsize=w)
+            except Exception:
+                pass
 
     # ---------------------------------------------------------------- widgets
     def _browse_roster(self):
