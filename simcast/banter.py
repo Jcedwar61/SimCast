@@ -80,6 +80,10 @@ TANGENTS = [("livery", 0), ("names", 0), ("roadcar", 0), ("coffee", 0), ("biscui
             ("rant", 2), ("conspiracy", 2)]
 
 
+def persona_key(name):
+    return " ".join(str(name or "").split()).lower()
+
+
 class BanterMixin:
     """Needs the Writer's tr, cfg, rng, n(), pick(), chance(), _name(), lead_name/analyst_name/pit_name."""
 
@@ -142,10 +146,57 @@ class BanterMixin:
             return []
         last = lines[-1].who
         who = ANALYST if last in (LEAD, PIT) else LEAD
-        out = self._outburst(e, who, now)
+        out = self._history_tag(e, who, now)
+        if not out:
+            out = self._outburst(e, who, now)
         if not out and e.kind in ("winner", "overtake", "fastest_lap", "podium") and e.cars:
             out = self._sponsor_tag(e, who, now)
         return out
+
+    def _history_tag(self, e, who, now):
+        """The booth remembers: two drivers with a past meet again, or last race's winner lines up."""
+        mem = getattr(self, "memory", None)
+        if mem is None or not self.cfg.get("memory", True):
+            return []
+        told = self.__dict__.setdefault("_hist_told", set())
+        from .writer import Line
+        if e.kind in ("intro", "start") and "last_winner" not in told and mem.data["races"]:
+            told.add("last_winner")
+            last = mem.data["races"][-1]
+            win = next((r for r in last["results"] if r["pos"] == 1), None)
+            if not win:
+                return []
+            here = next((c for c in self.tr.cars.values() if persona_key(c.name) == persona_key(win["name"])), None)
+            d = mem.driver(win["name"])
+            streak = d["streak"] if d else 0
+            where = f" at {last['track']}" if last.get("track") else ""
+            if here is None:
+                return [Line(who, f"Remember, last time out{where} it was {win['name']} who won.", 1)]
+            nm = self.n(here.id, now)
+            return [Line(who, (f"And {nm} has won the last {streak} in a row. Can anyone stop that?" if streak >= 2
+                               else f"{nm} won last time out{where}. Everyone's chasing that car today."), 2,
+                         "excited")]
+        if e.kind not in ("battle", "overtake", "contact") or len(e.cars) < 2:
+            return []
+        a, b = self.tr.car(e.cars[0]), self.tr.car(e.cars[1])
+        if a is None or b is None:
+            return []
+        pk = frozenset((a.id, b.id))
+        if pk in told:
+            return []
+        p = mem.pair(a.name, b.name)
+        if not p:
+            return []
+        told.add(pk)
+        an, bn = self.n(a.id, now), self.n(b.id, now)
+        past = mem.pair_words(p)
+        if p["kind"] == "contact":
+            return [Line(who, self.pick("hist_contact", [
+                f"And there's history here. {an} and {bn} {past}.",
+                f"These two again! {an} and {bn} {past}. Neither of them has forgotten.",
+                f"Oh, {bn} will remember {an}. They {past}.",
+            ]), 2, "tense" if e.kind == "battle" else "excited")]
+        return [Line(who, f"{an} and {bn}, together again. They {past}.", 1, "excited")]
 
     def _outburst(self, e, who, now):
         tone = self.tone

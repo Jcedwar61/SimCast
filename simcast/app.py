@@ -13,6 +13,7 @@ from .audio import BroadcastAudio, SimAudio
 from .link import DUCK_LEVELS, SimCoachLink
 from .demo import DemoRace
 from .director import Director
+from .memory import Memory
 from .race import RaceTracker
 from .solo import RallyTracker, SoloTracker, StageStore
 from . import ai as ai_mod
@@ -54,7 +55,7 @@ DEFAULTS = {
     "check_updates": True, "update_skip": "",
     "booth_tone": "broadcast", "swearing": False, "banter": "normal", "driver_pronouns": "auto",
     "ai_convo": "auto", "drive_mode": "stream", "race_sponsor": "",
-    "hotkey_skip": "", "hotkey_mute": "", "hotkey_me": "", "hotkey_mode": "", "my_sponsors": "", "driver_sponsors": "", "invent_sponsors": True,
+    "memory": True, "hotkey_skip": "", "hotkey_mute": "", "hotkey_me": "", "hotkey_mode": "", "my_sponsors": "", "driver_sponsors": "", "invent_sponsors": True,
 }
 CHOICES = {"tts": ("on", "off"), "chatter": ("quiet", "normal", "chatty"),
            "focus": ("field", "balanced", "me"), "ai_provider": ("openai", "gemini", "deepseek"),
@@ -149,6 +150,8 @@ class SimCast:
             providers.detect_in_background(self.cfg, log=log)
         self.director = Director(self.tracker, self.audio, self.config, booth=self.booth, log=log,
                                  convo_booth=self.convo_booth)
+        self.memory = Memory(os.path.join(APP_DIR, "memory.json"), log=log) if save else None
+        self.director.set_memory(self.memory)
         self.status = "Waiting for a sim..."
         self.source = None
         self.demo = None
@@ -235,6 +238,7 @@ class SimCast:
             if ev:
                 self.events_seen += len(ev)
                 self.director.add(ev, now)
+            self.director.recording = self.demo is None       # demo races aren't remembered
             try:
                 self.director.driver_input(frame, now)
             except Exception as e:
@@ -416,7 +420,8 @@ class SimCast:
         }
 
 
-def headless_run(laps=6, seed=3, cfg=None, booth=None, max_t=3600.0, log=print, events=True, convo_booth=None):
+def headless_run(laps=6, seed=3, cfg=None, booth=None, max_t=3600.0, log=print, events=True, convo_booth=None,
+                 memory=None):
     """A whole demo race on a simulated clock with silent audio: returns the SimCast (lines in .lines and
     .audio.spoken). Used by --test and the tests."""
     cfg = dict(DEFAULTS, **(cfg or {}))
@@ -429,6 +434,9 @@ def headless_run(laps=6, seed=3, cfg=None, booth=None, max_t=3600.0, log=print, 
     if convo_booth is not None:
         cast.convo_booth = cast.director.convo_booth = convo_booth
         convo_booth.clock = lambda: clock[0]
+    if memory is not None:
+        cast.memory = memory
+        cast.director.set_memory(memory)                  # the test race counts as a real one
     import random
     cast.director.writer.rng = random.Random(seed)        # the same race, said the same way: tests repeat exactly
     demo = DemoRace(laps=laps, seed=seed, player_name=cfg.get("driver_name", ""), events=events)

@@ -55,7 +55,8 @@ Never say: "good, clean, hard racing", "lovely racing", "this is worth watching"
 
 Hard rules:
 - Only state facts that are in the RACE DATA. Never invent contact, damage, penalties, team radio, weather, tyre \
-compounds, fuel numbers, what a team has decided, lap times, gaps or history. Opinions and predictions are \
+compounds, fuel numbers, what a team has decided, lap times, gaps or history beyond HISTORY. Opinions and \
+predictions are \
 welcome; invented facts are not. If you don't know, talk about what the data does show.
 - Call drivers by the name given in square brackets.
 - Pronouns: use the one given in brackets after each name in STANDINGS ("he", "she" or "they"); for a driver \
@@ -176,6 +177,16 @@ def race_brief(tr, writer, events, transcript, max_cars=14):
                              f"{writer.n(other) if other is not None else 'the other car'}")
     if calls:
         lines.append("CALLS ON RECORD (not settled yet): " + "; ".join(calls[:6]))
+    mem = getattr(writer, "memory", None)
+    if mem is not None and writer.cfg.get("memory", True):
+        try:
+            hist = mem.brief([s["name"] for k, s in enumerate(st) if k in keep],
+                             (writer.lead_name, writer.analyst_name))
+        except Exception:
+            hist = []
+        if hist:
+            lines.append("HISTORY (earlier races, true; bring it up when it matters: a rematch, a streak, an old "
+                         "score to settle, a commentator's poor record): " + "; ".join(hist[:16]))
     if events:
         lines.append("RECENT EVENTS (oldest first): " + "; ".join(events[-8:]))
     if transcript:

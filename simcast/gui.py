@@ -778,6 +778,11 @@ class SettingsWindow:
         self.note(f, 9, "Name: sponsors, separated by semicolons, e.g. Okafor: Acme Oil, Bolt; Lewis Hamilton: Zed "
                         "Watches.")
         self.row(f, 10, "", self.check(f, "invent_sponsors", "Make up sponsors for anyone without any", cfg))
+        self.row(f, 11, "Memory", self.check(f, "memory", "Remember races: results, rivalries and who called what",
+                                             cfg),
+                 ttk.Button(f, text="Forget", style="Small.TButton", command=self._forget))
+        self.note(f, 12, "So the booth can say 'these two made contact at Spa last time out'. Demo races aren't "
+                         "remembered. Drivers are matched by name.")
 
         # ---------------------------------------------------------------- Voices
         f = page("Voices")
@@ -908,6 +913,13 @@ class SettingsWindow:
         w.geometry(f"+{max(0, x)}+{max(0, y)}")
 
     # ---------------------------------------------------------------- widgets
+    def _forget(self):
+        from tkinter import messagebox
+        mem = getattr(self.app.cast, "memory", None)
+        if mem is not None and messagebox.askyesno("Forget", "Forget every race the booth remembers?",
+                                                   parent=self.win):
+            mem.forget()
+
     def _hotkey_row(self, f, act, cfg):
         fr = ttk.Frame(f, style="Card.TFrame")
         var = tk.StringVar(value=cfg.get(f"hotkey_{act}") or "")

@@ -52,6 +52,9 @@ class Director:
         self.convo_left, self.convo_t, self.convo_n = 0, -1e9, 0   # an AI conversation still running
         self._filler_asked = -1e9
         self.load = DriverLoad()                             # driver mode: is the driver busy right now?
+        self.memory = None                                   # memory.Memory: the booth's history across races
+        self.recording = False                               # this race goes into it (a real race, not the demo)
+        self._remembered = False
         self.held_since = None                               # the booth is holding its tongue since then
         self.hold_reason = ""
 
@@ -73,6 +76,7 @@ class Director:
                 pass
             if e.kind == "winner":
                 self.winner_t = now
+            self._remember_event(e)
             if e.kind == "pit_out" and e.cars:                 # every stop is timed, called on air or not, so the
                 lane = (e.data or {}).get("lane_time")         # pit lane can compare against all of them
                 if lane and lane < 100:
@@ -80,6 +84,40 @@ class Director:
         if len(self._keys) > 2000:
             for k in [k for k, t in self._keys.items() if now - t > 600]:
                 del self._keys[k]
+
+    def set_memory(self, memory):
+        self.memory = memory
+        w = self.writer
+        w.memory = memory
+        w.on_call_settled = self._call_settled
+
+    def _remembering(self):
+        return self.memory is not None and self.recording and self.cfg_fn().get("memory", True)
+
+    def _call_settled(self, commentator, right):
+        if self._remembering():
+            self.memory.call_settled(commentator, right)
+
+    def _remember_event(self, e):
+        if not self._remembering() or self.tr.session != "race":
+            return
+        names = [self.tr.car(c).name for c in e.cars if self.tr.car(c) is not None]
+        kind = {"contact": "contact", "retired": "retired"}.get(e.kind)
+        if e.kind == "overtake" and (e.data or {}).get("lead"):
+            kind = "lead_pass"
+        if kind and (len(names) >= 2 or kind == "retired"):
+            self.memory.note(kind, names, self.tr.track)
+
+    def _end_of_race(self, now):
+        """The flag has fallen and the dust settled: the race goes into the booth's memory, once."""
+        if self._remembered or self.winner_t is None or now - self.winner_t < 20:
+            return
+        self._remembered = True
+        if self._remembering():
+            try:
+                self.memory.end_race(self.tr)
+            except Exception as ex:
+                self.log(f"Memory: {ex}")
 
     def heard(self, line):
         """The audio calls this as each line goes on air."""
@@ -101,6 +139,9 @@ class Director:
         self.wrapped = False
         self._wrap_asked = None
         self.winner_t = None
+        self._remembered = False
+        if self.memory is not None:
+            self.memory.current, self.memory.calls_now = [], []     # an unfinished race isn't remembered
         self.writer.forget()
         self.writer.clear_memory()
         self.writer.floor_who, self.writer.floor_run = "", 0
@@ -205,6 +246,7 @@ class Director:
                     self.wrapped = True
                 return
         if self.tr.finished:
+            self._end_of_race(now)
             self._wrap(now, idle)
             return
         if idle >= quiet_s * 0.6:
@@ -293,7 +335,11 @@ class Director:
         self.followups.clear()
         try:
             self.writer.feel(e, lines)                          # how it's said: the feeling of the moment
-            lines = lines + self.writer.extras(e, lines, now)   # an outburst or a sponsor, per the booth settings
+            extra = self.writer.extras(e, lines, now)           # an outburst, history or a sponsor
+            if e.kind == "intro" and extra and len(lines) >= 2:
+                lines[1].text += " " + extra[0].text            # one line, so the start can't cut it off
+            else:
+                lines = lines + extra
         except Exception as ex:
             self.log(f"banter: {ex}")
         self._air(lines, e.priority, now)

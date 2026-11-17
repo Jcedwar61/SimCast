@@ -123,6 +123,7 @@ A race of about 30 minutes makes a few dozen short requests. With OpenAI voices 
 - Random chat: how often the booth wanders into side conversations in the quiet spells (Rarely, Sometimes, or Whenever there's time). They start from something on track and come back to the race.
 - Emotion: every line has a feeling, from the racing and the conversation: excited at a pass, angry at a clumsy lunge, gutted when a race ends early, tense in a close fight, amused or annoyed at each other. The voices change pace, pitch and volume to match (OpenAI voices are told exactly how to say it), and the louder the personality, the bigger the swings.
 - With an AI key (OpenAI by default), quiet spells become real conversations: the booth waits a moment for the AI rather than reaching for a stock line, and keeps a good conversation going for a few more exchanges (more with Random chat on Whenever there's time).
+- Memory: the booth remembers real races (not the demo) between sessions: results, wins and streaks, contact and lead changes between drivers, and each commentator's prediction record. Two drivers with history meet again and the booth brings it up. Forget clears it. It lives in %APPDATA%\\SimCast\\memory.json.
 - Sponsors: the race's title sponsor, your own sponsors, and other drivers' (Name: sponsor, sponsor; separated by semicolons). Make up sponsors gives everyone else fictional backers. The booth works them in now and then, the way TV booths do.
 
 ## Voices

@@ -1029,4 +1029,38 @@ hc.tracker.finished = False
 t_me = hc.audio.spoken[-1][0] + 120.0
 check(hc.director.talk_about_me(t_me) and len(hc.audio.spoken) > n0, "hotkeys: Talk about me puts the viewer's race on air now")
 
+# ---------------------------------------------------------------- memory across races
+from simcast.memory import Memory  # noqa: E402
+mpath = os.path.join(tempfile.mkdtemp(), "memory.json")
+m1 = Memory(mpath, log=lambda m: None)
+r1 = headless_run(laps=5, seed=7, memory=m1, log=lambda m: None)
+check(len(m1.data["races"]) == 1 and len(m1.data["races"][0]["results"]) >= 2, "memory: a race is remembered")
+check(os.path.exists(mpath), "memory: written to memory.json")
+m2 = Memory(mpath, log=lambda m: None)
+win = next(r for r in m2.data["races"][0]["results"] if r["pos"] == 1)["name"]
+check(m2.driver(win)["wins"] == 1 and m2.driver(win)["last"][2] == 0, "memory: read back next time, the winner's win too")
+m2.data["incidents"].append({"kind": "contact", "names": ["Luca Moretti", "Sam Carter"], "track": "Spa", "race": 0})
+check(m2.pair("Sam Carter", "Luca Moretti") == {"kind": "contact", "track": "Spa", "back": 0} and
+      "made contact at Spa last time out" in m2.pair_words(m2.pair("Sam Carter", "Luca Moretti")),
+      "memory: an incident between two drivers, said the way a commentator would")
+m2.data["calls"]["kate"] = {"right": 2, "wrong": 5}
+mem_calls = []
+_mchat = lambda cfg, msgs, max_tokens=0, timeout=0: mem_calls.append(msgs) or "{}"  # noqa: E731
+mb = ai_mod.AIBooth(lambda: dict(DEFAULTS, openai_api_key="t"), _mchat, providers._json_reply, log=lambda m: None)
+mb.sync = True
+r2 = headless_run(laps=5, seed=7, memory=m2, booth=mb, log=lambda m: None)
+brief = mem_calls[0][1]["content"]
+check("HISTORY" in brief and f"{win}: 1 race(s) remembered, 1 win(s)" in brief, "memory: the AI booth gets the history")
+check("Luca Moretti and Sam Carter made contact at Spa" in brief or "Sam Carter and Luca Moretti made contact at Spa"
+      in brief, "memory: and the rivalries between the drivers on track")
+check("Kate's predictions in earlier races: 2 right, 5 wrong" in brief, "memory: and the booth's own record")
+said2 = [ln.text for _, ln in r2.audio.spoken]
+check(any("last time out" in t or "in a row" in t for t in said2), "memory: the booth brings up last race's winner")
+check(len(m2.data["races"]) == 2, "memory: the second race is added")
+m3 = Memory(os.path.join(tempfile.mkdtemp(), "memory.json"), log=lambda m: None)
+headless_run(laps=4, seed=3, memory=m3, cfg=dict(memory=False), log=lambda m: None)
+check(not m3.data["races"], "memory: switched off, nothing is remembered")
+m2.forget()
+check(not Memory(mpath, log=lambda m: None).data["races"], "memory: Forget clears it")
+
 done()

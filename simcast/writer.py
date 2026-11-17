@@ -427,6 +427,10 @@ class Writer(BanterMixin):
             return []                                         # settled by a stop or a spin, not by the racing
         right = [w for w in (LEAD, ANALYST) if w in rec and rec[w] == winner]
         wrong = [w for w in (LEAD, ANALYST) if w in rec and rec[w] != winner]
+        hook = getattr(self, "on_call_settled", None)
+        if hook:
+            for w in right + wrong:
+                hook(self._name(w), w in right)                # into the booth's memory across races
         wn = self.n(winner, now)
         if right and wrong:
             r, w = right[0], wrong[0]
@@ -1673,6 +1677,7 @@ class Writer(BanterMixin):
         self.passes = self.lead_changes = 0
         self.asides_done.clear()
         self.__dict__.pop("_ob_used", None)
+        self.__dict__.pop("_hist_told", None)
         self.last_aside = -1e9
 
     def covered(self, key, now, window=PAIR_TTL):
