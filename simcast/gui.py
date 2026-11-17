@@ -30,6 +30,7 @@ CHATTER_LABELS = {"quiet": "Quiet", "normal": "Normal", "chatty": "Chatty"}
 FOCUS_LABELS = {"field": "Whole field", "balanced": "Balanced", "me": "Mostly me"}
 TONE_LABELS = {"broadcast": "Professional", "loose": "Loose", "unhinged": "Unhinged"}
 BANTER_LABELS = {"rare": "Rarely", "normal": "Sometimes", "lots": "Whenever there's time"}
+DRIVE_LABELS = {"stream": "Stream (the full show)", "driver": "Driving (quiet in traffic and braking zones)"}
 CONVO_LABELS = {"auto": "Automatic (a second provider with a key)", "same": "The same as above",
                 "openai": "OpenAI", "gemini": "Google Gemini", "deepseek": "DeepSeek"}
 PRONOUN_LABELS = {"auto": "From my name", "he": "He", "she": "She", "they": "They"}
@@ -742,6 +743,10 @@ class SettingsWindow:
         self.entry(laps, "demo_laps", cfg, width=5).pack(side="left")
         ttk.Label(laps, text="  laps", style="Card.TLabel", foreground=P["mut"]).pack(side="left")
         self.row(f, 7, "Demo race", laps, sticky="w")
+        self.row(f, 8, "Mode", self.radios(f, "drive_mode", DRIVE_LABELS, cfg))
+        self.note(f, 9, "Driving: the booth holds back while you brake into a corner, race a car within a second, "
+                        "or go off, and stops a side conversation when someone gets alongside. What happened is "
+                        "called on the next straight. Stream: the full show for viewers.")
 
         # ---------------------------------------------------------------- Booth
         f = page("Booth")

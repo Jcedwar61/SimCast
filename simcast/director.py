@@ -11,6 +11,7 @@ from __future__ import annotations
 from collections import deque
 
 from . import ai as ai_mod
+from .cockpit import CATCH_UP_MAX, DriverLoad
 from .race import Event
 from .writer import ANALYST, LEAD, Writer
 
@@ -50,6 +51,9 @@ class Director:
         self.on_air = True
         self.convo_left, self.convo_t, self.convo_n = 0, -1e9, 0   # an AI conversation still running
         self._filler_asked = -1e9
+        self.load = DriverLoad()                             # driver mode: is the driver busy right now?
+        self.held_since = None                               # the booth is holding its tongue since then
+        self.hold_reason = ""
 
     # -------------------------------------------------------------- input
     AFTER_FLAG = {"winner", "podium", "player_finish", "retired", "contact", "penalty"}
@@ -115,6 +119,36 @@ class Director:
             return None
         return max(self.pending, key=lambda e: self._score(e, now))
 
+    # -------------------------------------------------------------- driver mode
+    def driver_input(self, frame, now):
+        """Each telemetry frame: is the driver braking, racing someone close, or off the track?"""
+        self.load.update(frame, now, self.tr)
+
+    def _hold(self, cfg, now):
+        """Driver mode: True while the driver is busy. Nothing new goes on air; a side conversation playing when a
+        car gets alongside is stopped. When it's quiet again, what happened meanwhile is moved on by the time held
+        (up to CATCH_UP_MAX), so it's still called if it's still news."""
+        why = ""
+        if cfg.get("drive_mode") == "driver" and self.tr.started and not self.tr.finished and \
+                self.tr.session == "race":
+            why = self.load.busy(now)
+        if why:
+            if self.held_since is None:
+                self.held_since = now
+                if why == "close" and self.audio.speaking(now) and self.audio.current_priority < 50:
+                    self.audio.interrupt(now)                # no chat about biscuits side by side into Turn 1
+            self.hold_reason = why
+            return True
+        if self.held_since is not None:
+            held = min(CATCH_UP_MAX, now - self.held_since)
+            for e in self.pending:
+                e.t += held
+            self.followups = type(self.followups)((ln, made + held, p) for ln, made, p in self.followups)
+            if self.ai_filler:
+                self.ai_filler = (self.ai_filler[0], self.ai_filler[1] + held)
+            self.held_since, self.hold_reason = None, ""
+        return False
+
     # -------------------------------------------------------------- the loop
     def tick(self, now):
         if not self.on_air:
@@ -122,6 +156,8 @@ class Director:
             return
         cfg = self.cfg_fn()
         self.writer.cfg = cfg
+        if self._hold(cfg, now):
+            return
         quiet_s, gap_s = CHATTER.get(cfg.get("chatter", "normal"), CHATTER["normal"])
         if getattr(self.tr, "solo", False):
             quiet_s *= 1.6                      # one car: less to talk about, so the quiet spells are longer

@@ -114,6 +114,7 @@ A race of about 30 minutes makes a few dozen short requests. With OpenAI voices 
 - Your name: how the booth says it. Empty: the name your sim uses.
 - Call me: He, She or They for you (From my name reads your first name). Other drivers are he or she when their first name makes it clear, and they when it doesn't.
 - Pit-lane reporter: a third voice for pit stops.
+- Mode: Driving keeps the booth quiet while you brake into a corner, race a car within a second, or go off the track, and stops a side conversation when someone gets alongside; anything that happened meanwhile is called on the next straight. Stream is the full show for viewers.
 
 ## Booth
 - Personality: Professional is a TV booth. Loose brings more banter, ribbing and big reactions. Unhinged brings wild overreactions, rants, feuds and conspiracy theories, always set off by the race or by what was just said.

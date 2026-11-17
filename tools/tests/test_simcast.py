@@ -942,4 +942,50 @@ pb.request("t", "b", lambda *a: None)
 check(seen == [("convo", ai_mod.CONVO_TIMEOUT), ("react", ai_mod.TIMEOUT)],
       "models: each request says what it's for, and a conversation may take longer")
 
+# ---------------------------------------------------------------- driver mode: quiet while the driver is busy
+from types import SimpleNamespace as _NS  # noqa: E402
+from simcast import cockpit  # noqa: E402
+ld = cockpit.DriverLoad()
+ld.update(_NS(brake=0.6, speed=40.0, gap_ahead=3.0, gap_behind=4.0), 10.0)
+check(ld.busy(10.0) == "braking" and ld.busy(10.5) == "braking", "driver mode: braking is busy")
+ld.update(_NS(brake=0.0, speed=40.0, gap_ahead=3.0, gap_behind=4.0), 11.0)
+check(ld.busy(11.0) == "", "driver mode: free again once past the apex")
+ld.update(_NS(brake=0.0, speed=40.0, gap_ahead=0.5, gap_behind=4.0), 12.0)
+check(ld.busy(12.0) == "close", "driver mode: a car within a second is busy")
+ld.update(_NS(brake=0.0, speed=40.0, gap_ahead=0.9, gap_behind=4.0), 12.5)
+check(ld.busy(12.5) == "close", "driver mode: and stays busy until there's a real gap (no flicker)")
+ld.update(_NS(brake=0.0, speed=40.0, gap_ahead=1.3, gap_behind=4.0), 13.0)
+check(ld.busy(13.0) == "", "driver mode: free on a gap")
+check(ld.busy(20.0) == "", "driver mode: no telemetry, nothing to hold for")
+
+said_at = []
+_orig_say = SimAudio.say
+
+
+def _rec(self, lines, priority, now):
+    said_at.append(now)
+    return _orig_say(self, lines, priority, now)
+
+
+def _busy(self, now):
+    return "close" if now > 40 and int(now) % 30 < 12 else ""
+
+
+SimAudio.say, _orig_busy = _rec, cockpit.DriverLoad.busy
+cockpit.DriverLoad.busy = _busy
+try:
+    c = headless_run(laps=5, seed=4, cfg=dict(drive_mode="driver"), log=lambda m: None)
+finally:
+    SimAudio.say, cockpit.DriverLoad.busy = _orig_say, _orig_busy
+quiet = [t for t in said_at if t > 40 and int(t) % 30 < 12 and not c.tracker.finished]
+check(not quiet, f"driver mode: nothing starts while the driver is busy ({quiet[:3]})")
+check(sum(1 for t in said_at if t > 40) > 10, "driver mode: the booth catches up on the straights")
+said_at.clear()
+SimAudio.say = _rec
+try:
+    headless_run(laps=5, seed=4, cfg=dict(drive_mode="stream"), log=lambda m: None)
+finally:
+    SimAudio.say = _orig_say
+check(any(t > 40 and int(t) % 30 < 12 for t in said_at), "stream mode: the full show")
+
 done()

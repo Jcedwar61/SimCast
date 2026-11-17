@@ -53,12 +53,13 @@ DEFAULTS = {
     "demo_laps": 8, "captions": False, "captions_pos": None, "window": None,
     "check_updates": True, "update_skip": "",
     "booth_tone": "broadcast", "swearing": False, "banter": "normal", "driver_pronouns": "auto",
-    "ai_convo": "auto", "race_sponsor": "", "my_sponsors": "", "driver_sponsors": "", "invent_sponsors": True,
+    "ai_convo": "auto", "drive_mode": "stream", "race_sponsor": "", "my_sponsors": "", "driver_sponsors": "", "invent_sponsors": True,
 }
 CHOICES = {"tts": ("on", "off"), "chatter": ("quiet", "normal", "chatty"),
            "focus": ("field", "balanced", "me"), "ai_provider": ("openai", "gemini", "deepseek"),
            "simcoach_duck": tuple(DUCK_LEVELS), "booth_tone": persona.TONES, "banter": persona.BANTER,
-           "driver_pronouns": persona.PRONOUN_CHOICES, "ai_convo": providers.CONVO_CHOICES}
+           "driver_pronouns": persona.PRONOUN_CHOICES, "ai_convo": providers.CONVO_CHOICES,
+           "drive_mode": ("stream", "driver")}
 SECRET_KEYS = ("openai_api_key", "gemini_api_key", "deepseek_api_key")
 ROLE_LABEL = {"lead": "lead", "analyst": "analyst", "pit": "pit lane"}
 
@@ -233,6 +234,10 @@ class SimCast:
             if ev:
                 self.events_seen += len(ev)
                 self.director.add(ev, now)
+            try:
+                self.director.driver_input(frame, now)
+            except Exception as e:
+                self._error("Driver mode", e)
 
     def tick(self, now):
         with self.lock:
