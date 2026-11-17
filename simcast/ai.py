@@ -287,29 +287,88 @@ def describe(e, writer):
     return k.replace("_", " ") + (f": {', '.join(n(x) for x in c)}" if c else "")
 
 
+def parse_item(item, pit=True):
+    """One {"who", "text", "energy", "mood"} from the AI as a Line, or None."""
+    if not isinstance(item, dict):
+        return None
+    who = str(item.get("who", "")).lower().strip()
+    who = {"lead": LEAD, "analyst": ANALYST, "pit": PIT, "reporter": PIT}.get(who)
+    if who is None or (who == PIT and not pit):
+        who = ANALYST if who is None else LEAD
+    text = " ".join(str(item.get("text", "")).split()).strip().strip('"')
+    if not text or len(text) > MAX_LINE_CHARS:
+        return None
+    try:
+        energy = max(0, min(3, int(item.get("energy", 1))))
+    except (TypeError, ValueError):
+        energy = 1
+    mood = str(item.get("mood", "")).lower().strip()
+    return Line(who, text, energy, mood if mood in persona.MOODS else "")
+
+
 def parse_lines(raw, json_reply, pit=True, opener=LEAD):
     d = json_reply(raw) if raw else None
     if not d or not isinstance(d.get("lines"), list):
         return []
-    out = []
-    for item in d["lines"][:6]:
-        if not isinstance(item, dict):
-            continue
-        who = str(item.get("who", "")).lower().strip()
-        who = {"lead": LEAD, "analyst": ANALYST, "pit": PIT, "reporter": PIT}.get(who)
-        if who is None or (who == PIT and not pit):
-            who = ANALYST if who is None else LEAD
-        text = " ".join(str(item.get("text", "")).split()).strip().strip('"')
-        if not text or len(text) > MAX_LINE_CHARS:
-            continue
-        try:
-            energy = max(0, min(3, int(item.get("energy", 1))))
-        except (TypeError, ValueError):
-            energy = 1
-        mood = str(item.get("mood", "")).lower().strip()
-        out.append(Line(who, text, energy, mood if mood in persona.MOODS else ""))
+    out = [ln for ln in (parse_item(it, pit) for it in d["lines"][:6]) if ln]
     _alternate(out, opener)
     return out
+
+
+class LineStream:
+    """Picks complete line objects out of a JSON reply as it streams in, so the first line can be spoken while the
+    AI is still writing the rest. feed(piece) -> the items completed by that piece."""
+
+    def __init__(self):
+        self.buf = ""
+        self.pos = 0                 # where scanning resumes
+        self.in_lines = False
+        self.depth = 0
+        self.start = None
+        self.in_str = False
+        self.esc = False
+        self.count = 0
+
+    def feed(self, piece):
+        import json as _json
+        self.buf += piece
+        out = []
+        if not self.in_lines:
+            k = self.buf.find('"lines"')
+            if k < 0:
+                return out
+            b = self.buf.find("[", k)
+            if b < 0:
+                return out
+            self.in_lines, self.pos = True, b + 1
+        i = self.pos
+        while i < len(self.buf):
+            ch = self.buf[i]
+            if self.in_str:
+                if self.esc:
+                    self.esc = False
+                elif ch == "\\":
+                    self.esc = True
+                elif ch == '"':
+                    self.in_str = False
+            elif ch == '"':
+                self.in_str = True
+            elif ch == "{":
+                if self.depth == 0:
+                    self.start = i
+                self.depth += 1
+            elif ch == "}" and self.depth:
+                self.depth -= 1
+                if self.depth == 0 and self.start is not None:
+                    try:
+                        out.append(_json.loads(self.buf[self.start:i + 1]))
+                        self.count += 1
+                    except ValueError:
+                        pass
+                    self.start = None
+            i += 1
+        self.pos = i
+        return out
 
 
 def _alternate(lines, opener=LEAD):
@@ -328,8 +387,9 @@ class AIBooth:
     """One request at a time, in a background thread. request() returns False if busy, rate limited or off;
     the reply is handed to on_lines(lines, request_info) from the worker thread."""
 
-    def __init__(self, cfg_fn, chat_fn, json_reply, label_fn=None, log=print, clock=time.monotonic):
+    def __init__(self, cfg_fn, chat_fn, json_reply, label_fn=None, log=print, clock=time.monotonic, stream_fn=None):
         self.cfg_fn, self.chat_fn, self.json_reply = cfg_fn, chat_fn, json_reply
+        self.stream_fn = stream_fn            # reactions are streamed: each line goes on air as soon as it's whole
         self.label_fn = label_fn
         self.log = log
         self.clock = clock
@@ -376,10 +436,39 @@ class AIBooth:
         msgs = [{"role": "system", "content": system},
                 {"role": "user", "content": f"RACE DATA\n{brief}\n\nTASK\n{task}"}]
 
+        def streamed(t0):
+            """A reaction, line by line as the reply streams in. Returns how many lines went out."""
+            ls, sent = LineStream(), [0]
+            other = ANALYST if opener == LEAD else LEAD
+
+            def on_text(piece):
+                for item in ls.feed(piece):
+                    ln = parse_item(item, pit)
+                    if ln is None or sent[0] >= 6:
+                        continue
+                    if ln.who != PIT:
+                        ln.who = opener if sent[0] % 2 == 0 else other    # the booth answers itself
+                    sent[0] += 1
+                    try:
+                        on_lines([ln], dict(info or {}, took=self.clock() - t0, streamed=True))
+                    except Exception as e:
+                        self.log(f"AI booth: {e}")
+            raw = self.stream_fn(cfg, msgs, on_text, max_tokens=max_tokens, timeout=TIMEOUT)
+            if sent[0] == 0:                                   # no line objects came through: parse the whole
+                lines = parse_lines(raw, self.json_reply, pit, opener)
+                if lines:
+                    on_lines(lines, dict(info or {}, took=self.clock() - t0))
+                    sent[0] = len(lines)
+            return sent[0]
+
         def work():
             t0 = self.clock()
             lines = []
             try:
+                if self.stream_fn is not None and purpose == "react":
+                    streamed(t0)
+                    self.failures, self.last_error = 0, ""
+                    return
                 raw = self.chat_fn(cfg, msgs, max_tokens=max_tokens,
                                    timeout=CONVO_TIMEOUT if purpose == "convo" else TIMEOUT)
                 lines = parse_lines(raw, self.json_reply, pit, opener)

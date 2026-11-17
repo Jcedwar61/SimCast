@@ -1329,4 +1329,59 @@ check(first[1] == "sk-test" and first[2]["text"] == "[excited] Into the lead!" a
 check(fell[2]["model_id"] == "eleven_multilingual_v2" and fell[2]["text"] == "refuse this",
       "ElevenLabs: an account without v3 falls back to v2, without the cue")
 
+# ---------------------------------------------------------------- faster reactions: streamed line by line
+reply = ('```json\n{"lines": [{"who": "analyst", "text": "That {brace} \\"quote\\" move was huge.", "energy": 2, '
+         '"mood": "excited"}, {"who": "lead", "text": "And it is not over.", "mood": "tense"}]}\n```')
+lsr = ai_mod.LineStream()
+items = []
+for k in range(0, len(reply), 7):
+    items += [(k, x) for x in lsr.feed(reply[k:k + 7])]
+check([x["text"] for _, x in items] == ['That {brace} "quote" move was huge.', "And it is not over."] and
+      items[0][0] < len(reply) * 0.7, "streaming: each line is picked out as soon as it's whole, braces and quotes "
+      "in the text and all")
+order = []
+
+
+def fake_stream(cfg, msgs, on_text, max_tokens=0, timeout=0):
+    for k in range(0, len(reply), 9):
+        order.append("piece")
+        on_text(reply[k:k + 9])
+    order.append("done")
+    return reply
+
+
+sb = ai_mod.AIBooth(lambda: dict(DEFAULTS, openai_api_key="t"), lambda *a, **k: "{}", providers._json_reply,
+                    log=lambda m: None, stream_fn=fake_stream)
+sb.sync = True
+got = []
+sb.request("react", "brief", lambda lines, info: (order.append("line"), got.extend(lines)), opener="analyst")
+check([ln.who for ln in got] == ["analyst", "lead"] and got[0].mood == "excited",
+      "streaming: the reaction comes through line by line, still answering itself")
+check(order.index("line") < order.index("done"), "streaming: the first line is out before the reply has finished")
+conv = []
+sb.last_req = -1e9
+sb.request("chat", "brief", lambda lines, info: conv.append(lines), purpose="convo")
+check(conv == [] and order.count("done") == 1, "streaming: conversations (fetched ahead) use the ordinary request")
+sb2 = ai_mod.AIBooth(lambda: dict(DEFAULTS, openai_api_key="t"), fake_chat, providers._json_reply,
+                     log=lambda m: None, stream_fn=lambda cfg, m, on_text, max_tokens=0, timeout=0:
+                     (on_text(fake_chat(cfg, m)), fake_chat(cfg, m))[1])
+sb2.sync = True
+calls.clear()
+scast = headless_run(laps=5, seed=5, booth=sb2, log=lambda m: None)
+check(any(ln.text.startswith("AI-REACT") for _, ln in scast.audio.spoken), "streaming: reactions are heard in a race")
+
+try:
+    import openai as _oa  # noqa: F401
+    _oc, _ac = providers.openai_client, providers.ai_chat
+    providers.openai_client = lambda *a, **k: (_ for _ in ()).throw(ConnectionError("no network"))
+    providers.ai_chat = lambda cfg, m, max_tokens=0, timeout=0: '{"lines": []}'
+    pieces = []
+    try:
+        whole = providers.ai_chat_stream(dict(DEFAULTS, openai_api_key="t"), [], pieces.append)
+    finally:
+        providers.openai_client, providers.ai_chat = _oc, _ac
+    check(whole == '{"lines": []}' and pieces == [whole], "streaming: if it can't stream, the ordinary request is used")
+except ImportError:
+    pass
+
 done()

@@ -200,6 +200,51 @@ def ai_chat(cfg, messages, max_tokens=300, timeout=20.0):
     return ai_chat_ex(cfg, messages, max_tokens, timeout)[0]
 
 
+def ai_chat_stream(cfg, messages, on_text, max_tokens=300, timeout=20.0):
+    """Like ai_chat, but the reply is streamed: on_text(piece) is called as it arrives, and the whole reply is
+    returned at the end. If streaming fails before anything has arrived, the ordinary request (with its fallback
+    to other providers) is used instead."""
+    import openai
+    p = ai_provider(cfg)
+    spec = AI_PROVIDERS[p]
+    model = ai_model(cfg, p)
+    got = []
+    try:
+        client = openai_client(ai_key(cfg, p), spec["base_url"]).with_options(timeout=timeout)
+        extra = {k: v for k, v in spec["extra"].items() if (p, model, k) not in _NO_PARAM}
+        kw = {"model": model, "messages": messages, "stream": True, spec["tokens"]: max(max_tokens, 600)}
+        if extra:
+            kw["extra_body"] = extra
+        try:
+            stream = client.chat.completions.create(**kw)
+        except openai.BadRequestError as e:
+            if spec["tokens"] == "max_completion_tokens" and _mct_unsupported(e):
+                kw["max_tokens"] = kw.pop("max_completion_tokens")
+            bad = next((k for k in extra if re.search(rf"\b{re.escape(k)}\b", str(e))), None)
+            if bad:
+                _NO_PARAM.add((p, model, bad))
+                extra.pop(bad)
+                kw["extra_body"] = extra
+            stream = client.chat.completions.create(**kw)
+        for chunk in stream:
+            if not chunk.choices:
+                continue
+            piece = getattr(chunk.choices[0].delta, "content", None)
+            if piece:
+                got.append(piece)
+                on_text(piece)
+        text = "".join(got).strip()
+        if text:
+            return text
+        raise OpenAIReplyError(f"{spec['name']} sent an empty answer.")
+    except Exception:
+        if got:
+            raise                                    # half a reply already went out: don't ask again
+        text = ai_chat(cfg, messages, max_tokens, timeout)
+        on_text(text)
+        return text
+
+
 CONVO_CHOICES = ("auto", "same", "openai", "gemini", "deepseek")
 CONVO_ORDER = ("deepseek", "gemini", "openai")       # Automatic: the first of these with a key, after the main one
 

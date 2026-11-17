@@ -168,7 +168,8 @@ class SimCast:
             audio.on_line = self._on_line
         self.audio = audio
         self.booth = ai_mod.AIBooth(self.config, providers.ai_chat, providers._json_reply,
-                                    label_fn=providers.ai_label, log=log) if booth else None
+                                    label_fn=providers.ai_label, log=log,
+                                    stream_fn=providers.ai_chat_stream) if booth else None
         # a second booth for the conversations, on its own provider (DeepSeek, say) and its own thread
         self.convo_booth = ai_mod.AIBooth(self.config, providers.convo_chat, providers._json_reply,
                                           label_fn=providers.convo_label, log=log) if booth else None
