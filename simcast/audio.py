@@ -123,7 +123,7 @@ def wine_numpy_guard():
 def engine_of(voice):
     """('edge' | 'kokoro' | 'google' | 'openai', id) for a voice id."""
     v = (voice or "").strip()
-    for eng in ("kokoro", "google", "openai"):
+    for eng in ("kokoro", "google", "openai", "eleven"):
         if v.lower().startswith(eng + ":"):
             return eng, v.split(":", 1)[1]
     return "edge", v or "en-GB-RyanNeural"
@@ -367,6 +367,10 @@ class BroadcastAudio(BaseAudio):
                 model=tts_model(cfg), voice=voice, input=ln.text, instructions=instructions,
                 response_format="mp3", speed=speed) as resp:
             resp.stream_to_file(path)
+
+    def _synth_eleven(self, ln, voice, cfg, path):
+        from . import eleven
+        eleven.synth(cfg, voice, ln.text, getattr(ln, "mood", ""), path)
 
     def _synth_google(self, ln, voice, cfg, path):
         from gtts import gTTS

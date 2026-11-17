@@ -793,12 +793,17 @@ class SettingsWindow:
         f = page("Voices")
         self.row(f, 0, "Speech", self.check(f, "tts", "The booth speaks (off: text only)", cfg, on="on", off="off"))
         self.voice_boxes = {}
+        from . import eleven
+        self.all_voices = VOICES + eleven.voices(cfg)
+        labels_of = {v: n for n, v in self.all_voices}
         r = 1
         for who, label in (("lead", "Lead commentator"), ("analyst", "Analyst"), ("pit", "Pit-lane reporter")):
             self.row(f, r, label, self.entry(f, f"{who}_name", cfg),
                      ttk.Button(f, text="Test", style="Small.TButton", command=lambda w=who: self.test_voice(w)))
-            cb = ttk.Combobox(f, state="readonly", width=44, values=[n for n, _ in VOICES], height=18)
-            cb.set(VOICE_LABEL.get(cfg.get(f"{who}_voice"), VOICES[0][0]))
+            cb = ttk.Combobox(f, state="readonly", width=44, values=[n for n, _ in self.all_voices], height=18)
+            cur = cfg.get(f"{who}_voice")
+            cb.set(labels_of.get(cur) or VOICE_LABEL.get(cur) or
+                   ("ElevenLabs voice (add your key to list it)" if str(cur).startswith("eleven:") else VOICES[0][0]))
             self.voice_boxes[who] = cb
             self.row(f, r + 1, "   voice", cb)
             r += 2
@@ -822,6 +827,14 @@ class SettingsWindow:
         self.note(f, r + 5, "Microsoft and Google voices need the internet. Kokoro voices run on this PC (a one-time "
                             "download of about 115 MB). OpenAI voices use your OpenAI key and are the most lifelike. "
                             "If a voice can't be reached, the line is spoken by Kokoro, Google or Windows instead.")
+        self.row(f, r + 6, "ElevenLabs key", self.entry(f, "elevenlabs_api_key", cfg, show="•"),
+                 ttk.Label(f, text="✓ set" if cast.state()["settings"]["keys"].get("elevenlabs_api_key") else "",
+                           style="Card.TLabel", foreground=P["green"]))
+        self.note(f, r + 7, "Emotion: the free voices (Microsoft, Google, Kokoro) can only change pace, pitch and "
+                            "volume, so 'angry' mostly sounds faster and louder. OpenAI voices are told how to say "
+                            "each line and carry real feeling. ElevenLabs voices carry the most: each line's mood "
+                            "goes in as a cue ([excited], [sighs], [laughs]...). With a key, the voices on your "
+                            "ElevenLabs account appear in the lists above (reopen Settings after adding it).")
 
         # ---------------------------------------------------------------- AI
         f = page("AI")
@@ -1168,9 +1181,11 @@ class SettingsWindow:
                 out[k] = back.get(txt, txt)
             else:
                 out[k] = var.get()
-        by_label = {n: v for n, v in VOICES}
+        by_label = {n: v for n, v in getattr(self, "all_voices", VOICES)}
         for who, cb in self.voice_boxes.items():
-            out[f"{who}_voice"] = by_label.get(cb.get(), DEFAULTS[f"{who}_voice"])
+            cur = self.app.cast.cfg.get(f"{who}_voice")
+            out[f"{who}_voice"] = by_label.get(cb.get(), cur if str(cur).startswith("eleven:") else
+                                                DEFAULTS[f"{who}_voice"])
         for p, cb in self.model_boxes.items():
             val = cb.get()
             out[f"{p}_model"] = providers.AUTO if val.startswith("Automatic") else val

@@ -131,6 +131,8 @@ A race of about 30 minutes makes a few dozen short requests. With OpenAI voices 
 ## Voices
 Names and voices of the three commentators, Play on (the sound device), Volume and Speed.
 
+Emotion depends on the voice. The free voices (Microsoft, Google, Kokoro) can only change pace, pitch and volume, so "angry" mostly sounds faster and louder. OpenAI voices are told how to say each line and carry real feeling. ElevenLabs voices carry the most: add your ElevenLabs key in Settings > Voices and the voices on your account appear in the lists; each line's mood goes in as an emotion cue ([excited], [sighs], [laughs]), and the louder the booth's personality, the looser the voice gets.
+
 ## AI
 AI commentary on or off, the provider to use first, keys, and the model. Automatic is best: it picks for each job, the quickest good model for reactions to big moments (they have seconds to arrive) and the strongest writer for conversations (they're fetched ahead of time). Conversations: a second AI (DeepSeek, Gemini or OpenAI) that writes the booth's conversations alongside the first, so the chat keeps flowing while big moments are answered; Automatic uses DeepSeek, or another provider, when it has a key.
 

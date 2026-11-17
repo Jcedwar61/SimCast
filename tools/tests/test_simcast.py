@@ -1275,4 +1275,58 @@ check("## Result" in rtext and "| 1 |" in rtext and "## Highlights" in rtext and
 check(headless_run(laps=3, seed=7, recap=Recap(rdir2, log=lambda m: None), cfg=dict(recap=False),
                    log=lambda m: None).director.recap_path is None, "recap: switched off, nothing is written")
 
+# ---------------------------------------------------------------- ElevenLabs: the most emotional voices
+from simcast import eleven  # noqa: E402
+import urllib.error as _ue  # noqa: E402
+check(engine_of("eleven:abc123") == ("eleven", "abc123"), "ElevenLabs: its voices are an engine of their own")
+check(eleven.cue("gutted") == "[sad]" and eleven.cue("amused") == "[laughs]" and eleven.cue("") == "",
+      "ElevenLabs: a line's mood becomes an emotion cue")
+sent = []
+
+
+class _Resp:
+    def __init__(self, data):
+        self.data = data
+
+    def read(self, n=-1):
+        d, self.data = self.data, b""
+        return d
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *a):
+        return False
+
+
+def _fake_urlopen(req, timeout=0):
+    body = json.loads(req.data.decode()) if req.data else None
+    sent.append((req.full_url, req.headers.get("Xi-api-key"), body))
+    if req.full_url.endswith("/voices"):
+        return _Resp(json.dumps({"voices": [{"voice_id": "v1", "name": "Rory", "labels": {"accent": "irish"}}]}).encode())
+    if body and body["model_id"] == "eleven_v3" and "refuse" in body["text"]:
+        raise _ue.HTTPError(req.full_url, 403, "no v3", {}, None)
+    return _Resp(b"ID3fake-mp3")
+
+
+_orig_open = eleven.urllib.request.urlopen
+eleven.urllib.request.urlopen = _fake_urlopen
+try:
+    ecfg = dict(DEFAULTS, elevenlabs_api_key="sk-test", booth_tone="unhinged")
+    vs = eleven.fetch_voices(ecfg)
+    out_mp3 = os.path.join(tempfile.mkdtemp(), "x.mp3")
+    eleven.synth(ecfg, "v1", "Into the lead!", "thrilled", out_mp3)
+    first = sent[-1]
+    eleven.synth(dict(ecfg, elevenlabs_api_key="sk-other"), "v1", "refuse this", "angry", out_mp3)
+    fell = sent[-1]
+finally:
+    eleven.urllib.request.urlopen = _orig_open
+check(vs == [("Rory (Irish) - ElevenLabs (your key)", "eleven:v1")] and eleven.voices(ecfg) == vs,
+      "ElevenLabs: the voices on the account are listed")
+check(first[1] == "sk-test" and first[2]["text"] == "[excited] Into the lead!" and first[2]["model_id"] == "eleven_v3"
+      and first[2]["voice_settings"]["style"] >= 0.7 and open(out_mp3, "rb").read() == b"ID3fake-mp3",
+      "ElevenLabs: v3 with the emotion cue, and an unhinged booth lets the voice go")
+check(fell[2]["model_id"] == "eleven_multilingual_v2" and fell[2]["text"] == "refuse this",
+      "ElevenLabs: an account without v3 falls back to v2, without the cue")
+
 done()

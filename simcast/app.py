@@ -48,7 +48,7 @@ DEFAULTS = {
     "volume": 0.9, "audio_out": "", "simcoach_duck": "under",
     "chatter": "normal", "focus": "balanced", "pit_reporter": True, "ai_colour": True,
     "driver_name": "", "ai_provider": "openai", "ai_fallback": True,
-    "openai_api_key": "", "gemini_api_key": "", "deepseek_api_key": "",
+    "openai_api_key": "", "gemini_api_key": "", "deepseek_api_key": "", "elevenlabs_api_key": "",
     "openai_model": "auto", "gemini_model": "auto", "deepseek_model": "auto", "openai_tts_model": "auto",
     "f1_port": 20777, "dr2_port": 20779, "udp_share_simhub": True, "game_setup": True, "guide_seen": False,
     "demo_laps": 8, "captions": False, "captions_pos": None, "window": None,
@@ -76,7 +76,7 @@ CHOICES = {"tts": ("on", "off"), "chatter": ("quiet", "normal", "chatty"),
            "simcoach_duck": tuple(DUCK_LEVELS), "booth_tone": persona.TONES, "banter": persona.BANTER,
            "driver_pronouns": persona.PRONOUN_CHOICES, "ai_convo": providers.CONVO_CHOICES,
            "drive_mode": ("stream", "driver")}
-SECRET_KEYS = ("openai_api_key", "gemini_api_key", "deepseek_api_key")
+SECRET_KEYS = ("openai_api_key", "gemini_api_key", "deepseek_api_key", "elevenlabs_api_key")
 ROLE_LABEL = {"lead": "lead", "analyst": "analyst", "pit": "pit lane"}
 
 
@@ -174,6 +174,8 @@ class SimCast:
                                           label_fn=providers.convo_label, log=log) if booth else None
         if booth:
             providers.detect_in_background(self.cfg, log=log)
+            from . import eleven
+            eleven.fetch_in_background(self.cfg, log=log)
         self.director = Director(self.tracker, self.audio, self.config, booth=self.booth, log=log,
                                  convo_booth=self.convo_booth)
         self.memory = Memory(os.path.join(APP_DIR, "memory.json"), log=log) if save else None
@@ -213,6 +215,9 @@ class SimCast:
                 self.sync_stream()
             except Exception as e:
                 self.log(f"Streaming: {e}")
+        if self.booth is not None and (changes or {}).get("elevenlabs_api_key"):
+            from . import eleven
+            eleven.fetch_in_background(self.cfg, log=self.log)
         if self.booth is not None and any(k in SECRET_KEYS for k in (changes or {})):
             providers.detect_in_background(self.cfg, log=self.log)
 
@@ -458,7 +463,9 @@ class SimCast:
             s["call"] = self.director.writer.n(s["id"])
             standings.append(s)
         public = {k: v for k, v in cfg.items() if k in DEFAULTS and k not in SECRET_KEYS}
-        public["keys"] = {k: bool(providers.ai_key(cfg, k.split("_")[0])) for k in SECRET_KEYS}
+        public["keys"] = {k: bool(providers.ai_key(cfg, k.split("_")[0])) for k in SECRET_KEYS
+                          if k.split("_")[0] in providers.AI_PROVIDERS}
+        public["keys"]["elevenlabs_api_key"] = bool(str(cfg.get("elevenlabs_api_key") or "").strip())
         return {
             "app": APP_NAME, "version": APP_VERSION, "status": self.status, "source": self.source, "mode": self.mode,
             "session": tr.session, "track": tr.track, "lap": lap, "laps": tr.race_laps or None,
