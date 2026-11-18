@@ -2,7 +2,7 @@
 UDP telemetry), including every car in the session (Frame.field) for the whole-field commentary.
 
 Assetto Corsa, ACC, AC EVO, AC Rally, Le Mans Ultimate, rFactor 2, Automobilista 2, RaceRoom, iRacing, F1 25,
-EA SPORTS WRC and DiRT Rally 2.0. Adapted from SimCoach's readers (same author, MIT licence); SimCast doesn't
+EA SPORTS WRC and DiRT Rally 2.0. Adapted from SimCoach's readers (same author, same PolyForm Noncommercial licence); SimCast doesn't
 need SimCoach to be installed.
 """
 from __future__ import annotations

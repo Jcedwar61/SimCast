@@ -1,7 +1,7 @@
 """SimCast's AI providers: OpenAI, Google Gemini and DeepSeek through one client (their APIs all speak the OpenAI
 chat format), with fallback to another provider that has a key, and the best model picked automatically.
 
-The provider code comes from SimCoach (same author, MIT licence); SimCast doesn't need SimCoach installed.
+The provider code comes from SimCoach (same author, same PolyForm Noncommercial licence); SimCast doesn't need SimCoach installed.
 Automatic models: when a key is added, SimCast asks the provider which models the key can use (in the
 background) and picks the best one for live commentary from PREFERRED. Until that answer is in, or if it can't
 be asked, the first model in PREFERRED is used. A model picked by hand in Settings always wins.
