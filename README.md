@@ -23,11 +23,13 @@ each other: while SimCoach's coach or crew speaks, the booth drops under them an
 * **Linux / Steam Deck:** [install-simcast-wine.sh](install-simcast-wine.sh) installs SimCast into the sim's
   own Proton prefix (see below).
 
-### What's new in 1.6
+### What's new in 1.7
 * **Race name:** type the event's name in *Settings → Booth* and the booth announces the race by it, along with
   the track: *"Hello and welcome to the 2026 Las Vegas Grand Prix, here at Las Vegas Strip Circuit..."* They
   name it again when they call the winner and the result, the AI booth works it in, and the race recap is named
   after it. Leave it empty and they just use the track.
+
+### What's new in 1.6
 * **New licence:** SimCast is now licensed under the [PolyForm Noncommercial License 1.0.0](LICENSE) instead of MIT. It stays free to use, share and change for any noncommercial purpose; commercial use needs the author's permission. Nothing else changes.
 
 ### What's new in 1.5
