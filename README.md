@@ -23,6 +23,9 @@ each other: while SimCoach's coach or crew speaks, the booth drops under them an
 * **Linux / Steam Deck:** [install-simcast-wine.sh](install-simcast-wine.sh) installs SimCast into the sim's
   own Proton prefix (see below).
 
+### What's new in 1.6
+* **New licence:** SimCast is now licensed under the [PolyForm Noncommercial License 1.0.0](LICENSE) instead of MIT. It stays free to use, share and change for any noncommercial purpose; commercial use needs the author's permission. Nothing else changes.
+
 ### What's new in 1.5
 * **A booth with a personality you choose:** *Settings → Commentary → Style* sets the whole feel in one click:
   **TV broadcast**, **Late-night stream** (looser, chattier, the odd swear word) or **Mates down the pub**

@@ -133,7 +133,7 @@ g = win.guide_win
 check(g is not None and g.win.winfo_ismapped() and "Welcome to SimCast" in g.text.get("1.0", "end"), "guide: opens on Getting started")
 g.show(len(g.topics) - 1)
 lic = g.text.get("1.0", "end")
-check("MIT License" in lic and "The Go Authors" in lic and "kokoro-onnx" in lic, "guide: licences and notices shown")
+check("PolyForm Noncommercial License" in lic and "The Go Authors" in lic and "kokoro-onnx" in lic, "guide: licences and notices shown")
 g.show(2)
 if SHOTS:
     try:

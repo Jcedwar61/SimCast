@@ -580,8 +580,8 @@ for word in ("Play on", "Demo race", "Personality", "Random chat", "Sponsors", "
     check(word in gtext, f"guide covers: {word}")
 lic = os.path.join(REPO, "simcast", "licenses")
 notice = open(os.path.join(lic, "THIRD_PARTY_NOTICES.txt")).read()
-check("MIT License" in open(os.path.join(lic, "LICENSE.txt")).read() and "The Go Authors" in notice and
-      all(n in notice for n in ("kokoro-onnx", "ONNX Runtime", "gTTS", "uv ")), "licences: SimCast MIT and the notices")
+check("PolyForm Noncommercial License" in open(os.path.join(lic, "LICENSE.txt")).read() and "The Go Authors" in notice and
+      all(n in notice for n in ("kokoro-onnx", "ONNX Runtime", "gTTS", "uv ")), "licences: SimCast PolyForm Noncommercial and the notices")
 
 # ---------------------------------------------------------------- installed sims, found without starting them
 from simcast import detect  # noqa: E402
