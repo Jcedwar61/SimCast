@@ -26,13 +26,16 @@ each other: while SimCoach's coach or crew speaks, the booth drops under them an
 
 ### What's new in 1.8
 * **NASCAR mode:** stock cars (iRacing's NASCAR Cup, Xfinity and Truck cars, ARCA, Late Models, Legends,
-  Modifieds...) and oval tracks get an American oval broadcast. *"Green flag! Green flag!"*, cautions (and the one
+  Modifieds, Assetto Corsa's stock car mods) and oval tracks (in Assetto Corsa, by the track's name and layout) get
+  an American oval broadcast. *"Green flag! Green flag!"*, cautions (and the one
   for the stage break), restarts with the front row, the free pass for the first car a lap down, **stages** with
   the stage winner and who scores stage points, **laps led** and how many leaders, and *"headed to Victory Lane"*.
   The booth talks the part everywhere else too: pit road, the pace car, tires, the checkered flag, *"Byron in the
   number 24"*, and the AI booth is told to call it like a NASCAR booth. American voices take over for these races
   unless you've picked your own. *Settings → Booth → NASCAR mode*: Automatic, Always (the demo race too) or Never,
-  and the laps the stages end on (empty: about 30% and 60% of the distance).
+  and the laps the stages end on (empty: about 30% and 60% of the distance). In Assetto Corsa, the CrewChiefEx app
+  gives the booth the whole field (stages, laps led); AC has no full-course cautions, so no restarts there.
+* **Assetto Corsa track and car names** are said as names (*"Bristol Motor Speedway"*, not *"bristol_motor_speedway"*).
 
 ### What's new in 1.7
 * **Race name:** type the event's name in *Settings → Booth* and the booth announces the race by it, along with

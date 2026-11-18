@@ -262,7 +262,7 @@ class Writer(BanterMixin):
         book(), called once the lines are actually queued."""
         out, who, run = [], self.floor_who, self.floor_run
         vocab = None
-        if getattr(self.tr, "nascar", False):
+        if getattr(self.tr, "nascar", False) or getattr(self.tr, "nascar_words", False):
             from .nascar import vocab
         for ln in lines or []:
             if not ln:

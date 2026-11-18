@@ -1442,6 +1442,29 @@ nf.track_type = "road course"
 for e in nf.field:
     e["car"] = "NASCAR Xfinity Ford Mustang"
 check(nascar.detect(nf, "auto"), "nascar: a field of stock cars turns it on, even on a road course")
+ac_ovals = ["Daytona (Oval)", "rt_daytona (tri oval)", "Bristol Motor Speedway", "martinsville", "North Wilkesboro",
+            "talladega_superspeedway", "Indianapolis (Oval)"]
+ac_roads = ["Daytona (Road Course)", "Charlotte (Roval)", "Indianapolis Motor Speedway (Road)", "Spa", "ks_nordschleife",
+            "Watkins Glen", "Brands Hatch (GP)", "Laguna Seca"]
+check(all(nascar.is_oval(t) for t in ac_ovals) and not any(nascar.is_oval(t) for t in ac_roads),
+      f"nascar: Assetto Corsa ovals told from road courses by name and layout "
+      f"({[t for t in ac_ovals if not nascar.is_oval(t)]} {[t for t in ac_roads if nascar.is_oval(t)]})")
+check(not nascar.is_oval("Daytona (Oval)", "road course") and nascar.is_oval("Daytona", "super speedway"),
+      "nascar: iRacing's track type wins over the name")
+check(all(nascar.is_stock_car(c) for c in ("nascar_2023_chevy_camaro", "gen6_cup_ford", "acrl_stock_car_toyota",
+                                            "legends_ford34", "arca_ford")) and
+      not any(nascar.is_stock_car(c) for c in ("ks_porsche_911_gt3_cup_2017", "ks_mazda_mx5_cup", "ford_mustang_gt3",
+                                                "stock_car_brasil_2022")), "nascar: Assetto Corsa's stock car mods")
+check(sc.nice_name("rt_daytona") == "Daytona" and sc.nice_name("bristol_motor_speedway") == "Bristol Motor Speedway",
+      "Assetto Corsa's folder names said as names")
+acast = SimCast(dict(DEFAULTS), audio=SimAudio(), log=lambda m: None, booth=False, save=False)
+acf = sc.Frame("AC", "Martinsville (Oval)", "Gen6 Cup Chevrolet", 0, 0.1, 0.0, 0, 0, 0, 1, 900, 0, 0, False, False,
+               session="race", position=4, cars=20, race_laps=50)
+acast.feed(acf, 0.0)
+check(acast.mode == "nascar_solo" and acast.tracker.nascar_words and acast.config()["lead_voice"].startswith("en-US"),
+      f"nascar: Assetto Corsa on an oval without CrewChiefEx gets NASCAR words and voices ({acast.mode})")
+check(acast.director.writer.floor([__import__("simcast.writer", fromlist=["Line"]).Line("lead", "Into the pit lane.")])[0].text
+      == "Onto pit road.", "nascar: your-car-only mode talks NASCAR too")
 check(nascar.stage_laps(200, "") == [60, 120] and nascar.stage_laps(10, "") == [] and
       nascar.stage_laps(312, "60, 185") == [60, 185] and nascar.stage_laps(100, "off") == [] and
       nascar.stage_laps(100, "50, 300") == [50], "nascar: stage laps, automatic and typed")

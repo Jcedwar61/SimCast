@@ -114,7 +114,7 @@ def race_brief(tr, writer, events, transcript, max_cars=14):
         lines.append(f"EVENT: this race is called \"{event}\"{where}. Call it by that name when you welcome "
                      "viewers, at the start and the finish, and now and then in between, and say the track's name "
                      "with it" + (" (the race name doesn't replace the track)" if tr.track else "") + ".")
-    if getattr(tr, "nascar", False):
+    if getattr(tr, "nascar", False) or getattr(tr, "nascar_words", False):
         from . import nascar
         lines += nascar.brief(tr, writer)
     st = tr.standings()

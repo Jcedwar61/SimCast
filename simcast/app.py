@@ -201,7 +201,7 @@ class SimCast:
     # -------------------------------------------------------------- settings
     def config(self):
         cfg = dict(self.cfg)
-        if self.__dict__.get("mode") == "nascar" and cfg.get("nascar_voices", True):
+        if self.__dict__.get("mode") in ("nascar", "nascar_solo") and cfg.get("nascar_voices", True):
             for who, vid in NASCAR_VOICES.items():          # American voices, where the default is still chosen
                 if cfg.get(f"{who}_voice") == DEFAULTS[f"{who}_voice"]:
                     cfg[f"{who}_voice"] = vid
@@ -249,14 +249,17 @@ class SimCast:
         self.log(f"{name.upper():>6} | {line.text}")
 
     # -------------------------------------------------------------- frames in
-    MODE_LABEL = {"field": "Whole field", "solo": "Your car only", "rally": "Rally stage", "nascar": "NASCAR"}
+    MODE_LABEL = {"field": "Whole field", "solo": "Your car only", "rally": "Rally stage", "nascar": "NASCAR",
+                  "nascar_solo": "NASCAR, your car only"}
 
     def _make_tracker(self, mode):
         name = lambda: self.cfg.get("driver_name") or ""
         if mode == "rally":
             return RallyTracker(log=self.log, name_fn=name, store=self.stages)
-        if mode == "solo":
-            return SoloTracker(log=self.log, name_fn=name)
+        if mode in ("solo", "nascar_solo"):
+            tr = SoloTracker(log=self.log, name_fn=name)
+            tr.nascar_words = mode == "nascar_solo"     # the broadcast's words and voices; no field for stages
+            return tr
         if mode == "nascar":
             return NascarTracker(log=self.log, stages_fn=lambda: self.cfg.get("nascar_stages") or "")
         return RaceTracker(log=self.log)
@@ -265,8 +268,8 @@ class SimCast:
         """Whole field when the sim shares every car (NASCAR for stock cars and ovals), rally for stages, else the
         car being driven. A change has to hold for about a second (ACC's grid arrives a moment after the car)."""
         mode = "rally" if frame.game in sims.RALLY_GAMES else ("field" if frame.field else "solo")
-        if mode == "field" and self._is_nascar(frame):
-            mode = "nascar"
+        if mode in ("field", "solo") and self._is_nascar(frame):
+            mode = "nascar" if mode == "field" else "nascar_solo"
         if mode == self.mode:
             self._mode_n = 0
             return

@@ -5,8 +5,10 @@ talks about on top: stages and their winners, laps led, the caution count, the f
 down, and the restart. The booth's own lines for those moments live here too (event_lines), and vocab() turns
 the rest of the booth's words into the broadcast's own: pit road, the checkered flag, the pace car, tires.
 
-It comes on by itself for stock cars (iRacing's NASCAR, ARCA, Late Models, Legends, Modifieds...) and on oval
-tracks, or always/never from Settings > Booth > NASCAR mode.
+It comes on by itself for stock cars (iRacing's NASCAR, ARCA, Late Models, Legends, Modifieds, and Assetto Corsa's
+stock car mods) and on oval tracks (iRacing's track type; Assetto Corsa's track names and layouts), or always/never
+from Settings > Booth > NASCAR mode. Assetto Corsa without the CrewChiefEx app shows only your car: that gets the
+broadcast's words and voices, but stages and laps led need the whole field.
 """
 from __future__ import annotations
 
@@ -21,17 +23,54 @@ STAGE_POINTS = 10                    # the top ten at the end of a stage score p
 AUTO_STAGES_MIN_LAPS = 20            # shorter races aren't split into stages unless the laps are given
 AUTO_STAGE_SPLIT = (0.3, 0.6)        # where the stages end in an 'auto' race, as a share of the distance
 
-# Cars that make a race a stock car race: as iRacing (and the other sims) name them.
-_STOCK = re.compile(r"nascar|\bcup series|\bnext ?gen\b|xfinity|truck series|craftsman truck|\barca\b|"
-                    r"late model|\blegends\b|\bmodified\b|street stock|mini stock|super stock|\bsk\b|"
-                    r"camaro zl1|\bgen ?[46]\b", re.I)
-_NOT_STOCK = re.compile(r"stock car (pro|brasil|brazil)|gt[34]\b|lmp|prototype|formula|indy|dallara", re.I)
-_OVAL = re.compile(r"oval|speedway", re.I)    # iRacing's TrackType: 'short oval', 'super speedway', 'dirt oval'...
+# Cars that make a race a stock car race: as iRacing names them, and as Assetto Corsa's mod folders do
+# ('nascar_2023_chevy', 'gen6_cup_ford', 'acrl_stock_car_toyota'...).
+_BRAND = r"(chevy|chevrolet|ford|toyota|dodge|pontiac|camry|mustang|camaro|impala|monte carlo|fusion|silverado|tundra)"
+_STOCK = re.compile(r"nascar|\bcup series|\bnext ?gen\b|xfinity|nationwide|\bbusch\b|truck series|craftsman truck|"
+                    r"\barca\b|\bnxs\b|late model|\blegends\b|\bmodified\b|street stock|mini stock|super stock|"
+                    r"\bsk\b|stock ?car|camaro zl1|\bgen ?[4-7]\b|"
+                    rf"\b{_BRAND}\b.*\b(cup|truck)\b|\b(cup|truck)\b.*\b{_BRAND}\b", re.I)
+_NOT_STOCK = re.compile(r"stock ?car (pro|brasil|brazil|v8)|\bgt[34]\b|\bgte\b|lmp|prototype|formula|indy|"
+                        r"dallara|porsche|clio|mini cooper|supercup", re.I)
+# Oval tracks: iRacing's TrackType ('short oval', 'super speedway', 'dirt oval'), or the track's own name as
+# Assetto Corsa gives it (the mod's folder and its layout: 'rt_daytona (oval)', 'bristol_motor_speedway').
+_OVAL = re.compile(r"oval|speedway", re.I)
+_OVAL_NAMES = re.compile(
+    r"\boval|speedway|superspeedway|short ?track|daytona|talladega|bristol|martinsville|richmond|darlington|dover|"
+    r"phoenix|charlotte|atlanta|texas motor|kansas|las ?vegas motor|\blvms\b|homestead|michigan|pocono|"
+    r"nashville|iowa|new hampshire|loudon|gateway|world wide technology|kentucky|rockingham|north wilkesboro|"
+    r"wilkesboro|chicagoland|auto club|fontana|california speedway|south boston|hickory|langley|irwindale|"
+    r"five flags|lucas oil|bowman gray|myrtle beach|eldora|knoxville|milwaukee mile|thompson|stafford|"
+    r"oxford plains|lanier|concord|madison|slinger|winchester|berlin raceway|kern county|"
+    r"evergreen|toledo|mobile intl|nazareth|\bisms?\b", re.I)
+# ... but not their road courses
+_ROAD = re.compile(r"road|roval|\bgp\b|grand ?prix|infield|rallycross|\brx\b|drift|24 ?h|sports ?car|rolex|"
+                   r"\bcircuit\b|\bglen\b|chicago street|\bstreet\b", re.I)
+
+
+def _words(name):
+    """'rt_daytona-2020' -> 'rt daytona 2020': mod folder names read like the rest."""
+    return re.sub(r"[_\-.]+", " ", str(name or ""))
 
 
 def is_stock_car(name: str) -> bool:
-    n = name or ""
+    n = _words(name)
     return bool(_STOCK.search(n)) and not _NOT_STOCK.search(n)
+
+
+def is_oval(track: str, track_type: str = "") -> bool:
+    """An oval from iRacing's track type, else from the track's name (Assetto Corsa's folder and layout)."""
+    if track_type:
+        return bool(_OVAL.search(track_type))
+    t = _words(track)
+    m = re.match(r"(.*?)\s*\(([^)]*)\)\s*$", t)        # 'daytona (oval)': the layout decides when there is one
+    name, layout = (m.group(1), m.group(2)) if m else (t, "")
+    if layout:
+        if re.search(r"\boval|speedway|short ?track|nascar|\bcup\b", layout, re.I):
+            return True
+        if _ROAD.search(layout):
+            return False
+    return bool(_OVAL_NAMES.search(name)) and not _ROAD.search(name)
 
 
 def detect(frame, setting="auto") -> bool:
@@ -41,7 +80,7 @@ def detect(frame, setting="auto") -> bool:
         return True
     if setting == "off" or frame is None:
         return False
-    if _OVAL.search(getattr(frame, "track_type", None) or ""):
+    if is_oval(getattr(frame, "track", ""), getattr(frame, "track_type", None) or ""):
         return True
     if is_stock_car(getattr(frame, "car", "")):
         return True
@@ -405,6 +444,7 @@ def event_lines(w, e, now):
 
 _VOCAB = [
     (r"lights out,? and away we go", "green flag, here we go"),
+    (r"five red lights\W*and", "green flag, and"),
     (r"\blights out\b", "green flag"),
     (r"chequered", "checkered"),
     (r"\bpit[- ]lane reporter\b", "pit reporter"),

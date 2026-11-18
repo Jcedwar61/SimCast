@@ -286,6 +286,8 @@ class ACReader(Reader):
         if not track:
             return None
         game = self._cur_game or self._game() or "AC"
+        if game == "AC":                     # AC gives the mod folders ('rt_daytona'): say them like names
+            track, layout, car_name = nice_name(track), nice_name(layout), nice_name(car_name) or car_name
         if layout and game != "ACC" and layout.lower() not in track.lower():
             track = f"{track} ({layout})"
         gas, brake, fuel = _U_3f(p, 4)
