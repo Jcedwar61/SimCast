@@ -23,6 +23,12 @@ each other: while SimCoach's coach or crew speaks, the booth drops under them an
 * **Linux / Steam Deck:** [install-simcast-wine.sh](install-simcast-wine.sh) installs SimCast into the sim's
   own Proton prefix (see below).
 
+### What's new in 1.6
+* **Race name:** type the event's name in *Settings → Booth* and the booth announces the race by it, along with
+  the track: *"Hello and welcome to the 2026 Las Vegas Grand Prix, here at Las Vegas Strip Circuit..."* They
+  name it again when they call the winner and the result, the AI booth works it in, and the race recap is named
+  after it. Leave it empty and they just use the track.
+
 ### What's new in 1.5
 * **A booth with a personality you choose:** *Settings → Commentary → Style* sets the whole feel in one click:
   **TV broadcast**, **Late-night stream** (looser, chattier, the odd swear word) or **Mates down the pub**
@@ -42,8 +48,6 @@ each other: while SimCoach's coach or crew speaks, the booth drops under them an
 * **League roster:** a spreadsheet with each driver's number, team, pronouns, sponsors and how to say their name:
   *"the number 12 Porsche"*. Without one, drivers are "he" or "she" when the first name makes it clear and "they"
   when it doesn't.
-* **Race name:** type the event's name (*Settings → Booth*) and the booth announces it: *"Hello and welcome to
-  the 2026 Las Vegas Grand Prix, here at Las Vegas Strip Circuit..."*
 * **Sponsors:** the race's title sponsor, yours and other drivers' (or made-up ones), worked in the way TV
   booths do.
 * **More from the sims:** iRacing's temperatures, sky, track wetness, car numbers, teams, tyres and incident
