@@ -42,6 +42,8 @@ each other: while SimCoach's coach or crew speaks, the booth drops under them an
 * **League roster:** a spreadsheet with each driver's number, team, pronouns, sponsors and how to say their name:
   *"the number 12 Porsche"*. Without one, drivers are "he" or "she" when the first name makes it clear and "they"
   when it doesn't.
+* **Race name:** type the event's name (*Settings → Booth*) and the booth announces it: *"Hello and welcome to
+  the 2026 Las Vegas Grand Prix, here at Las Vegas Strip Circuit..."*
 * **Sponsors:** the race's title sponsor, yours and other drivers' (or made-up ones), worked in the way TV
   booths do.
 * **More from the sims:** iRacing's temperatures, sky, track wetness, car numbers, teams, tyres and incident

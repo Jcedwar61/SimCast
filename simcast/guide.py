@@ -126,6 +126,7 @@ A race of about 30 minutes makes a few dozen short requests. With OpenAI voices 
 - With an AI key (OpenAI by default), quiet spells become real conversations: the booth waits a moment for the AI rather than reaching for a stock line, and keeps a good conversation going for a few more exchanges (more with Random chat on Whenever there's time).
 - Memory: the booth remembers real races (not the demo) between sessions: results, wins and streaks, contact and lead changes between drivers, and each commentator's prediction record. Two drivers with history meet again and the booth brings it up. Forget clears it. It lives in %APPDATA%\\SimCast\\memory.json.
 - League roster: a spreadsheet (CSV) with a row per driver: Driver, Number, Team, Pronouns, Sponsors (separated by ;) and Say as (how to say the name). What it says wins over every guess, and the booth gets "the number 12 Porsche" and the team names. Make one starts a roster with the drivers on track; it's read again whenever you save it.
+- Race name: what the booth calls this race, e.g. 2026 Las Vegas Grand Prix. They welcome you to it by name, call the winner of it, and bring it up now and then; the recap is named after it too. Change it before each event; empty just uses the track.
 - Sponsors: the race's title sponsor, your own sponsors, and other drivers' (Name: sponsor, sponsor; separated by semicolons). Make up sponsors gives everyone else fictional backers. The booth works them in now and then, the way TV booths do.
 
 ## Voices

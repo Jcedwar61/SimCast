@@ -83,12 +83,14 @@ class Recap:
         """The recap file for the race just run. Returns its path, or None if there's nothing to write."""
         if len(self.lines) < 3:
             return None
+        event = " ".join(str(getattr(writer, "cfg", {}).get("race_name") or "").split())
         track = (tr.track or "race").strip()
+        title = f"{event} at {track}" if event and tr.track else (event or track)
         when = time.strftime("%Y-%m-%d %H%M")
-        safe = re.sub(r'[\\\\/:*?"<>|]+', " ", track).strip() or "race"
+        safe = re.sub(r'[\\\\/:*?"<>|]+', " ", event or track).strip() or "race"
         os.makedirs(self.folder, exist_ok=True)
         path = os.path.join(self.folder, f"{when} {safe}{' (demo)' if demo else ''}.md")
-        out = [f"# {track}{' (demo race)' if demo else ''}, {time.strftime('%d %B %Y')}", ""]
+        out = [f"# {title}{' (demo race)' if demo else ''}, {time.strftime('%d %B %Y')}", ""]
         st = tr.standings() if hasattr(tr, "standings") else []
         if st:
             out += ["## Result", "", "| Pos | Driver | Grid | Best lap |", "|---|---|---|---|"]

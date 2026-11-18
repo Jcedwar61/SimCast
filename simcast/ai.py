@@ -108,6 +108,10 @@ def race_brief(tr, writer, events, transcript, max_cars=14):
         lines.append(f"SESSION: Race at {tr.track}, {lap}{of}, {state}. Flag: {tr.flag or 'green'}.")
     else:
         lines.append(f"SESSION: {tr.session} at {tr.track}. Order is by best lap.")
+    event = persona.race_name(writer.cfg)
+    if event:
+        lines.append(f"EVENT: this race is called \"{event}\". Call it by that name when you welcome viewers, "
+                     "at the start and the finish, and now and then in between.")
     st = tr.standings()
     me = next((s for s in st if s["player"]), None)
     keep = set(range(min(max_cars, len(st))))
