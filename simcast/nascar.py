@@ -6,8 +6,8 @@ down, and the restart. The booth's own lines for those moments live here too (ev
 the rest of the booth's words into the broadcast's own: pit road, the checkered flag, the pace car, tires.
 
 It comes on by itself for stock cars (iRacing's NASCAR, ARCA, Late Models, Legends, Modifieds, and Assetto Corsa's
-stock car mods) and on oval tracks (iRacing's track type; Assetto Corsa's track names and layouts), or always/never
-from Settings > Booth > NASCAR mode. Assetto Corsa without the CrewChiefEx app shows only your car: that gets the
+stock car mods) and on oval tracks (iRacing's track type; Assetto Corsa's track names and layouts), or on/off from Settings > Booth >
+NASCAR mode, or for one race from the NASCAR button. Assetto Corsa without the CrewChiefEx app shows only your car: that gets the
 broadcast's words and voices, but stages and laps led need the whole field.
 """
 from __future__ import annotations
@@ -127,6 +127,22 @@ class NascarTracker(RaceTracker):
 
     def reset(self, session=None, track=None):
         super().reset(session, track)
+        self._nascar_state()
+
+    @classmethod
+    def adopt(cls, tr, stages_fn=None):
+        """Turn a running RaceTracker into a NascarTracker without losing the race so far (the NASCAR button
+        mid-race). Stages and laps led are counted from here on."""
+        tr.__class__ = cls
+        tr.stages_fn = stages_fn or (lambda: "")
+        tr._nascar_state()
+        tr._stages_set = False
+        if tr.leader() is not None:                 # stages already run are behind us: don't call them late
+            tr._stage_told = {i + 1 for i, end in enumerate(stage_laps(tr.race_laps, tr.stages_fn()))
+                              if end <= tr.leader_laps}
+        return tr
+
+    def _nascar_state(self):
         self.laps_led: dict = {}                    # car id -> laps led (at the line)
         self.leaders: list = []                     # car ids that have led, in order
         self.cautions = 0

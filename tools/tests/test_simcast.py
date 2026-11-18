@@ -619,6 +619,22 @@ check("[HELICORSA]\nACTIVE=1" in ini and "[CREWCHIEFEX]\nACTIVE=1\n" in ini, "si
 check('udp enabled="true"' in open(os.path.join(f1dir, "hardware_settings_config.xml")).read() and
       'format="2025"' in open(os.path.join(f1dir, "hardware_settings_config.xml")).read(), "sims set up: F1 25 UDP on, format kept")
 check("Found 4" in detect.summary(list(found.values())), "sims found: a summary for the log")
+# CrewChief installed, but its CrewChiefEx app not yet put into AC: SimCast copies it over and switches it on
+cc_home = tempfile.mkdtemp(prefix="simcast-cc-")
+cc_app = os.path.join(cc_home, "Britton IT Ltd", "CrewChiefV4", "plugins", "assettocorsa", "apps", "python", "CrewChiefEx")
+os.makedirs(cc_app)
+open(os.path.join(cc_app, "CrewChiefEx.py"), "w").write("# CrewChiefEx\n")
+os.environ["ProgramFiles(x86)"] = cc_home
+check(gamesetup.crewchief_dirs() and gamesetup.crewchiefex_source() == cc_app, "CrewChief: its CrewChiefEx app found")
+ac3 = tempfile.mkdtemp(prefix="simcast-ac-")
+os.makedirs(os.path.join(ac3, "apps", "python"))
+docs3 = tempfile.mkdtemp(prefix="simcast-docs-")
+os.makedirs(os.path.join(docs3, "Assetto Corsa", "cfg"))
+check(gamesetup.setup_crewchiefex(docs3, ac3, log=lambda m: None) and
+      os.path.isfile(os.path.join(ac3, "apps", "python", "CrewChiefEx", "CrewChiefEx.py")) and
+      gamesetup.crewchiefex_active(docs3), "CrewChief: SimCast installs CrewChiefEx into AC and switches it on")
+check(not gamesetup.setup_crewchiefex(docs3, ac3, log=lambda m: None), "CrewChief: nothing to do the second time")
+os.environ.pop("ProgramFiles(x86)", None)
 check(os.path.exists(os.path.join(REPO, "SimCast.ico")), "SimCast.ico in the repo")
 
 # ---------------------------------------------------------------- SimCoach link: the booth drops under the coach
@@ -1518,6 +1534,37 @@ check(ncast.config()["lead_voice"].startswith("en-US") and
 own = dict(DEFAULTS, nascar="on", lead_voice="en-GB-ThomasNeural")
 ocast = headless_run(laps=2, seed=5, cfg=own, log=lambda m: None)
 check(ocast.config()["lead_voice"] == "en-GB-ThomasNeural", "nascar: a voice you chose yourself is kept")
+# The NASCAR button: on or off for this race, keeping the race so far
+tcast = SimCast(dict(DEFAULTS), audio=SimAudio(), log=lambda m: None, booth=False, save=False)
+tcast.source = "TEST"
+t, tt = 0.0, None
+while t < 5 + 61 * 2:
+    tcast.feed(frame(pass_scn(t), t, race_laps=30), t)
+    t += 1 / 20
+tt = tcast.tracker
+laps_before = tt.leader_laps
+check(tcast.mode == "field" and not tcast.nascar_on(), "nascar button: a GT3 race starts as the whole field")
+tcast.toggle_nascar()
+check(tcast.mode == "nascar" and tcast.tracker is tt and tt.nascar and tt.leader_laps == laps_before and tt.started
+      and tcast.nascar_on(), "nascar button: on mid-race, the race so far kept")
+while t < 5 + 61 * 4:
+    tcast.feed(frame(pass_scn(t), t, race_laps=30), t)
+    t += 1 / 20
+check(tcast.mode == "nascar" and sum(tt.laps_led.values()) >= 1, "nascar button: stays on, laps led counted from then")
+tcast.hotkey("nascar")
+check(tcast.mode == "field" and not getattr(tcast.tracker, "nascar", False) and tcast.tracker is tt,
+      "nascar button: the hotkey switches it back off")
+tcast.toggle_nascar()
+other = frame(pass_scn(t), t, race_laps=30)
+other.track = "Another Ring"
+for k in range(40):
+    tcast.feed(other, t + k / 20)
+check(tcast.nascar_race is None and tcast.mode == "field", "nascar button: a new track goes back to the setting")
+idle = SimCast(dict(DEFAULTS), audio=SimAudio(), log=lambda m: None, booth=False, save=False)
+idle.toggle_nascar()
+check(idle.nascar_on(), "nascar button: switched on before the race")
+idle.feed(frame(pass_scn(0), 0, race_laps=30), 0.0)
+check(idle.mode == "nascar", "nascar button: ... and the next race is NASCAR")
 brief = ai_mod.race_brief(ncast.tracker, ncast.director.writer, [], [])
 check("BROADCAST: this is a NASCAR" in brief and "STAGES:" in brief and "LAPS LED:" in brief,
       "nascar: the AI is told it's a NASCAR broadcast, with stages and laps led")

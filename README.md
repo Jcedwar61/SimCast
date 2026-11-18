@@ -32,9 +32,14 @@ each other: while SimCoach's coach or crew speaks, the booth drops under them an
   the stage winner and who scores stage points, **laps led** and how many leaders, and *"headed to Victory Lane"*.
   The booth talks the part everywhere else too: pit road, the pace car, tires, the checkered flag, *"Byron in the
   number 24"*, and the AI booth is told to call it like a NASCAR booth. American voices take over for these races
-  unless you've picked your own. *Settings → Booth → NASCAR mode*: Automatic, Always (the demo race too) or Never,
-  and the laps the stages end on (empty: about 30% and 60% of the distance). In Assetto Corsa, the CrewChiefEx app
+  unless you've picked your own. The **NASCAR button** at the top of the window switches it on or off for the race
+  you're in (or the next one), straight away and without losing the race so far, and there's a hotkey for it too.
+  *Settings → Booth → NASCAR mode* is the default (Automatic, On or Off), with the laps the stages end on (empty:
+  about 30% and 60% of the distance). In Assetto Corsa, the CrewChiefEx app
   gives the booth the whole field (stages, laps led); AC has no full-course cautions, so no restarts there.
+* **CrewChief and Assetto Corsa:** with CrewChief installed, SimCast now puts its CrewChiefEx app into Assetto Corsa
+  itself (if CrewChief hasn't yet) and switches it on, so the booth sees every car. The window says so when AC is
+  running without it.
 * **Assetto Corsa track and car names** are said as names (*"Bristol Motor Speedway"*, not *"bristol_motor_speedway"*).
 
 ### What's new in 1.7

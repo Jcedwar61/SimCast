@@ -6,7 +6,8 @@
                     hardware_settings_config.xml: <udp enabled="true" extradata="3" port="20777" ...>)
   ACC               the broadcasting port (Documents\\Assetto Corsa Competizione\\Config\\broadcasting.json)
   F1 25             UDP telemetry on (Documents\\My Games\\F1 25\\hardwaresettings\\hardware_settings_config.xml)
-  Assetto Corsa     the CrewChiefEx Python app on, when CrewChief has installed it (Documents\\Assetto Corsa\\cfg\\
+  Assetto Corsa     the CrewChiefEx Python app: copied into AC's apps\\python from CrewChief's own folder when
+                    CrewChief is installed but hasn't put it there, then switched on (Documents\\Assetto Corsa\\cfg\\
                     python.ini), for the whole grid
 
 Each file is only touched when the setting is missing or off, and the original is kept next to it as
@@ -178,12 +179,64 @@ def crewchiefex_active(documents):
     return bool(m and re.search(r"^[ \t]*ACTIVE[ \t]*=[ \t]*1[ \t]*$", m.group(1), re.M))
 
 
-def setup_crewchiefex(documents, ac_dir, log=print):
-    """Assetto Corsa: switch on the CrewChiefEx Python app (it shares every car), if CrewChief installed it."""
+def crewchief_dirs():
+    """Where CrewChief (CrewChiefV4) is installed on this PC."""
+    out = []
+    roots = [os.environ.get(k) for k in ("ProgramFiles(x86)", "ProgramFiles", "ProgramW6432")]
+    local = os.environ.get("LOCALAPPDATA")
+    if local:
+        roots += [os.path.join(local, "Programs"), local]
+    for root in filter(None, roots):
+        for sub in (os.path.join("Britton IT Ltd", "CrewChiefV4"), "CrewChiefV4", os.path.join("Britton IT Ltd", "CrewChief"),
+                    "CrewChief"):
+            d = os.path.join(root, sub)
+            if os.path.isdir(d) and d.lower() not in (x.lower() for x in out):
+                out.append(d)
+    return out
+
+
+def crewchiefex_source(dirs=None):
+    """CrewChief's own copy of the CrewChiefEx AC app (a CrewChiefEx folder with CrewChiefEx.py), or None."""
+    for base in (crewchief_dirs() if dirs is None else dirs):
+        depth0 = base.rstrip("\\/").count(os.sep)
+        for root, subdirs, files in os.walk(base):
+            if os.path.basename(root).lower() == "crewchiefex" and "CrewChiefEx.py" in files:
+                return root
+            if root.count(os.sep) - depth0 >= 6:
+                subdirs[:] = []
+    return None
+
+
+def install_crewchiefex(ac_dir, log=print, source=None):
+    """Assetto Corsa: put the CrewChiefEx app in AC's apps\\python from CrewChief's folder, when CrewChief is
+    installed and the app isn't there yet (CrewChief normally does it the first time it's run for AC)."""
+    if not ac_dir or not os.path.isdir(os.path.join(ac_dir, "apps", "python")):
+        return False
+    dst = os.path.join(ac_dir, "apps", "python", "CrewChiefEx")
+    if os.path.isdir(dst):
+        return False
+    src = source or crewchiefex_source()
+    if not src:
+        return False
+    try:
+        import shutil
+        shutil.copytree(src, dst)
+        log("Assetto Corsa: installed the CrewChiefEx app from CrewChief (the whole grid).")
+        return True
+    except Exception as e:
+        log(f"Assetto Corsa: couldn't install the CrewChiefEx app from CrewChief ({e}). Run CrewChief once with "
+            "Assetto Corsa selected and it installs it.")
+        return False
+
+
+def setup_crewchiefex(documents, ac_dir, log=print, source=None):
+    """Assetto Corsa: switch on the CrewChiefEx Python app (it shares every car), installing it from CrewChief's
+    folder first if it's missing."""
+    copied = install_crewchiefex(ac_dir, log=log, source=source)
     if not ac_dir or not os.path.isdir(os.path.join(ac_dir, "apps", "python", "CrewChiefEx")):
         return False
     if crewchiefex_active(documents):
-        return False
+        return copied
     path = _ac_python_ini(documents)
     if not os.path.isdir(os.path.dirname(path)):
         return False

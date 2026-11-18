@@ -42,7 +42,7 @@ BANTER_LABELS = {"rare": "Rarely", "normal": "Sometimes", "lots": "Whenever ther
 DRIVE_LABELS = {"stream": "Stream (the full show)", "driver": "Driving (quiet in traffic and braking zones)"}
 CONVO_LABELS = {"auto": "Automatic (a second provider with a key)", "same": "The same as above",
                 "openai": "OpenAI", "gemini": "Google Gemini", "deepseek": "DeepSeek"}
-NASCAR_LABELS = {"auto": "Automatic (stock cars, ovals)", "on": "Always", "off": "Never"}
+NASCAR_LABELS = {"auto": "Automatic (stock cars, ovals)", "on": "On", "off": "Off"}
 PRONOUN_LABELS = {"auto": "From my name", "he": "He", "she": "She", "they": "They"}
 PROVIDERS = {"openai": "OpenAI", "gemini": "Google Gemini", "deepseek": "DeepSeek"}
 
@@ -255,6 +255,8 @@ class SimCastWindow:
         btns.grid(row=0, column=5, sticky="e")
         self.demo_btn = ttk.Button(btns, text="▶  Demo race", command=self.toggle_demo)
         self.demo_btn.pack(side="left", padx=4)
+        self.nascar_btn = ttk.Button(btns, text="⚐  NASCAR off", command=self.toggle_nascar)
+        self.nascar_btn.pack(side="left", padx=4)
         ttk.Button(btns, text="Skip", command=self.skip).pack(side="left", padx=4)
         self.air_btn = ttk.Button(btns, text="●  On air", style="OnAir.TButton", command=self.toggle_air)
         self.air_btn.pack(side="left", padx=4)
@@ -399,6 +401,8 @@ class SimCastWindow:
                 ses += "  ·  Chequered flag"
         self.session.configure(text=ses)
         self.demo_btn.configure(text="■  Stop demo" if demo else "▶  Demo race")
+        self.nascar_btn.configure(text="⚑  NASCAR on" if S.get("nascar") else "⚐  NASCAR off",
+                                  style="OnAir.TButton" if S.get("nascar") else "TButton")
         self.air_btn.configure(text="●  On air" if S["on_air"] else "○  Off air",
                                style="OnAir.TButton" if S["on_air"] else "OffAir.TButton")
         self._show_idle(not S["source"] and not demo)
@@ -479,6 +483,9 @@ class SimCastWindow:
 
     def toggle_air(self):
         self.cast.toggle_air()
+
+    def toggle_nascar(self):
+        self.cast.toggle_nascar()
 
     def _hotkey(self, action):
         """From the hotkey thread: act on the engine at once (it's thread safe)."""
@@ -793,7 +800,8 @@ class SettingsWindow:
                          "drivers on track now.")
         self.row(f, 15, "NASCAR mode", self.radios(f, "nascar", NASCAR_LABELS, cfg))
         self.row(f, 16, "   stages end on lap", self.entry(f, "nascar_stages", cfg, width=20), sticky="w")
-        self.note(f, 17, "Stock cars and ovals get a NASCAR broadcast: green flag, cautions and restarts, stages and "
+        self.note(f, 17, "The NASCAR button in the main window switches it on or off for one race (until the track "
+                         "changes), whatever this says. Stock cars and ovals get a NASCAR broadcast: green flag, cautions and restarts, stages and "
                          "stage points, laps led, the free pass, pit road, the checkered flag. Stages: e.g. 60, 185. "
                          "Empty: about 30% and 60% of a race of 20 laps or more. off: no stages.")
         self.row(f, 18, "", self.check(f, "nascar_voices", "American voices for NASCAR races (unless you've picked "
