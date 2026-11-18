@@ -54,7 +54,7 @@ DEFAULTS = {
     "demo_laps": 8, "captions": False, "captions_pos": None, "window": None,
     "check_updates": True, "update_skip": "",
     "booth_tone": "broadcast", "swearing": False, "banter": "normal", "driver_pronouns": "auto",
-    "ai_convo": "auto", "drive_mode": "stream", "race_sponsor": "",
+    "ai_convo": "auto", "drive_mode": "stream", "race_sponsor": "", "race_name": "",
     "memory": True, "roster_file": "", "obs_captions": False, "obs_port": 8686, "twitch_channel": "",
     "twitch_chat": True, "twitch_only_booth": False,
     "recap": True, "recap_offset": 0, "ai_rates": "", "hotkey_skip": "", "hotkey_mute": "", "hotkey_me": "", "hotkey_mode": "", "my_sponsors": "", "driver_sponsors": "", "invent_sponsors": True,
@@ -115,7 +115,7 @@ def clean_config(cfg):
         cfg["demo_laps"] = 8
     for k in ("lead_name", "analyst_name", "pit_name", "driver_name"):
         cfg[k] = " ".join(str(cfg.get(k) or "").split())[:40]
-    for k in ("race_sponsor", "my_sponsors"):
+    for k in ("race_sponsor", "my_sponsors", "race_name"):
         cfg[k] = " ".join(str(cfg.get(k) or "").split())[:120]
     cfg["driver_sponsors"] = str(cfg.get("driver_sponsors") or "").strip()[:2000]
     for k in ("swearing", "invent_sponsors"):

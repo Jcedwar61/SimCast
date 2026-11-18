@@ -13,6 +13,7 @@ import re
 from collections import deque
 from dataclasses import dataclass
 
+from . import persona
 from .banter import BanterMixin
 from .race import CAUTION_FLAGS, call_name
 
@@ -526,8 +527,14 @@ class Writer(BanterMixin):
         if getattr(tr, "solo", False):
             return self._solo_intro(now)
         track = tr.track or "the circuit"
+        event = persona.the_race(self.cfg)
         if tr.session != "race":
             kind = "qualifying" if tr.session == "qualifying" else "practice"
+            if event:
+                return [Line(LEAD, self.pick("intro_qn", [
+                    f"Hello and welcome to {kind} for {event} here at {track}. {num_words(len(tr.cars)).capitalize()} cars are out to set a time.",
+                    f"Welcome along to {kind} for {event} at {track}. {num_words(len(tr.cars)).capitalize()} drivers, one clock.",
+                ]), 1)]
             return [Line(LEAD, self.pick("intro_q", [
                 f"Hello and welcome to {track}, it's {kind}, and {num_words(len(tr.cars))} cars are out to set a time.",
                 f"Welcome along to {kind} here at {track}. {num_words(len(tr.cars)).capitalize()} drivers, one clock.",
@@ -535,7 +542,10 @@ class Writer(BanterMixin):
         if e.data.get("joined"):
             ld = tr.leader()
             p2 = tr.at(2)
-            out = [Line(LEAD, self.pick("intro_j", [
+            out = [Line(LEAD, self.pick("intro_jn", [
+                f"And we're joining the action in {event} here at {track}, {self._lap_status()}.",
+                f"Welcome back to {event} at {track}, where we're on {self._lap_status()}.",
+            ]) if event else self.pick("intro_j", [
                 f"And we're joining the action here at {track}, {self._lap_status()}.",
                 f"Welcome back to {track}, where we're on {self._lap_status()}.",
             ]), 1)]
@@ -547,7 +557,11 @@ class Writer(BanterMixin):
                 out.append(Line(ANALYST, f"And {self.n(me.id, now)} is running {place(tr.pos_of(me.id))}.", 1))
             return out
         pole = tr.at(1)
-        out = [Line(LEAD, self.pick("intro", [
+        out = [Line(LEAD, self.pick("intro_n", [
+            f"Hello and welcome to {event}, here at {track}, where {num_words(len(tr.cars))} cars are lining up for {self._race_length()} of racing.",
+            f"Good afternoon, and welcome to {event} at {track}. {num_words(len(tr.cars)).capitalize()} cars, {self._race_length()}, and it's almost time to go.",
+            f"Welcome to {event}. The grid is formed here at {track}, {num_words(len(tr.cars))} cars, {self._race_length()} ahead of us.",
+        ]) if event else self.pick("intro", [
             f"Hello and welcome to {track}, where {num_words(len(tr.cars))} cars are lining up for {self._race_length()} of racing.",
             f"Good afternoon, and welcome to {track}. {num_words(len(tr.cars)).capitalize()} cars, {self._race_length()}, and it's almost time to go.",
             f"Welcome to {track}. The grid is formed, {num_words(len(tr.cars))} cars, {self._race_length()} ahead of us.",
@@ -1169,7 +1183,14 @@ class Writer(BanterMixin):
         c = self.tr.car(a)
         track = self.tr.track or "here"
         win = self.n(a, now, full=True)
-        if c and c.player:
+        event = persona.the_race(self.cfg)
+        if event:
+            at = f" at {self.tr.track}" if self.tr.track else ""
+            out = [Line(LEAD, self.pick("win_me_n" if c and c.player else "win_n", [
+                f"{win} wins! {win} takes the chequered flag{at} and wins {event}!",
+                f"Chequered flag{at}! {win} is the winner of {event}!",
+            ] + ([f"And it's victory for {win}! What a drive!"] if c and c.player else [])), 3)]
+        elif c and c.player:
             out = [Line(LEAD, self.pick("win_me", [
                 f"{win} wins! {win} takes the chequered flag and wins at {track}!",
                 f"And it's victory for {win}! What a drive!",
@@ -1265,10 +1286,15 @@ class Writer(BanterMixin):
             pos = f"from {place(f.position)}" if f and f.position else ""
             field = f" in a field of {num_words(f.cars)}" if f and f.cars and f.cars < 100 else ""
             length = f", {self._race_length()}" if tr.race_laps or tr.time_left else ""
-            return [Line(LEAD, f"Welcome to {track}, where we're following {who}{field}{length}.", 1),
+            event = persona.the_race(self.cfg)
+            where = f"{event} at {track}" if event else track
+            return [Line(LEAD, f"Welcome to {where}, where we're following {who}{field}{length}.", 1),
                     Line(ANALYST, f"Starting {pos}. Let's see what the afternoon brings." if pos else
                          "Let's see what the afternoon brings.", 1)]
         kind = "qualifying" if tr.session == "qualifying" else "practice"
+        event = persona.the_race(self.cfg)
+        if event:
+            return [Line(LEAD, f"Welcome to {kind} for {event} at {track}, and we're with {who}.", 1)]
         return [Line(LEAD, f"Welcome to {track}, it's {kind}, and we're with {who}.", 1)]
 
     def _solo_where(self, now, who, lead_in):
@@ -2796,7 +2822,9 @@ class Writer(BanterMixin):
         calls = self.final_calls(now)
         p2, p3 = tr.at(2), tr.at(3)
         pod = f", ahead of {self.n(p2.id, now)}" + (f" and {self.n(p3.id, now)}" if p3 else "") if p2 else ""
-        out = [Line(LEAD, f"So, that's the result here at {tr.track or 'the circuit'}: victory for {self.n(w.id, now, full=True)}{pod}.", 1)]
+        event = persona.the_race(self.cfg)
+        of = f" of {event}" if event else ""
+        out = [Line(LEAD, f"So, that's the result{of} here at {tr.track or 'the circuit'}: victory for {self.n(w.id, now, full=True)}{pod}.", 1)]
         out += calls
         me = tr.player()
         if me and me.finished:

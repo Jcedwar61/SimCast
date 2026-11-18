@@ -768,6 +768,8 @@ class SettingsWindow:
 
         # ---------------------------------------------------------------- Booth
         f = page("Booth")
+        self.row(f, 3, "Race name", self.entry(f, "race_name", cfg, width=44))
+        self.note(f, 4, "What the booth calls this race, e.g. 2026 Las Vegas Grand Prix. Empty: just the track.")
         self.row(f, 5, "Race sponsor", self.entry(f, "race_sponsor", cfg, width=44))
         self.row(f, 6, "Your sponsors", self.entry(f, "my_sponsors", cfg, width=44))
         self.note(f, 7, "Comma-separated, e.g. Acme Oil, Bolt Energy.")

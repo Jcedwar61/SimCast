@@ -254,6 +254,20 @@ def parse_driver_sponsors(text: str):
     return out
 
 
+def race_name(cfg) -> str:
+    """The race's name as the user typed it ('2026 Las Vegas Grand Prix'), '' if none."""
+    return " ".join(str((cfg or {}).get("race_name") or "").split())
+
+
+def the_race(cfg) -> str:
+    """The race's name ready to say: 'the 2026 Las Vegas Grand Prix', '' if none. A name that already starts
+    with 'the' (or 'a') keeps it as typed."""
+    n = race_name(cfg)
+    if not n:
+        return ""
+    return n if re.match(r"(?i)(the|a|an)\b", n) else f"the {n}"
+
+
 class Sponsors:
     """Who is backed by whom, worked out from the settings each time they're asked for (they can change mid-race)."""
 

@@ -874,6 +874,23 @@ check("angry" in persona.mood_direction("angry", "unhinged", True) and "never bl
 check(any(w in t.lower() for t in loud_said for w in SWEARS), "personality: with swearing on, they swear")
 check(not any(w in t.lower() for t in clean_said for w in ("bloody", "shit", "damn", "sod ", "f...", "jesus")),
       "personality: with swearing off, nobody swears, however unhinged")
+check(persona.the_race({"race_name": " 2026  Las Vegas Grand Prix "}) == "the 2026 Las Vegas Grand Prix" and
+      persona.the_race({"race_name": "The Bathurst 12 Hour"}) == "The Bathurst 12 Hour" and
+      persona.the_race({}) == "", "race name: said with 'the', unless it already has one")
+named = headless_run(laps=3, seed=3, cfg=dict(race_name="2026 Las Vegas Grand Prix"), log=lambda m: None)
+said = [ln.text for _, ln in named.audio.spoken]
+check(any("the 2026 Las Vegas Grand Prix" in t for t in said[:3]), "race name: the booth welcomes viewers to it")
+check(sum("2026 Las Vegas Grand Prix" in t for t in said) >= 2, "race name: and says it again at the finish")
+trk = named.director.tr.track
+check(trk and all(trk in t for t in said if "2026 Las Vegas Grand Prix" in t),
+      "race name: every line that names the race names the track too")
+calls.clear()
+nm = dict(DEFAULTS, openai_api_key="test", ai_colour=True, race_name="2026 Las Vegas Grand Prix")
+booth = ai_mod.AIBooth(lambda: nm, fake_chat, providers._json_reply, log=lambda m: None)
+booth.sync = True
+headless_run(laps=3, seed=3, booth=booth, cfg=nm, log=lambda m: None)
+check(any('EVENT: this race is called "2026 Las Vegas Grand Prix" and it\'s being run at' in m["content"] for c_ in calls for m in c_),
+      "race name: reaches the AI booth")
 w = c.director.writer
 check(persona.car_make("GT3 #12") == "" and persona.car_make("LMP2") == "", "sponsors: a class isn't a make")
 w.cfg = dict(w.cfg, race_sponsor="Acme Oil", banter="lots")

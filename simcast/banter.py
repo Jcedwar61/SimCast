@@ -310,7 +310,14 @@ class BanterMixin:
             ld = self.tr.leader()
             if not ld:
                 return []
-            return [Line(LEAD, self.pick("sp_title", [
+            event = persona.the_race(self.cfg)
+            at = f" at {self.tr.track}" if self.tr.track else ""
+            return [Line(LEAD, self.pick("sp_title_n", [
+                f"If you're just joining us, this is {event}{at}, brought to you by {title}, and "
+                f"{self.n(ld.id, now)} leads.",
+                f"Welcome back to {event}{at}, in association with {title}. {self.analyst_name}, has it lived up "
+                f"to the billing?",
+            ]) if event else self.pick("sp_title", [
                 f"If you're just joining us, this is the {title} race at {self.tr.track or 'this circuit'}, and "
                 f"{self.n(ld.id, now)} leads.",
                 f"Welcome back to the {title} race. {self.analyst_name}, has it lived up to the billing?",
