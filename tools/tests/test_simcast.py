@@ -881,12 +881,15 @@ named = headless_run(laps=3, seed=3, cfg=dict(race_name="2026 Las Vegas Grand Pr
 said = [ln.text for _, ln in named.audio.spoken]
 check(any("the 2026 Las Vegas Grand Prix" in t for t in said[:3]), "race name: the booth welcomes viewers to it")
 check(sum("2026 Las Vegas Grand Prix" in t for t in said) >= 2, "race name: and says it again at the finish")
+trk = named.director.tr.track
+check(trk and all(trk in t for t in said if "2026 Las Vegas Grand Prix" in t),
+      "race name: every line that names the race names the track too")
 calls.clear()
 nm = dict(DEFAULTS, openai_api_key="test", ai_colour=True, race_name="2026 Las Vegas Grand Prix")
 booth = ai_mod.AIBooth(lambda: nm, fake_chat, providers._json_reply, log=lambda m: None)
 booth.sync = True
 headless_run(laps=3, seed=3, booth=booth, cfg=nm, log=lambda m: None)
-check(any('EVENT: this race is called "2026 Las Vegas Grand Prix"' in m["content"] for c_ in calls for m in c_),
+check(any('EVENT: this race is called "2026 Las Vegas Grand Prix" and it\'s being run at' in m["content"] for c_ in calls for m in c_),
       "race name: reaches the AI booth")
 w = c.director.writer
 check(persona.car_make("GT3 #12") == "" and persona.car_make("LMP2") == "", "sponsors: a class isn't a make")

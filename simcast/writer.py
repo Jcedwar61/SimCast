@@ -1185,9 +1185,10 @@ class Writer(BanterMixin):
         win = self.n(a, now, full=True)
         event = persona.the_race(self.cfg)
         if event:
+            at = f" at {self.tr.track}" if self.tr.track else ""
             out = [Line(LEAD, self.pick("win_me_n" if c and c.player else "win_n", [
-                f"{win} wins! {win} takes the chequered flag and wins {event}!",
-                f"Chequered flag! {win} is the winner of {event}!",
+                f"{win} wins! {win} takes the chequered flag{at} and wins {event}!",
+                f"Chequered flag{at}! {win} is the winner of {event}!",
             ] + ([f"And it's victory for {win}! What a drive!"] if c and c.player else [])), 3)]
         elif c and c.player:
             out = [Line(LEAD, self.pick("win_me", [
