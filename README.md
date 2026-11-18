@@ -28,6 +28,7 @@ each other: while SimCoach's coach or crew speaks, the booth drops under them an
   the track: *"Hello and welcome to the 2026 Las Vegas Grand Prix, here at Las Vegas Strip Circuit..."* They
   name it again when they call the winner and the result, the AI booth works it in, and the race recap is named
   after it. Leave it empty and they just use the track.
+* **New licence:** SimCast is now licensed under the [PolyForm Noncommercial License 1.0.0](LICENSE) instead of MIT. It stays free to use, share and change for any noncommercial purpose; commercial use needs the author's permission. Nothing else changes.
 
 ### What's new in 1.5
 * **A booth with a personality you choose:** *Settings → Commentary → Style* sets the whole feel in one click:

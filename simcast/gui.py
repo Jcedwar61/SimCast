@@ -950,7 +950,7 @@ class SettingsWindow:
         if app.img_logo:
             ttk.Label(top, image=app.img_logo, style="Card.TLabel").pack(side="left", padx=(0, 10))
         ttk.Label(top, text=f"SimCast {APP_VERSION}", style="Card.TLabel", font=self.f["h1"]).pack(side="left")
-        self.note(f, 1, "Live TV-style commentary for sim racing. MIT License, Copyright (c) 2026 Jcedwar61. "
+        self.note(f, 1, "Live TV-style commentary for sim racing. PolyForm Noncommercial License 1.0.0, Copyright (c) 2026 Jcedwar61. "
                         "SimCast works on its own: SimCoach doesn't need to be installed.", span=3)
         b = ttk.Frame(f, style="Card.TFrame")
         b.grid(row=2, column=0, columnspan=3, sticky="w", pady=(10, 0))
@@ -1285,8 +1285,8 @@ class GuideWindow:
     def _licences(self):
         t = self.text
         t.insert("end", f"SimCast {APP_VERSION}\n", "h")
-        t.insert("end", "SimCast is free software under the MIT License. It works on its own; SimCoach isn't needed.\n")
-        for name, title in (("LICENSE.txt", "SimCast licence (MIT)"), ("THIRD_PARTY_NOTICES.txt", "Third-party notices")):
+        t.insert("end", "SimCast is free for noncommercial use under the PolyForm Noncommercial License 1.0.0. It works on its own; SimCoach isn't needed.\n")
+        for name, title in (("LICENSE.txt", "SimCast licence (PolyForm Noncommercial)"), ("THIRD_PARTY_NOTICES.txt", "Third-party notices")):
             t.insert("end", title + "\n", "h")
             try:
                 with open(os.path.join(LICENSE_DIR, name), encoding="utf-8") as fh:

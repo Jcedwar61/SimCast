@@ -1,9 +1,9 @@
 SimCast - third-party notices
 =============================
 
-SimCast itself is released under the MIT License (LICENSE.txt, Copyright (c) 2026 Jcedwar61). Parts of it
+SimCast itself is released under the PolyForm Noncommercial License 1.0.0 (LICENSE.txt, Copyright (c) 2026 Jcedwar61). Parts of it
 (the sim readers in simcast/sims.py and the AI provider code in simcast/providers.py) are adapted from
-SimCoach (https://github.com/Jcedwar61/SimCoach) by the same author, under the same MIT License. SimCast does not need SimCoach to be installed.
+SimCoach (https://github.com/Jcedwar61/SimCoach) by the same author, under the same PolyForm Noncommercial License 1.0.0. SimCast does not need SimCoach to be installed.
 
 What follows is everything else SimCast ships, downloads or uses, with its licence.
 
