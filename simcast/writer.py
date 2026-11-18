@@ -261,10 +261,13 @@ class Writer(BanterMixin):
         what has been said, so a stack of calls still lands as two people at a microphone. Booking is left to
         book(), called once the lines are actually queued."""
         out, who, run = [], self.floor_who, self.floor_run
+        vocab = None
+        if getattr(self.tr, "nascar", False):
+            from .nascar import vocab
         for ln in lines or []:
             if not ln:
                 continue
-            ln = Line(ln.who, _sentences(ln.text), ln.energy, ln.mood)
+            ln = Line(ln.who, _sentences(vocab(ln.text) if vocab else ln.text), ln.energy, ln.mood)
             if ln.who in (LEAD, ANALYST) and ln.who == who and run >= FLOOR_MAX:
                 other = ANALYST if ln.who == LEAD else LEAD
                 out.append(Line(other, self.pick("brk_" + other, BREAKS[other]), 1))
@@ -512,8 +515,13 @@ class Writer(BanterMixin):
     # ------------------------------------------------------------------ events
     def event(self, e, now, interrupting=False) -> list:
         self._pick_i = 0
-        f = getattr(self, "ev_" + e.kind, None)
-        lines = f(e, now) if f else []
+        lines = None
+        if getattr(self.tr, "nascar", False):
+            from . import nascar
+            lines = nascar.event_lines(self, e, now)
+        if lines is None:
+            f = getattr(self, "ev_" + e.kind, None)
+            lines = f(e, now) if f else []
         lines = [Line(ln.who, ln.text[:1].upper() + ln.text[1:], ln.energy, ln.mood) for ln in (lines or []) if ln and ln.text]
         if interrupting and lines and lines[0].who == LEAD and lines[0].energy >= 2 and \
                 e.kind in ("overtake", "stopped", "moment", "contact", "retired"):

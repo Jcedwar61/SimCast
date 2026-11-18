@@ -42,6 +42,7 @@ BANTER_LABELS = {"rare": "Rarely", "normal": "Sometimes", "lots": "Whenever ther
 DRIVE_LABELS = {"stream": "Stream (the full show)", "driver": "Driving (quiet in traffic and braking zones)"}
 CONVO_LABELS = {"auto": "Automatic (a second provider with a key)", "same": "The same as above",
                 "openai": "OpenAI", "gemini": "Google Gemini", "deepseek": "DeepSeek"}
+NASCAR_LABELS = {"auto": "Automatic (stock cars, ovals)", "on": "Always", "off": "Never"}
 PRONOUN_LABELS = {"auto": "From my name", "he": "He", "she": "She", "they": "They"}
 PROVIDERS = {"openai": "OpenAI", "gemini": "Google Gemini", "deepseek": "DeepSeek"}
 
@@ -790,6 +791,13 @@ class SettingsWindow:
         self.note(f, 14, "A spreadsheet (CSV) with Driver, Number, Team, Pronouns, Sponsors and Say as. It wins over "
                          "the guesses above and gives the booth 'the number 12 Porsche'. Make one starts it with the "
                          "drivers on track now.")
+        self.row(f, 15, "NASCAR mode", self.radios(f, "nascar", NASCAR_LABELS, cfg))
+        self.row(f, 16, "   stages end on lap", self.entry(f, "nascar_stages", cfg, width=20), sticky="w")
+        self.note(f, 17, "Stock cars and ovals get a NASCAR broadcast: green flag, cautions and restarts, stages and "
+                         "stage points, laps led, the free pass, pit road, the checkered flag. Stages: e.g. 60, 185. "
+                         "Empty: about 30% and 60% of a race of 20 laps or more. off: no stages.")
+        self.row(f, 18, "", self.check(f, "nascar_voices", "American voices for NASCAR races (unless you've picked "
+                                                           "your own)", cfg))
 
         # ---------------------------------------------------------------- Voices
         f = page("Voices")

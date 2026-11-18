@@ -28,8 +28,9 @@ Press Demo race at the top of the window. Twelve cars, a standing start, battles
 
 They talk to each other, and to the race: a fight or a driver on the move is opened between them, followed a beat at a time, and paid off when it breaks, so the coverage carries on rather than falling back on a list of facts. Nobody holds the floor for long.
 
-## Three kinds of coverage
+## Four kinds of coverage
 SimCast picks the right one by itself and shows it at the top of the window.
+- NASCAR: stock cars (iRacing's NASCAR Cup, Xfinity and Truck cars, ARCA, Late Models, Legends, Modifieds...) and oval tracks get an American oval broadcast. Everything the whole field gets, plus the green flag, cautions (the first, the second, the one for the stage break), restarts with the front row, the free pass for the first car a lap down, stages with the stage winner and who scores stage points, laps led and the number of leaders, and Victory Lane. The booth's words change too: pit road, the pace car, tires, the checkered flag, "Byron in the number 24". The AI booth is told to call it like a NASCAR booth. American voices take over unless you've chosen your own. Settings > Booth > NASCAR mode can make it Always (the demo race too) or Never.
 - Whole field: the sim shares every car (Le Mans Ultimate, rFactor 2, iRacing, Automobilista 2, RaceRoom, F1 25, ACC, and Assetto Corsa with the CrewChiefEx app). Overtakes anywhere, battles, pit stops, the leader, the podium.
 - Your car only: the sim shares just your car (AC EVO, Assetto Corsa without CrewChiefEx). The booth follows you: places gained and lost, the gap to the car ahead, pressure from behind, trips off the track, your laps and the finish.
 - Rally stage: EA SPORTS WRC, DiRT Rally 2.0 and AC Rally. Splits against your best run on that stage, big moments, damage and the stage time. SimCast remembers your best run on every stage, so the comparison gets better every time.
@@ -127,6 +128,7 @@ A race of about 30 minutes makes a few dozen short requests. With OpenAI voices 
 - Memory: the booth remembers real races (not the demo) between sessions: results, wins and streaks, contact and lead changes between drivers, and each commentator's prediction record. Two drivers with history meet again and the booth brings it up. Forget clears it. It lives in %APPDATA%\\SimCast\\memory.json.
 - League roster: a spreadsheet (CSV) with a row per driver: Driver, Number, Team, Pronouns, Sponsors (separated by ;) and Say as (how to say the name). What it says wins over every guess, and the booth gets "the number 12 Porsche" and the team names. Make one starts a roster with the drivers on track; it's read again whenever you save it.
 - Race name: what the booth calls this race, e.g. 2026 Las Vegas Grand Prix. They welcome you to it by name, call the winner of it, and bring it up now and then; the recap is named after it too. Change it before each event; empty just uses the track.
+- NASCAR mode: Automatic gives stock cars and ovals the NASCAR broadcast; Always gives it to every race (and the demo), Never to none. Stages end on lap: the laps the stage breaks come on, e.g. 60, 185 (the final stage runs to the flag). Empty: about 30% and 60% of a race of 20 laps or more; off: no stages. American voices: the lead, analyst and pit reporter switch to American Microsoft voices for NASCAR races, except any you've changed yourself.
 - Sponsors: the race's title sponsor, your own sponsors, and other drivers' (Name: sponsor, sponsor; separated by semicolons). Make up sponsors gives everyone else fictional backers. The booth works them in now and then, the way TV booths do.
 
 ## Voices

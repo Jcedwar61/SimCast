@@ -15,12 +15,13 @@ from .demo import DemoRace
 from .director import Director
 from .memory import Memory
 from .race import RaceTracker
+from .nascar import NascarTracker
 from .solo import RallyTracker, SoloTracker, StageStore
 from . import ai as ai_mod
-from . import persona, providers, sims
+from . import nascar, persona, providers, sims
 
 APP_NAME = "SimCast"
-APP_VERSION = "1.7"
+APP_VERSION = "1.8"
 APP_DIR = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), "SimCast")
 CONFIG_PATH = os.path.join(APP_DIR, "config.json")
 LOG_PATH = os.path.join(APP_DIR, "simcast.log")
@@ -53,6 +54,7 @@ DEFAULTS = {
     "f1_port": 20777, "dr2_port": 20779, "udp_share_simhub": True, "game_setup": True, "guide_seen": False,
     "demo_laps": 8, "captions": False, "captions_pos": None, "window": None,
     "check_updates": True, "update_skip": "",
+    "nascar": "auto", "nascar_stages": "", "nascar_voices": True,
     "booth_tone": "broadcast", "swearing": False, "banter": "normal", "driver_pronouns": "auto",
     "ai_convo": "auto", "drive_mode": "stream", "race_sponsor": "", "race_name": "",
     "memory": True, "roster_file": "", "obs_captions": False, "obs_port": 8686, "twitch_channel": "",
@@ -66,6 +68,9 @@ STYLES = {   # the booth in one click; Custom is anything else
 }
 
 
+NASCAR_VOICES = {"lead": "en-US-GuyNeural", "analyst": "en-US-JennyNeural", "pit": "en-US-AriaNeural"}
+
+
 def style_of(cfg):
     """The style the settings match, or 'custom'."""
     return next((k for k, v in STYLES.items() if all(cfg.get(x) == y for x, y in v.items())), "custom")
@@ -75,7 +80,7 @@ CHOICES = {"tts": ("on", "off"), "chatter": ("quiet", "normal", "chatty"),
            "focus": ("field", "balanced", "me"), "ai_provider": ("openai", "gemini", "deepseek"),
            "simcoach_duck": tuple(DUCK_LEVELS), "booth_tone": persona.TONES, "banter": persona.BANTER,
            "driver_pronouns": persona.PRONOUN_CHOICES, "ai_convo": providers.CONVO_CHOICES,
-           "drive_mode": ("stream", "driver")}
+           "drive_mode": ("stream", "driver"), "nascar": nascar.CHOICES}
 SECRET_KEYS = ("openai_api_key", "gemini_api_key", "deepseek_api_key", "elevenlabs_api_key")
 ROLE_LABEL = {"lead": "lead", "analyst": "analyst", "pit": "pit lane"}
 
@@ -118,7 +123,8 @@ def clean_config(cfg):
     for k in ("race_sponsor", "my_sponsors", "race_name"):
         cfg[k] = " ".join(str(cfg.get(k) or "").split())[:120]
     cfg["driver_sponsors"] = str(cfg.get("driver_sponsors") or "").strip()[:2000]
-    for k in ("swearing", "invent_sponsors"):
+    cfg["nascar_stages"] = nascar.clean_stages(cfg.get("nascar_stages"))
+    for k in ("swearing", "invent_sponsors", "nascar_voices"):
         cfg[k] = bool(cfg.get(k, DEFAULTS[k]))
     try:
         cfg["obs_port"] = max(1024, min(65535, int(cfg.get("obs_port") or 8686)))
@@ -194,7 +200,12 @@ class SimCast:
 
     # -------------------------------------------------------------- settings
     def config(self):
-        return dict(self.cfg)
+        cfg = dict(self.cfg)
+        if self.__dict__.get("mode") == "nascar" and cfg.get("nascar_voices", True):
+            for who, vid in NASCAR_VOICES.items():          # American voices, where the default is still chosen
+                if cfg.get(f"{who}_voice") == DEFAULTS[f"{who}_voice"]:
+                    cfg[f"{who}_voice"] = vid
+        return cfg
 
     def update_settings(self, changes):
         """From the Settings window. Unknown keys are ignored; key fields are only replaced when something's typed."""
@@ -238,7 +249,7 @@ class SimCast:
         self.log(f"{name.upper():>6} | {line.text}")
 
     # -------------------------------------------------------------- frames in
-    MODE_LABEL = {"field": "Whole field", "solo": "Your car only", "rally": "Rally stage"}
+    MODE_LABEL = {"field": "Whole field", "solo": "Your car only", "rally": "Rally stage", "nascar": "NASCAR"}
 
     def _make_tracker(self, mode):
         name = lambda: self.cfg.get("driver_name") or ""
@@ -246,12 +257,16 @@ class SimCast:
             return RallyTracker(log=self.log, name_fn=name, store=self.stages)
         if mode == "solo":
             return SoloTracker(log=self.log, name_fn=name)
+        if mode == "nascar":
+            return NascarTracker(log=self.log, stages_fn=lambda: self.cfg.get("nascar_stages") or "")
         return RaceTracker(log=self.log)
 
     def _pick_mode(self, frame):
-        """Whole field when the sim shares every car, rally for stages, else the car being driven. A change has
-        to hold for about a second (ACC's grid arrives a moment after the car, for one)."""
+        """Whole field when the sim shares every car (NASCAR for stock cars and ovals), rally for stages, else the
+        car being driven. A change has to hold for about a second (ACC's grid arrives a moment after the car)."""
         mode = "rally" if frame.game in sims.RALLY_GAMES else ("field" if frame.field else "solo")
+        if mode == "field" and self._is_nascar(frame):
+            mode = "nascar"
         if mode == self.mode:
             self._mode_n = 0
             return
@@ -263,6 +278,15 @@ class SimCast:
             self.tracker = self._make_tracker(mode)
             self.director.set_tracker(self.tracker)
             self.log(f"Commentary mode: {self.MODE_LABEL[mode]}")
+
+    def _is_nascar(self, frame):
+        """nascar.detect, worked out again only when the setting, the track or the cars change."""
+        setting = self.cfg.get("nascar", "auto")
+        key = (setting, frame.track, frame.car, getattr(frame, "track_type", None), len(frame.field or ()),
+               frame.session)
+        if key != self.__dict__.get("_nascar_key"):
+            self._nascar_key, self._nascar_is = key, nascar.detect(frame, setting)
+        return self._nascar_is
 
     def feed(self, frame, now):
         if frame is None:
@@ -352,8 +376,8 @@ class SimCast:
             cfg = self.config()
             self.demo = DemoRace(laps=laps or cfg.get("demo_laps", 8), seed=int(time.time()) % 1000,
                                  player_name=cfg.get("driver_name") or "")
-            self.mode = "field"
-            self.tracker = self._make_tracker("field")
+            self.mode = "nascar" if cfg.get("nascar") == "on" else "field"
+            self.tracker = self._make_tracker(self.mode)
             self.director.set_tracker(self.tracker)
             self.director.reset()
             self.audio.interrupt(time.monotonic())

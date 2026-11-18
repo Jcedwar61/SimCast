@@ -114,6 +114,9 @@ def race_brief(tr, writer, events, transcript, max_cars=14):
         lines.append(f"EVENT: this race is called \"{event}\"{where}. Call it by that name when you welcome "
                      "viewers, at the start and the finish, and now and then in between, and say the track's name "
                      "with it" + (" (the race name doesn't replace the track)" if tr.track else "") + ".")
+    if getattr(tr, "nascar", False):
+        from . import nascar
+        lines += nascar.brief(tr, writer)
     st = tr.standings()
     me = next((s for s in st if s["player"]), None)
     keep = set(range(min(max_cars, len(st))))
@@ -248,6 +251,11 @@ def race_brief(tr, writer, events, transcript, max_cars=14):
 
 def describe(e, writer):
     """An Event as one plain sentence for the model (and the recent-events list)."""
+    if getattr(writer.tr, "nascar", False):
+        from . import nascar
+        said = nascar.describe(e, writer)
+        if said:
+            return said
     n = writer.n
     d = e.data
     c = e.cars

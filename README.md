@@ -5,7 +5,8 @@
 SimCast gives your sim race the television treatment. While you drive, a commentary booth calls the race live
 in your headphones: the start, overtakes anywhere in the field, battles, pit stops, fastest laps, cars in
 trouble, the final lap and the finish. It covers **the whole race**, not just you, and follows your race the
-way a broadcast follows a driver in the story. Rally stages get rally coverage, against the clock.
+way a broadcast follows a driver in the story. Rally stages get rally coverage, against the clock, and stock
+car races get a NASCAR broadcast.
 
 SimCast is a standalone Windows app. It's built on the foundation of [SimCoach](https://github.com/Jcedwar61/SimCoach)
 (the live voice coach), but **doesn't need SimCoach installed**. The two run side by side without talking over
@@ -22,6 +23,16 @@ each other: while SimCoach's coach or crew speaks, the booth drops under them an
 * **[Latest release and checksums](https://github.com/Jcedwar61/SimCast/releases/latest)**
 * **Linux / Steam Deck:** [install-simcast-wine.sh](install-simcast-wine.sh) installs SimCast into the sim's
   own Proton prefix (see below).
+
+### What's new in 1.8
+* **NASCAR mode:** stock cars (iRacing's NASCAR Cup, Xfinity and Truck cars, ARCA, Late Models, Legends,
+  Modifieds...) and oval tracks get an American oval broadcast. *"Green flag! Green flag!"*, cautions (and the one
+  for the stage break), restarts with the front row, the free pass for the first car a lap down, **stages** with
+  the stage winner and who scores stage points, **laps led** and how many leaders, and *"headed to Victory Lane"*.
+  The booth talks the part everywhere else too: pit road, the pace car, tires, the checkered flag, *"Byron in the
+  number 24"*, and the AI booth is told to call it like a NASCAR booth. American voices take over for these races
+  unless you've picked your own. *Settings → Booth → NASCAR mode*: Automatic, Always (the demo race too) or Never,
+  and the laps the stages end on (empty: about 30% and 60% of the distance).
 
 ### What's new in 1.7
 * **Race name:** type the event's name in *Settings → Booth* and the booth announces the race by it, along with
