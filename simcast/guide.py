@@ -40,7 +40,7 @@ Gaps are measured at 40 timing points a lap, like a TV timing system. A place lo
 """),
     ("Setting up your sim", """
 ## SimCast finds your sims
-When it starts, SimCast looks for the supported sims installed on this PC (every Steam library, iRacing's own folder, and EA app installs of F1 25 and EA SPORTS WRC) and lists them on the start screen and in Settings > Sims: a green tick when a sim is ready, or the one thing still to do. Press Scan again in Settings > Sims after installing a sim.
+When it starts, SimCast looks for the supported sims installed on this PC (every Steam library, iRacing's own folder, and EA app installs of F1 25 and EA SPORTS WRC) and lists them on the start screen and in Settings > Sims: READY when a sim is ready, or SET UP with the one thing still to do. Press Scan again in Settings > Sims after installing a sim.
 
 ## Nothing to do
 - Le Mans Ultimate, rFactor 2, RaceRoom, AC Rally, AC EVO: just drive.
@@ -160,7 +160,7 @@ Settings are saved in %APPDATA%\\SimCast\\config.json.
 """),
     ("Streaming and captions", """
 ## Captions window
-Tick Captions window at the bottom of SimCast's window. A small window shows each line as it's spoken, with who said it. It stays on top: drag it where you want it, right-click to close it.
+Tick Captions window at the bottom of SimCast's window. A small window shows each line as it's spoken, as a TV lower third with the speaker's name tag. It stays on top: drag it where you want it, right-click to close it.
 
 ## In OBS
 Add a Window Capture of "SimCast captions" (or of the SimCast window for the timing tower). Use a colour key on the dark background if you want it transparent.
