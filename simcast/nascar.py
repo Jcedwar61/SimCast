@@ -127,6 +127,11 @@ class NascarTracker(RaceTracker):
         self.stages_fn = stages_fn or (lambda: "")
         super().__init__(log=log)
 
+    def update(self, f, now):
+        if f is not None:                           # low and high only mean something on an oval
+            self.oval = is_oval(getattr(f, "track", ""), getattr(f, "track_type", None) or "")
+        return super().update(f, now)
+
     def reset(self, session=None, track=None):
         super().reset(session, track)
         self._nascar_state()
@@ -537,6 +542,40 @@ def _zone(pos, was=None):
 # ---------------------------------------------------------------- the race, called like an oval broadcast
 
 def overtake_lines(w, e, now):
+    """The pass, and where it happened when the lanes are measured: 'goes to the bottom', 'around the outside'."""
+    out = _overtake_lines(w, e, now)
+    lane = e.data.get("lane") if getattr(w.tr, "oval", False) else None
+    if not lane or not out or len(e.cars) < 2 or e.data.get("multi"):
+        return out
+    a, b = e.cars[0], e.cars[1]
+    an, bn, pos = w.n(a, now), w.n(b, now), e.data.get("pos", 0)
+    what = "the lead" if e.data.get("lead") else place(pos)
+    if lane == "low":
+        call = w.pick("nas_ovt_low", [
+            f"{an} dives to the bottom and gets underneath {bn} for {what}!",
+            f"Underneath {bn} goes {an}! Takes {what} on the inside!",
+            f"{an} cuts to the bottom, side by side with {bn}... and clears for {what}!",
+        ])
+    else:
+        call = w.pick("nas_ovt_high", [
+            f"{an} goes around the outside of {bn} for {what}!",
+            f"Up high! {an} rolls around {bn} and takes {what}!",
+            f"{an} rides the high line, side by side with {bn}... and pulls clear for {what}!",
+        ])
+    if e.data.get("lead"):
+        call = "We have a new leader! " + call
+    out[0] = Line(LEAD, call, out[0].energy)
+    if len(out) > 1 and out[1].who == ANALYST and w.chance(0.5):
+        out[1] = Line(ANALYST, w.pick("nas_ovt_lane_a", [
+            f"{bn} left the bottom open. You can't do that." if lane == "low" else
+            f"{an} had the momentum up top. {bn} just couldn't carry the speed through the bottom.",
+            "That's how you use the whole race track." if lane == "high" else
+            f"Shortest way around, and {an} took it.",
+        ]), out[1].energy)
+    return out
+
+
+def _overtake_lines(w, e, now):
     """The pass: a run, side by side, cleared. A lead change is counted, a move into the top five or ten said."""
     d = e.data
     a, victims = e.cars[0], list(e.cars[1:])
@@ -968,6 +1007,43 @@ def ev_quali_lap(w, e, now):
     return []
 
 
+def ev_side_by_side(w, e, now):
+    """Cars alongside each other, called from the measured lanes: 'Side by side for the lead!', 'Three-wide!'."""
+    tr = w.tr
+    cars = [c for c in e.cars if tr.car(c)]
+    if len(cars) < 2:
+        return []
+    pos = e.data.get("pos", 0)
+    what = "the lead" if pos == 1 else place(pos)
+    names = [w.n(c, now) for c in cars]
+    oval = getattr(tr, "oval", False)
+    if len(cars) >= 3:
+        call = (f"Three-wide for {what}! {names[0]} on the bottom, {names[1]} in the middle, {names[2]} up top!"
+                if oval else f"Three-wide for {what}! {names[0]}, {names[1]} and {names[2]}!")
+        return [Line(LEAD, call, 3), Line(ANALYST, w.pick("nas_3w_a", [
+            f"Somebody's got to give here. {names[1]} is in the worst seat in the house.",
+            "Three-wide never lasts. Hold your breath.",
+            f"{names[1]} has nowhere to go if either one of them moves.",
+        ]), 2)]
+    low, high = names[0], names[1]
+    call = w.pick("nas_sbs", [
+        f"Side by side for {what}! {low} on the bottom, {high} on the outside!",
+        f"{low} and {high}, door to door for {what}! {low} low, {high} high!",
+        f"They're side by side for {what}! {high} trying to go around {low}!",
+    ]) if oval else w.pick("nas_sbs_r", [
+        f"Side by side for {what}! {low} and {high}!",
+        f"{low} and {high}, door to door for {what}!",
+    ])
+    return [Line(LEAD, call, 3 if pos <= 3 else 2), Line(ANALYST, w.pick("nas_sbs_a", [
+        f"{low} has the shorter way around. {high} has to carry the momentum.",
+        "Whoever gets the better run off the next corner gets that spot.",
+        f"Watch {high} up there. If the car sticks, this is a pass.",
+    ] if oval else [
+        "Whoever gets the better run off the next corner gets that spot.",
+        "Neither one is lifting. Here we go.",
+    ]), 2)]
+
+
 # ---------------------------------------------------------------- the quiet spells, the NASCAR way
 
 def _rundown(w, now):
@@ -1138,7 +1214,7 @@ EVENTS = {"intro": ev_intro, "start": ev_start, "caution": ev_caution, "sc_in": 
           "retired": ev_retired, "contact": ev_contact, "accident": ev_accident, "penalty": ev_penalty,
           "start_review": ev_start_review, "lap_one": ev_lap_one, "laps_to_go": ev_laps_to_go,
           "halfway": ev_halfway, "final_lap": ev_final_lap, "podium": ev_podium,
-          "player_finish": ev_player_finish, "quali_lap": ev_quali_lap}
+          "player_finish": ev_player_finish, "quali_lap": ev_quali_lap, "side_by_side": ev_side_by_side}
 
 
 def event_lines(w, e, now):
@@ -1269,6 +1345,22 @@ def brief(tr, writer) -> list:
     if led:
         out.append("LAPS LED: " + ", ".join(f"{writer.n(cid)} {n}" for n, cid in led[:6]) +
                    f". {plural(len(getattr(tr, 'leaders', [])), 'different leader')}.")
+    lanes = []
+    oval = getattr(tr, "oval", False)
+    for grp in getattr(tr, "alongside", [])[:4]:
+        pos = min(tr.pos_of(c.id) or 99 for c in grp)
+        who = " and ".join(writer.n(c.id) for c in grp)
+        side = (", " + ", ".join(f"{writer.n(c.id)} {lane}" for c, lane in
+                                 zip(grp, ("low", "in the middle", "high") if len(grp) == 3 else ("low", "high")))
+                if oval else "")
+        lanes.append(f"{who} {'three-wide' if len(grp) == 3 else 'side by side'} for P{pos}{side}")
+    if oval:
+        for cid in tr.order[:12]:
+            c = tr.car(cid)
+            if c is not None and c.lat is not None and abs(c.lat) >= 3.0 and not any(c in g for g in tr.alongside):
+                lanes.append(f"{writer.n(cid)} running {'high, up near the wall' if c.lat > 0 else 'low, on the bottom'}")
+    if lanes:
+        out.append("LANES (measured from the cars' positions, so true): " + "; ".join(lanes[:8]) + ".")
     if getattr(tr, "cautions", 0):
         out.append(f"CAUTIONS: {tr.cautions} so far" + (" (under caution now)" if tr.flag in CAUTION_FLAGS else "") +
                    ".")
@@ -1282,6 +1374,9 @@ def describe(e, writer):
         return f"{n(e.cars[0])} won stage {e.data['stage']}"
     if e.kind == "stage_to_go":
         return f"three laps to go in stage {e.data['stage']}"
+    if e.kind == "side_by_side":
+        return f"{' and '.join(n(c) for c in e.cars)} {'three-wide' if len(e.cars) == 3 else 'side by side'} for " \
+               f"P{e.data.get('pos')}" + (" (listed low to high)" if getattr(writer.tr, "oval", False) else "")
     if e.kind == "free_pass":
         return f"{n(e.cars[0])} got the free pass (lucky dog), back on the lead lap at the restart"
     if e.kind == "caution":

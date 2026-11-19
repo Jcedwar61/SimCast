@@ -12,6 +12,8 @@ import statistics
 from dataclasses import dataclass, field
 from typing import Optional
 
+from .lanes import ALONGSIDE_LAT, ALONGSIDE_LONG, LaneMap, lane_word
+
 N_LOOPS = 40                 # timing loops per lap; gaps are measured where both cars crossed the same loop
 UPDATE_EVERY = 0.1           # seconds between updates (the sims send 60 a second; 10 is plenty for timing)
 ORDER_SETTLE = 0.8           # a new running order must hold this long before it counts (no flicker at the line)
@@ -104,6 +106,8 @@ class Car:
         self.tyre = e.get("tyre")
         self.penalties = e.get("penalties")
         self.tyre_in = None                              # the compound it came into the pits on
+        self.xyz = None                                  # where it is in the world (Assetto Corsa with CrewChiefEx)
+        self.lat = None                                  # metres from the track's average line, + towards the outside
 
     def __repr__(self):
         return f"<Car {self.call} P{self.position}>"
@@ -156,6 +160,10 @@ class RaceTracker:
         self._sim_keys = {}
         self._first_seen = None
         self._incident = None
+        self.lanes = LaneMap()                           # the groove, learned from where the cars drive
+        self.alongside: list = []                        # groups of cars side by side right now, low to high
+        self._sbs: dict = {}                             # frozenset of car ids -> {"since", "told"}
+        self._sbs_last = -1e9
 
     def update(self, f, now) -> list:
         """One frame in, new events out. Frames without a field (sims or sessions SimCoach can't see the whole
@@ -205,6 +213,7 @@ class RaceTracker:
             self._move(c, e, now, dt)
             self._pit(c, bool(e.get("in_pit")), now, ev)
             self._lap(c, e, now, ev)
+        self._lanes(now, ev)
         for c in self.cars.values():
             if c.id not in seen and not c.gone and now - c.seen > MISSING_HOLD:
                 c.gone = True
@@ -282,6 +291,7 @@ class RaceTracker:
         for k in ("number", "team", "tyre"):
             if e.get(k):
                 setattr(c, k, e[k])
+        c.xyz = e.get("xyz")
         racing = self.session == "race" and self.started and not self.finished
         inc = e.get("incidents")
         if inc is not None:
@@ -295,6 +305,64 @@ class RaceTracker:
                 ev.append(Event("penalty", now, 70 if c.player else 55, (c.id,), {"total": pen}, ttl=15,
                                 key=f"pen{c.id}.{pen}"))
             c.penalties = pen
+
+    # ------------------------------------------------------------------ lanes (sims that share world positions)
+    def _lanes(self, now, ev):
+        """Learn the groove, put every car in its lane, and call cars that stay side by side or three-wide."""
+        moving = []
+        for c in self.cars.values():
+            if c.xyz is None or c.gone or c.in_pit or (c.speed or 0) < 60:
+                c.lat = None
+                continue
+            x, _, z = c.xyz
+            self.lanes.feed(c.pct, x, z)
+            lat = self.lanes.lateral(c.pct, x, z)
+            c.lat = None if lat is None else (lat if c.lat is None else c.lat * 0.5 + lat * 0.5)
+            if c.lat is not None and c.dist is not None and not c.finished and not c.stopped:
+                moving.append(c)
+        self.alongside = []
+        racing = self.session == "race" and self.started and not self.finished and self.flag not in CAUTION_FLAGS
+        if not moving:
+            return
+        moving.sort(key=lambda c: -c.dist)
+        groups, i = [], 0
+        while i < len(moving):
+            grp = [moving[i]]
+            j = i + 1
+            while j < len(moving) and (moving[i].dist - moving[j].dist) * self.track_len < ALONGSIDE_LONG:
+                grp.append(moving[j])
+                j += 1
+            if len(grp) >= 2:
+                grp.sort(key=lambda c: c.lat)
+                grp = grp[:3]
+                if all(b.lat - a.lat >= ALONGSIDE_LAT for a, b in zip(grp, grp[1:])):
+                    groups.append(grp)
+            i = j if len(grp) >= 2 else i + 1
+        self.alongside = groups
+        live = set()
+        for grp in groups:
+            key = frozenset(c.id for c in grp)
+            live.add(key)
+            st = self._sbs.setdefault(key, {"since": None, "told": -1e9})
+            if st["since"] is None:
+                st["since"] = now                        # alongside from now: it has to hold a second
+            if not racing or (self.start_t is not None and now - self.start_t < 12.0):
+                continue
+            if now - st["since"] < 1.0 or now - st["told"] < 30.0 or now - self._sbs_last < 8.0:
+                continue
+            pos = min(self.pos_of(c.id) or 99 for c in grp)
+            mine = any(c.player for c in grp)
+            prio = 86 if pos == 1 else 80 if mine else 70 if pos <= 3 else 55 if pos <= 10 else 35
+            if len(grp) == 3:
+                prio += 8
+            st["told"] = self._sbs_last = now
+            ev.append(Event("side_by_side", now, prio, tuple(c.id for c in grp), {"pos": pos, "wide": len(grp)},
+                            ttl=6, key=f"sbs{'.'.join(str(c.id) for c in grp)}@{int(now)}"))
+        for key in [k for k in self._sbs if k not in live]:
+            if now - self._sbs[key]["told"] > 30.0:
+                del self._sbs[key]
+            else:
+                self._sbs[key]["since"] = None           # broke apart: called again only after the cool-down
 
     def _pit(self, c, in_pit, now, ev):
         racing = self.session == "race" and self.started
@@ -496,7 +564,7 @@ class RaceTracker:
             gap_before = vs[0].interval if vs else None
             ev.append(Event("overtake", now, prio, (cid,) + tuple(victims),
                             {"pos": pos, "lead": lead, "multi": len(vs) > 1, "battle_len": self._battle_len(vs[0], a, now),
-                             "gap_before": gap_before}, ttl=10, key=f"ovt{cid}>{victims[0]}@{int(now)}"))
+                             "gap_before": gap_before, "lane": lane_word(a.lat, vs[0].lat) if vs else None}, ttl=10, key=f"ovt{cid}>{victims[0]}@{int(now)}"))
             for v in victims:
                 self._sim_keys.pop(f"ovtk{cid}>{v}", None)
 
