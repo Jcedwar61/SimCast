@@ -32,13 +32,22 @@ VOICES = [   # (label, voice id): Microsoft neural (free, online), Google (free,
     ("Thomas (British) - Microsoft", "en-GB-ThomasNeural"),
     ("Libby (British) - Microsoft", "en-GB-LibbyNeural"),
     ("Maisie (British) - Microsoft", "en-GB-MaisieNeural"),
-    ("Andrew (American) - Microsoft", "en-US-AndrewNeural"),
-    ("Brian (American) - Microsoft", "en-US-BrianNeural"),
-    ("Guy (American) - Microsoft", "en-US-GuyNeural"),
-    ("Christopher (American) - Microsoft", "en-US-ChristopherNeural"),
-    ("Emma (American) - Microsoft", "en-US-EmmaNeural"),
-    ("Aria (American) - Microsoft", "en-US-AriaNeural"),
-    ("Jenny (American) - Microsoft", "en-US-JennyNeural"),
+    ("Andrew (American, most natural) - Microsoft", "en-US-AndrewMultilingualNeural"),
+    ("Brian (American, most natural) - Microsoft", "en-US-BrianMultilingualNeural"),
+    ("Ava (American, most natural) - Microsoft", "en-US-AvaMultilingualNeural"),
+    ("Emma (American, most natural) - Microsoft", "en-US-EmmaMultilingualNeural"),
+    ("Andrew (American, warm) - Microsoft", "en-US-AndrewNeural"),
+    ("Brian (American, casual) - Microsoft", "en-US-BrianNeural"),
+    ("Guy (American, passionate) - Microsoft", "en-US-GuyNeural"),
+    ("Roger (American, lively) - Microsoft", "en-US-RogerNeural"),
+    ("Christopher (American, authoritative) - Microsoft", "en-US-ChristopherNeural"),
+    ("Eric (American, steady) - Microsoft", "en-US-EricNeural"),
+    ("Steffan (American, steady) - Microsoft", "en-US-SteffanNeural"),
+    ("Ava (American, expressive) - Microsoft", "en-US-AvaNeural"),
+    ("Emma (American, cheerful) - Microsoft", "en-US-EmmaNeural"),
+    ("Aria (American, confident) - Microsoft", "en-US-AriaNeural"),
+    ("Jenny (American, friendly) - Microsoft", "en-US-JennyNeural"),
+    ("Michelle (American, friendly) - Microsoft", "en-US-MichelleNeural"),
     ("William (Australian) - Microsoft", "en-AU-WilliamNeural"),
     ("Natasha (Australian) - Microsoft", "en-AU-NatashaNeural"),
     ("Connor (Irish) - Microsoft", "en-IE-ConnorNeural"),
@@ -50,12 +59,16 @@ VOICES = [   # (label, voice id): Microsoft neural (free, online), Google (free,
     ("Fable (British) - Kokoro, offline", "kokoro:bm_fable"),
     ("Emma (British) - Kokoro, offline", "kokoro:bf_emma"),
     ("Isabella (British) - Kokoro, offline", "kokoro:bf_isabella"),
-    ("Heart (American) - Kokoro, offline", "kokoro:af_heart"),
+    ("Heart (American, best) - Kokoro, offline", "kokoro:af_heart"),
     ("Bella (American) - Kokoro, offline", "kokoro:af_bella"),
+    ("Nicole (American, soft) - Kokoro, offline", "kokoro:af_nicole"),
+    ("Sarah (American) - Kokoro, offline", "kokoro:af_sarah"),
+    ("Aoede (American) - Kokoro, offline", "kokoro:af_aoede"),
+    ("Kore (American) - Kokoro, offline", "kokoro:af_kore"),
     ("Michael (American) - Kokoro, offline", "kokoro:am_michael"),
-    ("Adam (American) - Kokoro, offline", "kokoro:am_adam"),
     ("Fenrir (American) - Kokoro, offline", "kokoro:am_fenrir"),
     ("Puck (American) - Kokoro, offline", "kokoro:am_puck"),
+    ("Adam (American) - Kokoro, offline", "kokoro:am_adam"),
     ("British - Google", "google:en-GB"),
     ("American - Google", "google:en-US"),
     ("Australian - Google", "google:en-AU"),
@@ -74,6 +87,13 @@ VOICES = [   # (label, voice id): Microsoft neural (free, online), Google (free,
 VOICE_LABEL = {v: n for n, v in VOICES}
 DEFAULT_VOICE = {LEAD: "en-GB-RyanNeural", ANALYST: "en-GB-SoniaNeural", PIT: "en-AU-NatashaNeural"}
 FALLBACK_KOKORO = {LEAD: "bm_george", ANALYST: "bf_emma", PIT: "bf_isabella"}
+FALLBACK_KOKORO_US = {LEAD: "am_michael", ANALYST: "af_heart", PIT: "af_bella"}
+
+
+def american(vid):
+    """Is this an American voice? Then a stand-in for it (Kokoro, Google) should be American too."""
+    v = str(vid or "")
+    return "en-US" in v or v.startswith("kokoro:a") or v == "google:en-US"
 KOKORO_MODEL_URL = "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/kokoro-v1.0.int8.onnx"
 KOKORO_VOICES_URL = "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/voices-v1.0.bin"
 KOKORO_MIN = {"kokoro-v1.0.int8.onnx": 50_000_000, "voices-v1.0.bin": 20_000_000}
@@ -135,6 +155,11 @@ TONE = {
     LEAD: "a British TV motorsport play-by-play commentator, brisk and authoritative",
     ANALYST: "a former racing driver working as a TV analyst, conversational, insightful, warm",
     PIT: "a pit-lane reporter on a TV broadcast, quick and clear over the noise of the pit lane",
+}
+TONE_NASCAR = {
+    LEAD: "an American NASCAR play-by-play announcer, big voice, punchy, building with the action",
+    ANALYST: "a former NASCAR Cup driver working as a TV analyst, American, folksy, conversational, excitable",
+    PIT: "an American NASCAR pit road reporter, quick and clear over the engines on pit road",
 }
 TONE_ENERGY = ["calm and measured", "engaged and lively", "excited, voice rising, fast",
                "absolutely thrilled, shouting over the crowd, at full pace"]
@@ -311,14 +336,16 @@ class BroadcastAudio(BaseAudio):
         cfg = self.cfg_fn()
         if cfg.get("tts") == "off":
             return None
-        engine, vid = engine_of(self._voice(ln.who, cfg))
+        chosen = self._voice(ln.who, cfg)
+        engine, vid = engine_of(chosen)
+        us = american(chosen)                     # an American voice gets American stand-ins
         tries = [(engine, vid)]
         if engine != "kokoro":
-            tries.append(("kokoro", FALLBACK_KOKORO.get(ln.who, "bm_george")))
+            tries.append(("kokoro", (FALLBACK_KOKORO_US if us else FALLBACK_KOKORO).get(ln.who, "bm_george")))
         if engine != "google":
-            tries.append(("google", "en-GB"))
+            tries.append(("google", "en-US" if us else "en-GB"))
         if not kokoro_usable():
-            tries = [t for t in tries if t[0] != "kokoro"] or [("google", "en-GB")]
+            tries = [t for t in tries if t[0] != "kokoro"] or [("google", "en-US" if us else "en-GB")]
         for k, (eng, v) in enumerate(tries):
             key = hashlib.sha1(f"{eng}|{v}|{ln.energy}|{getattr(ln, 'mood', '')}|{cfg.get('booth_tone')}|{ln.who}|{cfg.get('speech_rate', 0)}|{ln.text}".encode()).hexdigest()[:20]
             path = os.path.join(self._tmp, key + (".wav" if eng == "kokoro" else ".mp3"))
@@ -350,15 +377,22 @@ class BroadcastAudio(BaseAudio):
         loop = getattr(self._tls, "loop", None)
         if loop is None or loop.is_closed():
             loop = self._tls.loop = asyncio.new_event_loop()
-        comm = edge_tts.Communicate(ln.text, voice, rate=f"{rate:+d}%", pitch=f"{p:+d}Hz", volume=f"{v:+d}%")
-        loop.run_until_complete(comm.save(path))
+        for attempt in (0, 1):                  # the free service now and then sends nothing: one more go, so the
+            comm = edge_tts.Communicate(ln.text, voice, rate=f"{rate:+d}%", pitch=f"{p:+d}Hz", volume=f"{v:+d}%")
+            try:                                # line keeps its own voice instead of a stand-in's
+                loop.run_until_complete(comm.save(path))
+                return
+            except Exception as e:
+                if attempt or type(e).__name__ != "NoAudioReceived":
+                    raise
 
     def _synth_openai(self, ln, voice, cfg, path):
         if self.openai_client is None:
             raise RuntimeError("no OpenAI client")
         from .providers import tts_model
         client = self.openai_client(cfg)
-        instructions = (f"Voice: {TONE.get(ln.who, TONE[LEAD])}. Delivery right now: "
+        tone = TONE_NASCAR if cfg.get("_nascar") else TONE
+        instructions = (f"Voice: {tone.get(ln.who, tone[LEAD])}. Delivery right now: "
                         f"{TONE_ENERGY[max(0, min(3, ln.energy))]}. "
                         f"{persona.mood_direction(getattr(ln, 'mood', ''), cfg.get('booth_tone', 'broadcast'), bool(cfg.get('swearing')))} "
                         "Natural live broadcast, not reading a script.")

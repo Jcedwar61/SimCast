@@ -21,7 +21,7 @@ from . import ai as ai_mod
 from . import nascar, persona, providers, sims
 
 APP_NAME = "SimCast"
-APP_VERSION = "1.10"
+APP_VERSION = "1.11"
 APP_DIR = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), "SimCast")
 CONFIG_PATH = os.path.join(APP_DIR, "config.json")
 LOG_PATH = os.path.join(APP_DIR, "simcast.log")
@@ -68,7 +68,8 @@ STYLES = {   # the booth in one click; Custom is anything else
 }
 
 
-NASCAR_VOICES = {"lead": "en-US-GuyNeural", "analyst": "en-US-JennyNeural", "pit": "en-US-AriaNeural"}
+NASCAR_VOICES = {"lead": "en-US-AndrewMultilingualNeural", "analyst": "en-US-AvaMultilingualNeural",
+                 "pit": "en-US-EmmaMultilingualNeural"}         # the most natural free American voices
 
 
 def style_of(cfg):
@@ -203,7 +204,8 @@ class SimCast:
     # -------------------------------------------------------------- settings
     def config(self):
         cfg = dict(self.cfg)
-        if self.__dict__.get("mode") in ("nascar", "nascar_solo") and cfg.get("nascar_voices", True):
+        cfg["_nascar"] = self.__dict__.get("mode") in ("nascar", "nascar_solo")
+        if cfg["_nascar"] and cfg.get("nascar_voices", True):
             for who, vid in NASCAR_VOICES.items():          # American voices, where the default is still chosen
                 if cfg.get(f"{who}_voice") == DEFAULTS[f"{who}_voice"]:
                     cfg[f"{who}_voice"] = vid

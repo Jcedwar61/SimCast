@@ -568,10 +568,26 @@ check(gamesetup.setup_all(log=lambda m: None, documents=docs) == [], "game setup
 
 # ---------------------------------------------------------------- voices, guide, licences
 from simcast.audio import VOICES, engine_of  # noqa: E402
+from simcast import persona  # noqa: E402
 check(engine_of("kokoro:bm_george") == ("kokoro", "bm_george") and engine_of("en-GB-RyanNeural")[0] == "edge" and
       engine_of("openai:ash") == ("openai", "ash") and engine_of("google:en-GB") == ("google", "en-GB"), "voices: engines")
 fams = {engine_of(v)[0] for _, v in VOICES}
 check(fams == {"edge", "kokoro", "google", "openai"}, "voices: Microsoft, Kokoro, Google and OpenAI offered")
+us = [v for _, v in VOICES if "en-US" in v or v.startswith("kokoro:a")]
+check(len(us) >= 26 and "en-US-AndrewMultilingualNeural" in us and "en-US-AvaMultilingualNeural" in us and
+      "kokoro:af_nicole" in us and len(set(v for _, v in VOICES)) == len(VOICES),
+      f"voices: plenty of free American voices, none listed twice ({len(us)})")
+check(all(persona.voice_gender(v) for v in us if not v.startswith("google:")) and persona.voice_gender("en-US-AriaNeural") == "f" and
+      persona.voice_gender("kokoro:am_puck") == "m" and persona.voice_gender("openai:alloy") is None,
+      "voices: every American voice has a gender for the booth's pronouns, OpenAI's stay neutral")
+from simcast.audio import american  # noqa: E402
+check(american("en-US-GuyNeural") and american("kokoro:af_heart") and not american("en-GB-RyanNeural") and
+      not american("kokoro:bm_george"), "voices: an American voice gets American stand-ins")
+from simcast.app import NASCAR_VOICES  # noqa: E402
+check(all(v in [x for _, x in VOICES] and american(v) for v in NASCAR_VOICES.values()) and
+      [persona.voice_gender(NASCAR_VOICES[w]) for w in ("lead", "analyst", "pit")] ==
+      [persona.voice_gender(DEFAULTS[f"{w}_voice"]) for w in ("lead", "analyst", "pit")],
+      "voices: NASCAR's voices are listed, American, and match the defaults' genders (the booth's names fit)")
 from simcast.guide import TOPICS  # noqa: E402
 gtext = " ".join(t for _, t in TOPICS)
 for word in ("Play on", "Demo race", "Personality", "Random chat", "Sponsors", "Call me", "Captions window", "install-simcast-wine.sh", "Automatic", "CrewChiefEx",
