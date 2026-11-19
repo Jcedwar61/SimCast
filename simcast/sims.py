@@ -114,6 +114,7 @@ class Frame:
     incidents: Optional[int] = None       # the player's incident points (iRacing)
     field: Optional[list] = None          # every car in the session: see field_entry()
     sim_events: Optional[list] = None     # race events the sim itself reports (F1: overtakes, fastest lap, ...)
+    track_type: Optional[str] = None      # iRacing: 'road course', 'short oval', 'super speedway', 'dirt oval', ...
 
 
 def field_entry(cid, name, car, position, laps, pct, in_pit=False, last=None, best=None, status=None, pits=None,
@@ -285,6 +286,8 @@ class ACReader(Reader):
         if not track:
             return None
         game = self._cur_game or self._game() or "AC"
+        if game == "AC":                     # AC gives the mod folders ('rt_daytona'): say them like names
+            track, layout, car_name = nice_name(track), nice_name(layout), nice_name(car_name) or car_name
         if layout and game != "ACC" and layout.lower() not in track.lower():
             track = f"{track} ({layout})"
         gas, brake, fuel = _U_3f(p, 4)
@@ -1505,6 +1508,7 @@ def _ir_session_info(text):
         m = re.match(r"-?\d+(?:\.\d+)?", v or "")
         return float(m.group(0)) if m else None
     info = {"track": field("TrackDisplayName") or field("TrackName") or "iRacing track"}
+    info["track_type"] = (field("TrackType") or "").lower() or None
     km = num(field("TrackLength"))
     info["track_len"] = km * 1000.0 if km else None
     info["redline"] = num(field("DriverCarRedLine")) or 0.0
@@ -1675,6 +1679,7 @@ class IRacingReader(Reader):
         tc = g("PlayerTireCompound")
         fr.tyre = info.get("tyres", {}).get(tc) if isinstance(tc, int) else None
         fr.field = self._field(g, info, me, pos)
+        fr.track_type = info.get("track_type")
         return fr
 
     @staticmethod

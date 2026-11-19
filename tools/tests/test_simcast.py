@@ -619,6 +619,22 @@ check("[HELICORSA]\nACTIVE=1" in ini and "[CREWCHIEFEX]\nACTIVE=1\n" in ini, "si
 check('udp enabled="true"' in open(os.path.join(f1dir, "hardware_settings_config.xml")).read() and
       'format="2025"' in open(os.path.join(f1dir, "hardware_settings_config.xml")).read(), "sims set up: F1 25 UDP on, format kept")
 check("Found 4" in detect.summary(list(found.values())), "sims found: a summary for the log")
+# CrewChief installed, but its CrewChiefEx app not yet put into AC: SimCast copies it over and switches it on
+cc_home = tempfile.mkdtemp(prefix="simcast-cc-")
+cc_app = os.path.join(cc_home, "Britton IT Ltd", "CrewChiefV4", "plugins", "assettocorsa", "apps", "python", "CrewChiefEx")
+os.makedirs(cc_app)
+open(os.path.join(cc_app, "CrewChiefEx.py"), "w").write("# CrewChiefEx\n")
+os.environ["ProgramFiles(x86)"] = cc_home
+check(gamesetup.crewchief_dirs() and gamesetup.crewchiefex_source() == cc_app, "CrewChief: its CrewChiefEx app found")
+ac3 = tempfile.mkdtemp(prefix="simcast-ac-")
+os.makedirs(os.path.join(ac3, "apps", "python"))
+docs3 = tempfile.mkdtemp(prefix="simcast-docs-")
+os.makedirs(os.path.join(docs3, "Assetto Corsa", "cfg"))
+check(gamesetup.setup_crewchiefex(docs3, ac3, log=lambda m: None) and
+      os.path.isfile(os.path.join(ac3, "apps", "python", "CrewChiefEx", "CrewChiefEx.py")) and
+      gamesetup.crewchiefex_active(docs3), "CrewChief: SimCast installs CrewChiefEx into AC and switches it on")
+check(not gamesetup.setup_crewchiefex(docs3, ac3, log=lambda m: None), "CrewChief: nothing to do the second time")
+os.environ.pop("ProgramFiles(x86)", None)
 check(os.path.exists(os.path.join(REPO, "SimCast.ico")), "SimCast.ico in the repo")
 
 # ---------------------------------------------------------------- SimCoach link: the booth drops under the coach
@@ -1425,6 +1441,165 @@ try:
     check(whole == '{"lines": []}' and pieces == [whole], "streaming: if it can't stream, the ordinary request is used")
 except ImportError:
     pass
+
+# ---------------------------------------------------------------- NASCAR mode
+from simcast import nascar  # noqa: E402
+from simcast.app import clean_config  # noqa: E402
+from simcast.nascar import NascarTracker  # noqa: E402
+
+check(nascar.is_stock_car("NASCAR Cup Series Next Gen Chevrolet Camaro ZL1") and nascar.is_stock_car("ARCA Menards Chevrolet Impala")
+      and nascar.is_stock_car("Super Late Model") and not nascar.is_stock_car("Ford Mustang GT3")
+      and not nascar.is_stock_car("Stock Car Pro Series 2023"), "nascar: stock cars told from the rest")
+nf = frame(pass_scn(0), 0)
+check(not nascar.detect(nf, "auto") and nascar.detect(nf, "on"), "nascar: GT3 on a road course stays off unless asked")
+nf.track_type = "short oval"
+check(nascar.detect(nf, "auto") and not nascar.detect(nf, "off"), "nascar: an oval turns it on (and Never wins)")
+nf.track_type = "road course"
+for e in nf.field:
+    e["car"] = "NASCAR Xfinity Ford Mustang"
+check(nascar.detect(nf, "auto"), "nascar: a field of stock cars turns it on, even on a road course")
+ac_ovals = ["Daytona (Oval)", "rt_daytona (tri oval)", "Bristol Motor Speedway", "martinsville", "North Wilkesboro",
+            "talladega_superspeedway", "Indianapolis (Oval)"]
+ac_roads = ["Daytona (Road Course)", "Charlotte (Roval)", "Indianapolis Motor Speedway (Road)", "Spa", "ks_nordschleife",
+            "Watkins Glen", "Brands Hatch (GP)", "Laguna Seca"]
+check(all(nascar.is_oval(t) for t in ac_ovals) and not any(nascar.is_oval(t) for t in ac_roads),
+      f"nascar: Assetto Corsa ovals told from road courses by name and layout "
+      f"({[t for t in ac_ovals if not nascar.is_oval(t)]} {[t for t in ac_roads if nascar.is_oval(t)]})")
+check(not nascar.is_oval("Daytona (Oval)", "road course") and nascar.is_oval("Daytona", "super speedway"),
+      "nascar: iRacing's track type wins over the name")
+check(all(nascar.is_stock_car(c) for c in ("nascar_2023_chevy_camaro", "gen6_cup_ford", "acrl_stock_car_toyota",
+                                            "legends_ford34", "arca_ford")) and
+      not any(nascar.is_stock_car(c) for c in ("ks_porsche_911_gt3_cup_2017", "ks_mazda_mx5_cup", "ford_mustang_gt3",
+                                                "stock_car_brasil_2022")), "nascar: Assetto Corsa's stock car mods")
+check(sc.nice_name("rt_daytona") == "Daytona" and sc.nice_name("bristol_motor_speedway") == "Bristol Motor Speedway",
+      "Assetto Corsa's folder names said as names")
+acast = SimCast(dict(DEFAULTS), audio=SimAudio(), log=lambda m: None, booth=False, save=False)
+acf = sc.Frame("AC", "Martinsville (Oval)", "Gen6 Cup Chevrolet", 0, 0.1, 0.0, 0, 0, 0, 1, 900, 0, 0, False, False,
+               session="race", position=4, cars=20, race_laps=50)
+acast.feed(acf, 0.0)
+check(acast.mode == "nascar_solo" and acast.tracker.nascar_words and acast.config()["lead_voice"].startswith("en-US"),
+      f"nascar: Assetto Corsa on an oval without CrewChiefEx gets NASCAR words and voices ({acast.mode})")
+check(acast.director.writer.floor([__import__("simcast.writer", fromlist=["Line"]).Line("lead", "Into the pit lane.")])[0].text
+      == "Onto pit road.", "nascar: your-car-only mode talks NASCAR too")
+check(nascar.stage_laps(200, "") == [60, 120] and nascar.stage_laps(10, "") == [] and
+      nascar.stage_laps(312, "60, 185") == [60, 185] and nascar.stage_laps(100, "off") == [] and
+      nascar.stage_laps(100, "50, 300") == [50], "nascar: stage laps, automatic and typed")
+check(nascar.clean_stages(" 185;60 ") == "60, 185" and nascar.clean_stages("Auto") == "" and
+      nascar.clean_stages("OFF") == "off", "nascar: the stages setting is tidied")
+cc = clean_config(dict(DEFAULTS, nascar="sometimes", nascar_stages="x 40"))
+check(cc["nascar"] == "auto" and cc["nascar_stages"] == "40", "nascar: settings cleaned")
+check(nascar.vocab("Into the pit lane, then lights out under the safety car on new tyres to the chequered flag.") ==
+      "Onto pit road, then green flag under the pace car on new tires to the checkered flag.",
+      "nascar: the broadcast's words")
+
+
+def oval_scn(t):
+    """Three cars on a 25-lap race: car 0 leads, car 1 runs second, car 3 is slow and a lap down by lap 12.
+    A caution comes out at 600 s and goes green at 660 s."""
+    go = 0 if t < 5 else 1
+    return [{"id": 0, "name": "Alex Front", "dist": lapsf(t, 30.0, 0.010), "speed": 150 * go},
+            {"id": 1, "name": "Blake Quick", "dist": lapsf(t, 30.5, 0.005), "speed": 148 * go},
+            {"id": 2, "name": "Me Myself", "dist": lapsf(t, 31.0, 0.0), "speed": 146 * go},
+            {"id": 3, "name": "Dana Slow", "dist": lapsf(t, 34.0, -0.005), "speed": 130 * go}]
+
+
+ntr = NascarTracker(log=lambda m: None, stages_fn=lambda: "8, 15")
+nev, t = [], 0.0
+while t < 5 + 30 * 25 + 20:
+    fl = "fcy" if 600 <= t < 660 else None
+    nev += [e for e in ntr.update(frame(oval_scn(t), t, race_laps=25, flag=fl), t)]
+    t += 1 / 20
+nk = [e.kind for e in nev]
+stages = [e for e in nev if e.kind == "stage_end"]
+check([e.data["stage"] for e in stages] == [1, 2] and all(e.cars == (0,) for e in stages) and
+      ntr.stage_winners == [0, 0], f"nascar: stage ends called with their winner ({[e.cars for e in stages]})")
+check(stages and stages[0].data["top"][:3] == [0, 1, 2], "nascar: the stage's top ten, in order")
+check("stage_to_go" in nk, "nascar: three to go in the stage")
+check(ntr.laps_led.get(0) == 25 and ntr.leaders == [0] and ntr.most_led() == (0, 25), f"nascar: laps led ({ntr.laps_led})")
+check(ntr.cautions == 1 and "caution" in nk and "green" in nk, "nascar: the caution and the restart")
+fp = [e for e in nev if e.kind == "free_pass"]
+check(len(fp) == 1 and fp[0].cars == (3,), f"nascar: the free pass to the first car a lap down ({[e.cars for e in fp]})")
+check("winner" in nk, "nascar: the winner")
+
+ncast = headless_run(laps=20, seed=5, cfg={"nascar": "on"}, log=lambda m: None)
+nspoken = " ".join(ln.text for _, ln in ncast.audio.spoken)
+check(ncast.mode == "nascar" and ncast.tracker.stage_ends == [6, 12], "nascar: Always gives the demo race NASCAR mode")
+check("stage one" in nspoken and "stage two" in nspoken and "checkered flag" in nspoken.lower(),
+      "nascar: the booth calls the stages and the checkered flag")
+check(not re.search(r"(?i)pit lane|chequered|safety car|lights out|tyre", nspoken),
+      "nascar: no road-racing words on air")
+check(ncast.config()["lead_voice"].startswith("en-US") and
+      SimCast(dict(DEFAULTS), audio=SimAudio(), log=lambda m: None, booth=False, save=False).config()["lead_voice"]
+      == DEFAULTS["lead_voice"], "nascar: American voices for NASCAR only")
+own = dict(DEFAULTS, nascar="on", lead_voice="en-GB-ThomasNeural")
+ocast = headless_run(laps=2, seed=5, cfg=own, log=lambda m: None)
+check(ocast.config()["lead_voice"] == "en-GB-ThomasNeural", "nascar: a voice you chose yourself is kept")
+# The NASCAR button: on or off for this race, keeping the race so far
+tcast = SimCast(dict(DEFAULTS), audio=SimAudio(), log=lambda m: None, booth=False, save=False)
+tcast.source = "TEST"
+t, tt = 0.0, None
+while t < 5 + 61 * 2:
+    tcast.feed(frame(pass_scn(t), t, race_laps=30), t)
+    t += 1 / 20
+tt = tcast.tracker
+laps_before = tt.leader_laps
+check(tcast.mode == "field" and not tcast.nascar_on(), "nascar button: a GT3 race starts as the whole field")
+tcast.toggle_nascar()
+check(tcast.mode == "nascar" and tcast.tracker is tt and tt.nascar and tt.leader_laps == laps_before and tt.started
+      and tcast.nascar_on(), "nascar button: on mid-race, the race so far kept")
+while t < 5 + 61 * 4:
+    tcast.feed(frame(pass_scn(t), t, race_laps=30), t)
+    t += 1 / 20
+check(tcast.mode == "nascar" and sum(tt.laps_led.values()) >= 1, "nascar button: stays on, laps led counted from then")
+tcast.hotkey("nascar")
+check(tcast.mode == "field" and not getattr(tcast.tracker, "nascar", False) and tcast.tracker is tt,
+      "nascar button: the hotkey switches it back off")
+tcast.toggle_nascar()
+other = frame(pass_scn(t), t, race_laps=30)
+other.track = "Another Ring"
+for k in range(40):
+    tcast.feed(other, t + k / 20)
+check(tcast.nascar_race is None and tcast.mode == "field", "nascar button: a new track goes back to the setting")
+idle = SimCast(dict(DEFAULTS), audio=SimAudio(), log=lambda m: None, booth=False, save=False)
+idle.toggle_nascar()
+check(idle.nascar_on(), "nascar button: switched on before the race")
+idle.feed(frame(pass_scn(0), 0, race_laps=30), 0.0)
+check(idle.mode == "nascar", "nascar button: ... and the next race is NASCAR")
+brief = ai_mod.race_brief(ncast.tracker, ncast.director.writer, [], [])
+check("BROADCAST: this is a NASCAR" in brief and "STAGES:" in brief and "LAPS LED:" in brief,
+      "nascar: the AI is told it's a NASCAR broadcast, with stages and laps led")
+gcast = headless_run(laps=2, seed=5, log=lambda m: None)
+check(gcast.mode == "field" and "BROADCAST" not in ai_mod.race_brief(gcast.tracker, gcast.director.writer, [], []),
+      "nascar: Automatic leaves the GT3 demo alone")
+
+# ---------------------------------------------------------------- your car only: the race ends properly
+from simcast.demo import DemoRace  # noqa: E402
+from simcast.app import LOOP_HZ  # noqa: E402
+from simcast.recap import Recap  # noqa: E402
+import random  # noqa: E402
+rdir = tempfile.mkdtemp(prefix="simcast-recap-")
+scast = SimCast(dict(DEFAULTS), audio=SimAudio(), log=lambda m: None, booth=False, save=False)
+scast.source = "TEST"
+scast.director.recap = Recap(rdir, log=lambda m: None)
+scast.director.writer.rng = random.Random(4)
+sdemo, t = DemoRace(laps=3, seed=4), 0.0
+while t < 1500:
+    sf = sdemo.read(1.0 / LOOP_HZ)
+    if sf is not None:
+        sf.game, sf.field, sf.track, sf.car = "AC", None, "Martinsville (Oval)", "Gen6 Cup Chevrolet"
+    scast.feed(sf, t)
+    scast.tick(t)
+    scast.audio.tick(t)
+    if sdemo.finished and scast.director.wrapped and not scast.audio.speaking(t):
+        break
+    t += 1.0 / LOOP_HZ
+scast.director.finish_recap(demo=False)
+stext = " ".join(ln.text for _, ln in scast.audio.spoken)
+check(scast.mode == "nascar_solo" and scast.director.wrapped and "Goodnight" in stext and "victory for" not in stext,
+      "your car only: the booth signs off with your result, not a 'winner'")
+recaps = os.listdir(rdir)
+check(len(recaps) == 1 and "## Result" in open(os.path.join(rdir, recaps[0])).read() and
+      "| 1 |" not in open(os.path.join(rdir, recaps[0])).read(), f"your car only: the recap is written ({recaps})")
 
 # ---------------------------------------------------------------- cost estimate
 from simcast.usage import Meter, parse_rates  # noqa: E402

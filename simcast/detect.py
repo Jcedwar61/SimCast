@@ -145,6 +145,8 @@ def _status(s, docs):
     if s.key == "ac":
         d = s.extra.get("dir", "")
         if d and not os.path.isdir(os.path.join(d, "apps", "python", "CrewChiefEx")):
+            if gamesetup.crewchiefex_source():
+                return "SimCast installs CrewChief's CrewChiefEx app at start (the whole grid); restart AC once.", False
             return "Your car only. For the whole grid, install CrewChief (it adds the CrewChiefEx app).", False
         if not gamesetup.crewchiefex_active(docs):
             return "Switch on the CrewChiefEx app in Content Manager (Settings > Python apps) for the whole grid.", False

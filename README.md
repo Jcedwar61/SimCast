@@ -5,7 +5,8 @@
 SimCast gives your sim race the television treatment. While you drive, a commentary booth calls the race live
 in your headphones: the start, overtakes anywhere in the field, battles, pit stops, fastest laps, cars in
 trouble, the final lap and the finish. It covers **the whole race**, not just you, and follows your race the
-way a broadcast follows a driver in the story. Rally stages get rally coverage, against the clock.
+way a broadcast follows a driver in the story. Rally stages get rally coverage, against the clock, and stock
+car races get a NASCAR broadcast.
 
 SimCast is a standalone Windows app. It's built on the foundation of [SimCoach](https://github.com/Jcedwar61/SimCoach)
 (the live voice coach), but **doesn't need SimCoach installed**. The two run side by side without talking over
@@ -22,6 +23,24 @@ each other: while SimCoach's coach or crew speaks, the booth drops under them an
 * **[Latest release and checksums](https://github.com/Jcedwar61/SimCast/releases/latest)**
 * **Linux / Steam Deck:** [install-simcast-wine.sh](install-simcast-wine.sh) installs SimCast into the sim's
   own Proton prefix (see below).
+
+### What's new in 1.8
+* **NASCAR mode:** stock cars (iRacing's NASCAR Cup, Xfinity and Truck cars, ARCA, Late Models, Legends,
+  Modifieds, Assetto Corsa's stock car mods) and oval tracks (in Assetto Corsa, by the track's name and layout) get
+  an American oval broadcast. *"Green flag! Green flag!"*, cautions (and the one
+  for the stage break), restarts with the front row, the free pass for the first car a lap down, **stages** with
+  the stage winner and who scores stage points, **laps led** and how many leaders, and *"headed to Victory Lane"*.
+  The booth talks the part everywhere else too: pit road, the pace car, tires, the checkered flag, *"Byron in the
+  number 24"*, and the AI booth is told to call it like a NASCAR booth. American voices take over for these races
+  unless you've picked your own. The **NASCAR button** at the top of the window switches it on or off for the race
+  you're in (or the next one), straight away and without losing the race so far, and there's a hotkey for it too.
+  *Settings → Booth → NASCAR mode* is the default (Automatic, On or Off), with the laps the stages end on (empty:
+  about 30% and 60% of the distance). In Assetto Corsa, the CrewChiefEx app
+  gives the booth the whole field (stages, laps led); AC has no full-course cautions, so no restarts there.
+* **CrewChief and Assetto Corsa:** with CrewChief installed, SimCast now puts its CrewChiefEx app into Assetto Corsa
+  itself (if CrewChief hasn't yet) and switches it on, so the booth sees every car. The window says so when AC is
+  running without it.
+* **Assetto Corsa track and car names** are said as names (*"Bristol Motor Speedway"*, not *"bristol_motor_speedway"*).
 
 ### What's new in 1.7
 * **Race name:** type the event's name in *Settings → Booth* and the booth announces the race by it, along with

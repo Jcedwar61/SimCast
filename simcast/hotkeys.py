@@ -16,8 +16,9 @@ import sys
 import threading
 import time
 
-ACTIONS = ("skip", "mute", "me", "mode")
-ACTION_LABEL = {"skip": "Skip this line", "mute": "Booth on/off air", "me": "Talk about me", "mode": "Driving/Stream"}
+ACTIONS = ("skip", "mute", "me", "mode", "nascar")
+ACTION_LABEL = {"skip": "Skip this line", "mute": "Booth on/off air", "me": "Talk about me", "mode": "Driving/Stream",
+                "nascar": "NASCAR on/off (this race)"}
 POLL_S = 0.03
 
 # Virtual-key codes worth binding: F-keys, letters, digits, the numeric keypad and the navigation block.

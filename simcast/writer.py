@@ -70,7 +70,7 @@ _PLAIN_STARTS = {"maybe", "really", "see", "can", "is", "how", "who's", "what", 
 def _sentences(text: str) -> str:
     """Every sentence starts with a capital, however the line was put together ('... today. six cars ...')."""
     text = text[:1].upper() + text[1:]
-    return re.sub(r"([.!?] )([a-z])", lambda m: m.group(1) + m.group(2).upper(), text)
+    return re.sub(r"((?<!\.\.)[.!?] )([a-z])", lambda m: m.group(1) + m.group(2).upper(), text)   # not after '...'
 
 
 def num_words(n: int) -> str:
@@ -261,10 +261,13 @@ class Writer(BanterMixin):
         what has been said, so a stack of calls still lands as two people at a microphone. Booking is left to
         book(), called once the lines are actually queued."""
         out, who, run = [], self.floor_who, self.floor_run
+        vocab = None
+        if getattr(self.tr, "nascar", False) or getattr(self.tr, "nascar_words", False):
+            from .nascar import vocab
         for ln in lines or []:
             if not ln:
                 continue
-            ln = Line(ln.who, _sentences(ln.text), ln.energy, ln.mood)
+            ln = Line(ln.who, _sentences(vocab(ln.text) if vocab else ln.text), ln.energy, ln.mood)
             if ln.who in (LEAD, ANALYST) and ln.who == who and run >= FLOOR_MAX:
                 other = ANALYST if ln.who == LEAD else LEAD
                 out.append(Line(other, self.pick("brk_" + other, BREAKS[other]), 1))
@@ -512,8 +515,13 @@ class Writer(BanterMixin):
     # ------------------------------------------------------------------ events
     def event(self, e, now, interrupting=False) -> list:
         self._pick_i = 0
-        f = getattr(self, "ev_" + e.kind, None)
-        lines = f(e, now) if f else []
+        lines = None
+        if getattr(self.tr, "nascar", False):
+            from . import nascar
+            lines = nascar.event_lines(self, e, now)
+        if lines is None:
+            f = getattr(self, "ev_" + e.kind, None)
+            lines = f(e, now) if f else []
         lines = [Line(ln.who, ln.text[:1].upper() + ln.text[1:], ln.energy, ln.mood) for ln in (lines or []) if ln and ln.text]
         if interrupting and lines and lines[0].who == LEAD and lines[0].energy >= 2 and \
                 e.kind in ("overtake", "stopped", "moment", "contact", "retired"):
@@ -1296,6 +1304,26 @@ class Writer(BanterMixin):
         if event:
             return [Line(LEAD, f"Welcome to {kind} for {event} at {track}, and we're with {who}.", 1)]
         return [Line(LEAD, f"Welcome to {track}, it's {kind}, and we're with {who}.", 1)]
+
+    def _solo_wrap(self, now):
+        """The sign-off when only the viewer's car is seen: where they finished, not who won."""
+        tr, f = self.tr, self._solo_frame()
+        me = tr.player()
+        if me is None:
+            return []
+        event = persona.the_race(self.cfg)
+        of = f" of {event}" if event else ""
+        pos = f.position if f and f.position else 0
+        start = getattr(tr, "_start_pos", None)
+        res = f"{place(pos)} for {self.n(me.id, now, full=True)}" if pos else f"the flag for {self.n(me.id, now, full=True)}"
+        out = [Line(LEAD, f"So, that's the race{of} here at {tr.track or 'the circuit'}: {res}.", 1)]
+        if pos and start and start != pos:
+            out.append(Line(ANALYST, f"{'Up' if pos < start else 'Down'} {plural(abs(start - pos), 'place')} from "
+                                     f"{place(start)} at the start. Thanks for watching, everybody.", 1))
+        else:
+            out.append(Line(ANALYST, "Thanks for watching, everybody.", 1))
+        out.append(Line(LEAD, "Thank you for having us. Goodnight.", 1))
+        return out
 
     def _solo_where(self, now, who, lead_in):
         f = self._solo_frame()
@@ -2816,6 +2844,8 @@ class Writer(BanterMixin):
 
     def wrap_up(self, now):
         tr = self.tr
+        if getattr(tr, "solo", False):
+            return self._solo_wrap(now)
         w = tr.car(tr.winner)
         if not w:
             return []

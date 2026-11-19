@@ -114,6 +114,9 @@ def race_brief(tr, writer, events, transcript, max_cars=14):
         lines.append(f"EVENT: this race is called \"{event}\"{where}. Call it by that name when you welcome "
                      "viewers, at the start and the finish, and now and then in between, and say the track's name "
                      "with it" + (" (the race name doesn't replace the track)" if tr.track else "") + ".")
+    if getattr(tr, "nascar", False) or getattr(tr, "nascar_words", False):
+        from . import nascar
+        lines += nascar.brief(tr, writer)
     st = tr.standings()
     me = next((s for s in st if s["player"]), None)
     keep = set(range(min(max_cars, len(st))))
@@ -248,6 +251,11 @@ def race_brief(tr, writer, events, transcript, max_cars=14):
 
 def describe(e, writer):
     """An Event as one plain sentence for the model (and the recent-events list)."""
+    if getattr(writer.tr, "nascar", False):
+        from . import nascar
+        said = nascar.describe(e, writer)
+        if said:
+            return said
     n = writer.n
     d = e.data
     c = e.cars
@@ -290,6 +298,16 @@ def describe(e, writer):
         return f"caution: {d.get('kind')}"
     if k == "green":
         return "green flag, racing resumed"
+    if k in ("solo_gain", "solo_loss"):
+        other = d.get("other")
+        return (f"{n(c[0])} {'gained' if k == 'solo_gain' else 'lost'} a place, now P{d.get('pos')} (was P{d.get('was')})"
+                + (f", {'passing' if k == 'solo_gain' else 'passed by'} {other}" if other else ""))
+    if k == "solo_closing":
+        return f"{n(c[0])} is closing on {d.get('other') or 'the car ahead'}, {d.get('gap', 0):.1f}s behind"
+    if k == "solo_pressure":
+        return f"{d.get('other') or 'the car behind'} is closing on {n(c[0])}, {d.get('gap', 0):.1f}s back"
+    if k == "solo_off":
+        return f"{n(c[0])} went off the track"
     return k.replace("_", " ") + (f": {', '.join(n(x) for x in c)}" if c else "")
 
 

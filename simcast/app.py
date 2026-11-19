@@ -15,12 +15,13 @@ from .demo import DemoRace
 from .director import Director
 from .memory import Memory
 from .race import RaceTracker
+from .nascar import NascarTracker
 from .solo import RallyTracker, SoloTracker, StageStore
 from . import ai as ai_mod
-from . import persona, providers, sims
+from . import nascar, persona, providers, sims
 
 APP_NAME = "SimCast"
-APP_VERSION = "1.7"
+APP_VERSION = "1.8"
 APP_DIR = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), "SimCast")
 CONFIG_PATH = os.path.join(APP_DIR, "config.json")
 LOG_PATH = os.path.join(APP_DIR, "simcast.log")
@@ -53,17 +54,21 @@ DEFAULTS = {
     "f1_port": 20777, "dr2_port": 20779, "udp_share_simhub": True, "game_setup": True, "guide_seen": False,
     "demo_laps": 8, "captions": False, "captions_pos": None, "window": None,
     "check_updates": True, "update_skip": "",
+    "nascar": "auto", "nascar_stages": "", "nascar_voices": True,
     "booth_tone": "broadcast", "swearing": False, "banter": "normal", "driver_pronouns": "auto",
     "ai_convo": "auto", "drive_mode": "stream", "race_sponsor": "", "race_name": "",
     "memory": True, "roster_file": "", "obs_captions": False, "obs_port": 8686, "twitch_channel": "",
     "twitch_chat": True, "twitch_only_booth": False,
-    "recap": True, "recap_offset": 0, "ai_rates": "", "hotkey_skip": "", "hotkey_mute": "", "hotkey_me": "", "hotkey_mode": "", "my_sponsors": "", "driver_sponsors": "", "invent_sponsors": True,
+    "recap": True, "recap_offset": 0, "ai_rates": "", "hotkey_skip": "", "hotkey_mute": "", "hotkey_me": "", "hotkey_mode": "", "hotkey_nascar": "", "my_sponsors": "", "driver_sponsors": "", "invent_sponsors": True,
 }
 STYLES = {   # the booth in one click; Custom is anything else
     "tv": {"chatter": "normal", "focus": "balanced", "booth_tone": "broadcast", "swearing": False, "banter": "normal"},
     "late": {"chatter": "chatty", "focus": "balanced", "booth_tone": "loose", "swearing": True, "banter": "lots"},
     "pub": {"chatter": "chatty", "focus": "me", "booth_tone": "unhinged", "swearing": True, "banter": "lots"},
 }
+
+
+NASCAR_VOICES = {"lead": "en-US-GuyNeural", "analyst": "en-US-JennyNeural", "pit": "en-US-AriaNeural"}
 
 
 def style_of(cfg):
@@ -75,7 +80,7 @@ CHOICES = {"tts": ("on", "off"), "chatter": ("quiet", "normal", "chatty"),
            "focus": ("field", "balanced", "me"), "ai_provider": ("openai", "gemini", "deepseek"),
            "simcoach_duck": tuple(DUCK_LEVELS), "booth_tone": persona.TONES, "banter": persona.BANTER,
            "driver_pronouns": persona.PRONOUN_CHOICES, "ai_convo": providers.CONVO_CHOICES,
-           "drive_mode": ("stream", "driver")}
+           "drive_mode": ("stream", "driver"), "nascar": nascar.CHOICES}
 SECRET_KEYS = ("openai_api_key", "gemini_api_key", "deepseek_api_key", "elevenlabs_api_key")
 ROLE_LABEL = {"lead": "lead", "analyst": "analyst", "pit": "pit lane"}
 
@@ -118,7 +123,8 @@ def clean_config(cfg):
     for k in ("race_sponsor", "my_sponsors", "race_name"):
         cfg[k] = " ".join(str(cfg.get(k) or "").split())[:120]
     cfg["driver_sponsors"] = str(cfg.get("driver_sponsors") or "").strip()[:2000]
-    for k in ("swearing", "invent_sponsors"):
+    cfg["nascar_stages"] = nascar.clean_stages(cfg.get("nascar_stages"))
+    for k in ("swearing", "invent_sponsors", "nascar_voices"):
         cfg[k] = bool(cfg.get(k, DEFAULTS[k]))
     try:
         cfg["obs_port"] = max(1024, min(65535, int(cfg.get("obs_port") or 8686)))
@@ -160,6 +166,8 @@ class SimCast:
         self.stages = StageStore(os.path.join(APP_DIR, "stages.json") if save else None)
         self.mode = "field"
         self._mode_cand, self._mode_n = "field", 0
+        self.nascar_race = None                            # the NASCAR button: on/off for this race, None: Settings
+        self._nascar_race_track = None
         self.tracker = RaceTracker(log=log)
         if audio is None:
             audio = BroadcastAudio(self.config, on_line=self._on_line, log=log, openai_client=self._openai_client,
@@ -194,7 +202,12 @@ class SimCast:
 
     # -------------------------------------------------------------- settings
     def config(self):
-        return dict(self.cfg)
+        cfg = dict(self.cfg)
+        if self.__dict__.get("mode") in ("nascar", "nascar_solo") and cfg.get("nascar_voices", True):
+            for who, vid in NASCAR_VOICES.items():          # American voices, where the default is still chosen
+                if cfg.get(f"{who}_voice") == DEFAULTS[f"{who}_voice"]:
+                    cfg[f"{who}_voice"] = vid
+        return cfg
 
     def update_settings(self, changes):
         """From the Settings window. Unknown keys are ignored; key fields are only replaced when something's typed."""
@@ -238,21 +251,69 @@ class SimCast:
         self.log(f"{name.upper():>6} | {line.text}")
 
     # -------------------------------------------------------------- frames in
-    MODE_LABEL = {"field": "Whole field", "solo": "Your car only", "rally": "Rally stage"}
+    MODE_LABEL = {"field": "Whole field", "solo": "Your car only", "rally": "Rally stage", "nascar": "NASCAR",
+                  "nascar_solo": "NASCAR, your car only"}
 
     def _make_tracker(self, mode):
         name = lambda: self.cfg.get("driver_name") or ""
         if mode == "rally":
             return RallyTracker(log=self.log, name_fn=name, store=self.stages)
-        if mode == "solo":
-            return SoloTracker(log=self.log, name_fn=name)
+        if mode in ("solo", "nascar_solo"):
+            tr = SoloTracker(log=self.log, name_fn=name)
+            tr.nascar_words = mode == "nascar_solo"     # the broadcast's words and voices; no field for stages
+            return tr
+        if mode == "nascar":
+            return NascarTracker(log=self.log, stages_fn=lambda: self.cfg.get("nascar_stages") or "")
         return RaceTracker(log=self.log)
 
+    NASCAR_PAIR = {"field": "nascar", "nascar": "field", "solo": "nascar_solo", "nascar_solo": "solo"}
+
+    def _convert(self, mode):
+        """Whole field <-> NASCAR (and your car only <-> NASCAR your car only) on the running tracker, so switching
+        mid-race keeps the race so far."""
+        tr = self.tracker
+        if mode == "nascar":
+            NascarTracker.adopt(tr, lambda: self.cfg.get("nascar_stages") or "")
+        elif mode == "field":
+            tr.__class__ = RaceTracker
+        else:
+            tr.nascar_words = mode == "nascar_solo"
+        self.mode = mode
+        self.director.writer.forget()
+        self.log(f"Commentary mode: {self.MODE_LABEL[mode]}")
+
+    def nascar_on(self):
+        """Is the broadcast NASCAR now (or, with no sim running, will the next race be)?"""
+        if self.source or self.demo is not None:
+            return self.mode in ("nascar", "nascar_solo")
+        if self.nascar_race is not None:
+            return self.nascar_race
+        return self.cfg.get("nascar") == "on"
+
+    def toggle_nascar(self):
+        """The NASCAR button: NASCAR on or off for this race (this track), whatever Settings says. A different track
+        goes back to the setting."""
+        with self.lock:
+            self.nascar_race = not self.nascar_on()
+            self._nascar_race_track = self.tracker.track if (self.source or self.demo is not None) else None
+            self._nascar_key = None
+            self.log("NASCAR mode " + ("on" if self.nascar_race else "off") + " for this race")
+            want = {"field": "nascar", "solo": "nascar_solo"} if self.nascar_race else \
+                {"nascar": "field", "nascar_solo": "solo"}
+            if self.mode in want:
+                self._convert(want[self.mode])
+
     def _pick_mode(self, frame):
-        """Whole field when the sim shares every car, rally for stages, else the car being driven. A change has
-        to hold for about a second (ACC's grid arrives a moment after the car, for one)."""
+        """Whole field when the sim shares every car (NASCAR for stock cars and ovals), rally for stages, else the
+        car being driven. A change has to hold for about a second (ACC's grid arrives a moment after the car)."""
         mode = "rally" if frame.game in sims.RALLY_GAMES else ("field" if frame.field else "solo")
+        if mode in ("field", "solo") and self._is_nascar(frame):
+            mode = "nascar" if mode == "field" else "nascar_solo"
         if mode == self.mode:
+            self._mode_n = 0
+            return
+        if self.NASCAR_PAIR.get(self.mode) == mode and self.last_frame_t is not None:
+            self._convert(mode)                       # same race, NASCAR or not: keep what's been followed so far
             self._mode_n = 0
             return
         if mode != self._mode_cand:
@@ -263,6 +324,22 @@ class SimCast:
             self.tracker = self._make_tracker(mode)
             self.director.set_tracker(self.tracker)
             self.log(f"Commentary mode: {self.MODE_LABEL[mode]}")
+
+    def _is_nascar(self, frame):
+        """nascar.detect, worked out again only when the setting, the track or the cars change."""
+        if self.nascar_race is not None:
+            if self._nascar_race_track is None:
+                self._nascar_race_track = frame.track         # switched before the race: it's for this one
+            if frame.track == self._nascar_race_track:
+                return self.nascar_race
+            self.nascar_race = None                           # a new track: back to the setting
+            self.log("New track: NASCAR mode follows Settings again")
+        setting = self.cfg.get("nascar", "auto")
+        key = (setting, frame.track, frame.car, getattr(frame, "track_type", None), len(frame.field or ()),
+               frame.session)
+        if key != self.__dict__.get("_nascar_key"):
+            self._nascar_key, self._nascar_is = key, nascar.detect(frame, setting)
+        return self._nascar_is
 
     def feed(self, frame, now):
         if frame is None:
@@ -325,6 +402,8 @@ class SimCast:
             new = "stream" if self.cfg.get("drive_mode") == "driver" else "driver"
             self.update_settings({"drive_mode": new})
             self.log("Mode: " + ("Driving" if new == "driver" else "Stream"))
+        elif action == "nascar":
+            self.toggle_nascar()
         elif action == "me":
             with self.lock:
                 self.director.talk_about_me(now)
@@ -352,8 +431,9 @@ class SimCast:
             cfg = self.config()
             self.demo = DemoRace(laps=laps or cfg.get("demo_laps", 8), seed=int(time.time()) % 1000,
                                  player_name=cfg.get("driver_name") or "")
-            self.mode = "field"
-            self.tracker = self._make_tracker("field")
+            self.mode = "nascar" if (cfg.get("nascar") == "on" if self.nascar_race is None else self.nascar_race) \
+                else "field"
+            self.tracker = self._make_tracker(self.mode)
             self.director.set_tracker(self.tracker)
             self.director.reset()
             self.audio.interrupt(time.monotonic())
@@ -414,6 +494,8 @@ class SimCast:
                             fr = active.read()
                             if fr is not None:
                                 self.status = f"Live: {fr.game}  ·  {self.MODE_LABEL[self.mode]}"
+                                if fr.game == "AC" and not fr.field:
+                                    self.status += "  ·  no CrewChiefEx: your car only"
                             self.feed(fr, now)
                 self.tick(now)
             except Exception as e:
@@ -476,7 +558,7 @@ class SimCast:
             "ai": self.booth.label() if self.booth else "",
             "ai_convo": (lambda c: c if c and c != (self.booth.label() if self.booth else "") else "")(
                 self.convo_booth.label() if self.convo_booth else ""), "ai_error": self.booth.last_error if self.booth else "",
-            "demo": self.demo is not None, "settings": public, "errors": list(self.errors),
+            "demo": self.demo is not None, "nascar": self.nascar_on(), "settings": public, "errors": list(self.errors),
             "voice_note": getattr(self.audio, "engine_note", ""),
             "simcoach": bool(getattr(self.audio, "link", None) and self.audio.link.connected()),
             "sims": [{"key": s.key, "name": s.name, "status": s.status, "ok": s.ok, "where": s.where}
