@@ -24,6 +24,16 @@ each other: while SimCoach's coach or crew speaks, the booth drops under them an
 * **Linux / Steam Deck:** [install-simcast-wine.sh](install-simcast-wine.sh) installs SimCast into the sim's
   own Proton prefix (see below).
 
+### What's new in 1.12
+* **A new look.** SimCast's window now looks like a TV race graphics package instead of yet another dark dashboard:
+  black, broadcast yellow and white, condensed capitals (Bahnschrift, built into Windows), slanted graphics, a red
+  LIVE tally light, a graphics strip with the track, lap and flag (green flag, caution, checkered flag), a timing
+  tower drawn like the one on TV (position boxes, your car in yellow, PIT, FL and FIN tags, an orange marker for
+  cars in a battle), the commentators as lower-third name tags, and a checkered stand-by card. The captions window
+  is a lower third too, and Settings and the Guide match.
+* **Fixed:** the Settings button could be pushed off the right edge of the window. The buttons now fit at any window
+  size, with shorter labels when the window is narrow.
+
 ### What's new in 1.11
 * **More, better American voices, all free.** 16 American Microsoft voices (up from 7), including the four
   newest "most natural" ones (Andrew, Brian, Ava and Emma), and 10 American Kokoro voices that run on your PC

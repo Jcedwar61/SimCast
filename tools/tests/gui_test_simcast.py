@@ -15,6 +15,7 @@ sys.path.insert(0, REPO)
 from simcast.app import DEFAULTS, SimCast   # noqa: E402
 from simcast.gui import SimCastWindow       # noqa: E402
 from simcast import update as _update       # noqa: E402
+import tkinter as tk                        # noqa: E402
 _update.check_latest_release = lambda current, timeout=8.0: None    # the start-up check stays off the network
 
 SHOTS = os.environ.get("SIMCAST_SHOTS")
@@ -56,21 +57,34 @@ root.after(50, win.poll)
 pump(1.5)
 check(win.hero.winfo_ismapped() and not win.body.winfo_ismapped(), "off air: the waiting card shows")
 names = [w.cget("text") for w in win.sims_box.winfo_children()]
-check("Assetto Corsa Competizione" in names and "EA SPORTS WRC" in names and "!" in names,
+check("ASSETTO CORSA COMPETIZIONE" in names and "EA SPORTS WRC" in names and "SET UP" in names,
       "off air: the installed sims are listed, with what's still to do")
 shot("simcast-offair.png")
 
 win.toggle_demo()
 pump(40)
-rows = win.tree.get_children()
-check(len(rows) == 12, f"demo: the timing tower lists the field ({len(rows)})")
+rows = win.tower_rows
+check(len(rows) == 12 and len(win.tower.find_all()) > 12 * 3, f"demo: the timing tower lists and draws the field ({len(rows)})")
 check(win.body.winfo_ismapped() and not win.hero.winfo_ismapped(), "demo: tower and booth replace the card")
 booth = win.text.get("1.0", "end")
 check("BEN" in booth and re.search(r"away|lights out|green flag", booth, re.I),
       "demo: the booth's lines appear, with who said them")
-me = [r for r in rows if "me" in win.tree.item(r, "tags")]
-check(len(me) == 1 and "Carter" in win.tree.item(me[0], "values")[1], "demo: your car is highlighted")
-check("Ridgeway Park" in win.session.cget("text") and "Lap" in win.session.cget("text"), "demo: track and lap")
+me = [r for r in rows if "me" in r[3]]
+check(len(me) == 1 and "Carter" in me[0][1], "demo: your car is highlighted")
+check("RIDGEWAY PARK" in win.session.cget("text") and "LAP" in win.session.cget("text"), "demo: track and lap")
+check(win.flag.cget("text") == "GREEN FLAG" and win.tally.itemcget(win.tally_txt, "text") == "DEMO",
+      "demo: the flag chip and the tally light")
+def header_fits():
+    btns = [w for w in win.hdr.winfo_children() if isinstance(w, tk.Frame)][-1].winfo_children()
+    return all(b.winfo_rootx() + b.winfo_width() <= win.root.winfo_rootx() + win.root.winfo_width() for b in btns)
+
+
+check(header_fits(), "header: every button fits")
+root.geometry("880x560")
+pump(1.5)
+check(header_fits() and win.settings_btn.cget("text") == "⚙", "header: in the narrowest window too, with short labels")
+root.geometry("1180x760")
+pump(1.0)
 shot("simcast-race.png")
 
 win.open_settings()
@@ -156,7 +170,7 @@ win.check_for_updates()
 pump(1.5)
 bar = win.update_bar
 texts = [w.cget("text") for w in bar.winfo_children()] if bar is not None else []
-check(bar is not None and bar.winfo_ismapped() and "SimCast 9.0 is available" in texts and "What's new" in texts,
+check(bar is not None and bar.winfo_ismapped() and "SIMCAST 9.0 IS AVAILABLE" in texts and "What's new" in texts,
       f"updates: the bar offers the new version ({texts})")
 check(win.update_btn.cget("text") == "Download", "updates: a copy that wasn't installed by the wizard gets a link")
 shot("simcast-update.png")
