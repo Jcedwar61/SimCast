@@ -108,13 +108,21 @@ def from_choice(choice, name=""):
     return name_gender(name)
 
 
+_VOICE_NAMES = {"libby": "f", "maisie": "f", "mitchell": "m", "aria": "f", "steffan": "m"}   # Microsoft voices
+# whose names aren't people's names everywhere (Kokoro ids carry the gender; OpenAI's voices are left neutral)
+
+
 def voice_gender(voice: str):
-    """'Ryan (British) - Microsoft' -> 'm'; 'en-GB-SoniaNeural' -> 'f'; 'kokoro:bf_emma' -> 'f'."""
+    """'Ryan (British) - Microsoft' -> 'm'; 'en-GB-SoniaNeural' -> 'f'; 'en-US-AvaMultilingualNeural' -> 'f';
+    'kokoro:bf_emma' -> 'f'."""
     s = str(voice or "").split(":")[-1].strip()
+    m = re.match(r"^[abjzefhip]([fm])_", s)                # Kokoro ids say it: af_heart, bm_george
+    if m:
+        return m.group(1)
     s = re.sub(r"^[a-z]{2}-[A-Z]{2}-", "", s)              # Microsoft ids: en-GB-SoniaNeural
-    s = re.sub(r"Neural$", "", s.split()[0] if s.split() else "")
-    s = s.split("_")[-1]                                   # Kokoro ids: bf_emma
-    return name_gender(s)
+    s = re.sub(r"(Multilingual)?Neural$", "", s.split()[0] if s.split() else "")
+    s = s.split("_")[-1]
+    return _VOICE_NAMES.get(s.lower()) or name_gender(s)
 
 
 def booth_gender(cfg, who, voices=()):
@@ -124,7 +132,7 @@ def booth_gender(cfg, who, voices=()):
         return g
     vid = cfg.get(f"{who}_voice") or ""
     label = next((lab for lab, v in voices if v == vid), vid)
-    return voice_gender(label)
+    return voice_gender(vid) or voice_gender(label)
 
 
 # ------------------------------------------------------------------------------------------------- emotion

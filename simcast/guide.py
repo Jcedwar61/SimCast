@@ -78,8 +78,11 @@ Each commentator has their own voice. All of these are free except OpenAI:
 - OpenAI: the most lifelike. Every line is spoken with its own direction (calm, excited, thrilled). Uses your OpenAI key and costs a little per line.
 Excitement comes through in every voice: bigger moments are faster, higher and louder.
 
+## American voices (for NASCAR)
+There are 16 free American Microsoft voices and 10 free American Kokoro voices. The four marked "most natural" (Andrew, Brian, Ava and Emma) are Microsoft's newest and sound the most like real people; the others are labelled with their character (Guy passionate, Roger lively, Christopher authoritative...). In Kokoro, Heart is the best. NASCAR races switch the booth to Andrew, Ava and Emma (most natural) unless you've picked your own voices; Settings > Booth has the switch. OpenAI voices are told to sound like a NASCAR booth in NASCAR races.
+
 ## If a voice can't be reached
-The booth never goes silent: a line the chosen voice can't speak (no internet, no key) is spoken by Kokoro, then Google, then Windows' own voice. The bottom of the window says when that happens.
+The booth never goes silent: a line the chosen voice can't speak (no internet, no key) is spoken by Kokoro, then Google, then Windows' own voice, with an American stand-in for an American voice. The bottom of the window says when that happens.
 
 ## Speed and volume
 Settings > Voices: Volume, and Speed (how briskly the booth talks).

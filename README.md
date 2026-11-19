@@ -24,6 +24,17 @@ each other: while SimCoach's coach or crew speaks, the booth drops under them an
 * **Linux / Steam Deck:** [install-simcast-wine.sh](install-simcast-wine.sh) installs SimCast into the sim's
   own Proton prefix (see below).
 
+### What's new in 1.11
+* **More, better American voices, all free.** 16 American Microsoft voices (up from 7), including the four
+  newest "most natural" ones (Andrew, Brian, Ava and Emma), and 10 American Kokoro voices that run on your PC
+  (up from 6). Each is labelled with its character: passionate, lively, authoritative, friendly...
+* **NASCAR races use the most natural ones:** Andrew calls it, Ava analyses it and Emma's on pit road, unless
+  you've picked your own voices. OpenAI voices are told to sound like a NASCAR booth.
+* **An American voice stays American:** if it can't be reached, its stand-in is an American Kokoro or Google
+  voice, not a British one. A line Microsoft's free service drops is tried once more, so it keeps its voice.
+* The booth knows every voice's gender now (Aria, Heart, Puck and others were "they"), so the commentators refer
+  to each other correctly.
+
 ### What's new in 1.10
 * **Lanes in NASCAR mode (Assetto Corsa with CrewChiefEx):** CrewChiefEx shares where every car is on track, so
   SimCast learns the groove from where the field drives and knows who's low and who's high. The booth calls it:
