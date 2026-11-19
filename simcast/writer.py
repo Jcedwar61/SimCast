@@ -230,6 +230,20 @@ class Writer(BanterMixin):
         same = [o for o in self.tr.cars.values() if o.call == c.call and o.id != c.id and not o.gone]
         return c.name if same else c.call
 
+    def gw(self, s):
+        """A gap as said on air: tenths and seconds, or car lengths in a NASCAR broadcast."""
+        if getattr(self.tr, "nascar", False) or getattr(self.tr, "nascar_words", False):
+            from . import nascar
+            return nascar.gap_say(self.tr, s)
+        return gap_words(s)
+
+    def ltw(self, t):
+        """A lap time as said on air: 'one oh nine point two', or a lap speed in a NASCAR broadcast."""
+        if getattr(self.tr, "nascar", False) or getattr(self.tr, "nascar_words", False):
+            from . import nascar
+            return nascar.lap_say(self.tr, t)
+        return lap_time_words(t)
+
     def pick(self, kind, options):
         """A random option not used in the last few times for this kind."""
         if not options:
@@ -493,9 +507,9 @@ class Writer(BanterMixin):
                 continue
             an, bn = self.n(ca.id, now), self.n(cb.id, now)
             intro = Line(self._next_voice(), self.pick("call_back", [
-                f"Remember {an} and {bn}? That one has settled itself: {an} is {gap_words(gap)} clear now.",
-                f"Let's go back to {an} and {bn}. {an} has come out on top, {gap_words(gap)} up the road.",
-                f"Quick word on {an} and {bn}, because we argued about that one. {an}, {gap_words(gap)} ahead.",
+                f"Remember {an} and {bn}? That one has settled itself: {an} is {self.gw(gap)} clear now.",
+                f"Let's go back to {an} and {bn}. {an} has come out on top, {self.gw(gap)} up the road.",
+                f"Quick word on {an} and {bn}, because we argued about that one. {an}, {self.gw(gap)} ahead.",
             ]), 1)
             settle = self._settle(ca.id, cb.id, now)
             if settle:
@@ -558,7 +572,7 @@ class Writer(BanterMixin):
                 f"Welcome back to {track}, where we're on {self._lap_status()}.",
             ]), 1)]
             if ld:
-                gap = f", {gap_words(p2.interval)} up the road from {self.n(p2.id, now)}" if p2 and p2.interval else ""
+                gap = f", {self.gw(p2.interval)} up the road from {self.n(p2.id, now)}" if p2 and p2.interval else ""
                 out.append(Line(LEAD, f"{self.n(ld.id, now)} leads{gap}.", 1))
             me = tr.player()
             if me and tr.pos_of(me.id) > 1:
@@ -669,6 +683,9 @@ class Writer(BanterMixin):
         return lines
 
     def _overtake_lines(self, e, now):
+        if getattr(self.tr, "nascar", False):
+            from . import nascar
+            return nascar.overtake_lines(self, e, now)
         d = e.data
         a, victims = e.cars[0], list(e.cars[1:])
         b = victims[0] if victims else None
@@ -747,7 +764,7 @@ class Writer(BanterMixin):
     def ev_battle(self, e, now):
         b, a = e.cars
         bn, an = self.n(b, now), self.n(a, now)
-        pos, gap = e.data.get("pos", 0), gap_words(e.data.get("gap"))
+        pos, gap = e.data.get("pos", 0), self.gw(e.data.get("gap"))
         what = "the lead" if pos == 1 else place(pos)
         if self._threaded("battle", (a, b)):
             return []
@@ -776,9 +793,9 @@ class Writer(BanterMixin):
         b, a = e.cars
         d = e.data
         return self._talk("closing", [
-            f"{self.n(b, now)} is reeling in {self.n(a, now)}, about {gap_words(d['per_lap'])} a lap. The gap's down to {gap_words(d['gap'])}.",
-            f"The gap between {self.n(a, now)} and {self.n(b, now)} is coming down, {gap_words(d['gap'])} now.",
-            f"{self.n(b, now)} is the quicker car at the moment, closing on {self.n(a, now)}, {gap_words(d['gap'])} the gap.",
+            f"{self.n(b, now)} is reeling in {self.n(a, now)}, about {gap_words(d['per_lap'])} a lap. The gap's down to {self.gw(d['gap'])}.",
+            f"The gap between {self.n(a, now)} and {self.n(b, now)} is coming down, {self.gw(d['gap'])} now.",
+            f"{self.n(b, now)} is the quicker car at the moment, closing on {self.n(a, now)}, {self.gw(d['gap'])} the gap.",
         ], [
             f"At that rate it won't be long before {self.n(b, now)} is right with {self.n(a, now)}.",
             f"{self.n(a, now)} needs to find something, and quickly.",
@@ -788,8 +805,8 @@ class Writer(BanterMixin):
     def ev_stretch(self, e, now):
         a, b = e.cars
         return [Line(LEAD, self.pick("stretch", [
-            f"{self.n(a, now)} is pulling clear out front, {gap_words(e.data['gap'])} the lead over {self.n(b, now)}.",
-            f"The lead is growing. {self.n(a, now)} is {gap_words(e.data['gap'])} up the road now.",
+            f"{self.n(a, now)} is pulling clear out front, {self.gw(e.data['gap'])} the lead over {self.n(b, now)}.",
+            f"The lead is growing. {self.n(a, now)} is {self.gw(e.data['gap'])} up the road now.",
         ]), 1)]
 
     def ev_battle_over(self, e, now):
@@ -810,7 +827,7 @@ class Writer(BanterMixin):
 
     def ev_fastest_lap(self, e, now):
         a = e.cars[0]
-        t = lap_time_words(e.data.get("time"))
+        t = self.ltw(e.data.get("time"))
         c = self.tr.car(a)
         if c and c.player:
             return [Line(LEAD, self.pick("fl_me", [
@@ -829,14 +846,14 @@ class Writer(BanterMixin):
         ]), 1)]
         prev = e.data.get("prev_car")
         if prev is not None and prev != a and self.chance(0.4):
-            out.append(Line(ANALYST, f"That beats the {lap_time_words(e.data.get('prev'))} from {self.n(prev, now)}.", 1))
+            out.append(Line(ANALYST, f"That beats the {self.ltw(e.data.get('prev'))} from {self.n(prev, now)}.", 1))
         return out
 
     def ev_personal_best(self, e, now):
         a = e.cars[0]
         return [Line(ANALYST, self.pick("pb", [
-            f"{self.n(a, now)} finding more time there, a {lap_time_words(e.data['time'])}, best lap so far.",
-            f"Personal best for {self.n(a, now)}, a {lap_time_words(e.data['time'])}. Getting quicker.",
+            f"{self.n(a, now)} finding more time there, a {self.ltw(e.data['time'])}, best lap so far.",
+            f"Personal best for {self.n(a, now)}, a {self.ltw(e.data['time'])}. Getting quicker.",
         ]), 1)]
 
     def ev_pit_in(self, e, now):
@@ -956,7 +973,7 @@ class Writer(BanterMixin):
                 lead_still = min(still, key=lambda x: self.tr.pos_of(x.id))
                 ans = (f"Hard to say yet, {plural(len(still), 'car')} still to come in, including "
                        f"{self.n(lead_still.id, now)}. Right now it's {place(pos)}" +
-                       (f", {gap_words(car.interval)} behind {self.n(ahead.id, now)}."
+                       (f", {self.gw(car.interval)} behind {self.n(ahead.id, now)}."
                         if ahead and car and car.interval is not None else "."))
             else:
                 ans = f"Everyone has stopped now, so what you see is what you get. {place(pos).capitalize()}."
@@ -1018,7 +1035,7 @@ class Writer(BanterMixin):
 
     def ev_moment(self, e, now):
         a = e.cars[0]
-        loss = gap_words(e.data.get("loss"))
+        loss = self.gw(e.data.get("loss"))
         self._remember(a, f"the car that lost {loss} in that moment earlier", now)
         c = self.tr.car(a)
         if c and c.player:
@@ -1136,7 +1153,7 @@ class Writer(BanterMixin):
         n = num_words(e.data["to_go"]).capitalize()
         out = [Line(LEAD, f"{n} laps to go, and {self.n(p1.id, now) if p1 else 'the leader'} still leads.", 1)]
         if p2 and p2.interval:
-            out.append(Line(ANALYST, f"{self.n(p2.id, now)} is {gap_words(p2.interval)} behind.", 1))
+            out.append(Line(ANALYST, f"{self.n(p2.id, now)} is {self.gw(p2.interval)} behind.", 1))
         else:
             out.append(Line(ANALYST, "No mistakes now. This is the part where races are won and lost.", 1))
         return out
@@ -1146,7 +1163,7 @@ class Writer(BanterMixin):
             out = self._solo_where(now, LEAD, "Half distance")
             return out + self._solo_answer() if out else out
         p1, p2 = self.tr.at(1), self.tr.at(2)
-        lead = f", {self.n(p1.id, now)} leads by {gap_words(p2.interval)}" if p1 and p2 and p2.interval else ""
+        lead = f", {self.n(p1.id, now)} leads by {self.gw(p2.interval)}" if p1 and p2 and p2.interval else ""
         return [Line(LEAD, f"We're at half distance{lead}.", 1),
                 Line(ANALYST, self.pick("half_a", [
                     f"Halfway, and {self.n(p1.id, now)} has earned every inch of that." if p1 else "Halfway.",
@@ -1180,9 +1197,9 @@ class Writer(BanterMixin):
             ]), 2))
         if p2 and p2.interval is not None:
             if p2.interval < 1.0:
-                out.append(Line(ANALYST, f"And {self.n(p2.id, now)} is right there, {gap_words(p2.interval)} behind! This isn't over!", 3))
+                out.append(Line(ANALYST, f"And {self.n(p2.id, now)} is right there, {self.gw(p2.interval)} behind! This isn't over!", 3))
             else:
-                out.append(Line(ANALYST, f"{self.n(p2.id, now)} is {gap_words(p2.interval)} back. {self.n(p1.id, now)} just has to bring it home.", 1))
+                out.append(Line(ANALYST, f"{self.n(p2.id, now)} is {self.gw(p2.interval)} back. {self.n(p1.id, now)} just has to bring it home.", 1))
         return out
 
     def ev_winner(self, e, now):
@@ -1255,7 +1272,7 @@ class Writer(BanterMixin):
     def ev_quali_lap(self, e, now):
         a = e.cars[0]
         d = e.data
-        t = lap_time_words(d.get("time"))
+        t = self.ltw(d.get("time"))
         c = self.tr.car(a)
         quali = self.tr.session == "qualifying"
         if d.get("top"):
@@ -1338,9 +1355,9 @@ class Writer(BanterMixin):
         self._solo_state = state
         bits = [f"{lead_in}{': ' if lead_in else ''}{self.n(me.id, now)} is {place(f.position) if f.position > 1 else 'leading'}"]
         if f.car_ahead and f.gap_ahead and f.position > 1:
-            bits.append(f"{gap_words(f.gap_ahead)} behind {call_name(f.car_ahead.get('name', ''))}")
+            bits.append(f"{self.gw(f.gap_ahead)} behind {call_name(f.car_ahead.get('name', ''))}")
         if f.car_behind and f.gap_behind and f.gap_behind < 3:
-            bits.append(f"{call_name(f.car_behind.get('name', ''))} {gap_words(f.gap_behind)} back")
+            bits.append(f"{call_name(f.car_behind.get('name', ''))} {self.gw(f.gap_behind)} back")
         return [Line(who, ", ".join(bits) + ".", 1)]
 
     def ev_solo_gain(self, e, now):
@@ -1371,21 +1388,21 @@ class Writer(BanterMixin):
         d, me = e.data, e.cars[0]
         return self._talk("sclose", [
             f"{self.n(me, now)} is reeling in {call_name(d['other'])}, about {gap_words(d['per_lap'])} a lap. "
-            f"It's {gap_words(d['gap'])} now.",
-            f"The gap to {call_name(d['other'])} is coming down, {gap_words(d['gap'])}. {self.n(me, now)} is on a charge.",
+            f"It's {self.gw(d['gap'])} now.",
+            f"The gap to {call_name(d['other'])} is coming down, {self.gw(d['gap'])}. {self.n(me, now)} is on a charge.",
         ], [
             "At that rate it's only a matter of time. Stay patient.",
-            f"{gap_words(d['gap'])} and closing. This is where the pressure builds.",
+            f"{self.gw(d['gap'])} and closing. This is where the pressure builds.",
         ], energy=1)
 
     def ev_solo_pressure(self, e, now):
         d, me = e.data, e.cars[0]
         return [Line(ANALYST, self.pick("spress", [
-            f"{call_name(d['other'])} is closing on {self.n(me, now)}, {gap_words(d['gap'])} behind now.",
-            f"Pressure from behind for {self.n(me, now)}: {call_name(d['other'])} is {gap_words(d['gap'])} back and closing.",
+            f"{call_name(d['other'])} is closing on {self.n(me, now)}, {self.gw(d['gap'])} behind now.",
+            f"Pressure from behind for {self.n(me, now)}: {call_name(d['other'])} is {self.gw(d['gap'])} back and closing.",
         ]), 1), Line(LEAD, self.pick("spress_l", [
             "It's getting tight. Keep it neat and let them make the mistake.",
-            f"{gap_words(d['gap'])}. No room for error now.",
+            f"{self.gw(d['gap'])}. No room for error now.",
         ]), 1)]
 
     def ev_solo_off(self, e, now):
@@ -1415,8 +1432,8 @@ class Writer(BanterMixin):
         if me.last and me.best and me.laps != getattr(self, "_solo_lap_talked", -1):
             self._solo_lap_talked = me.laps
             d = me.last - me.best
-            lead = (f"A {lap_time_words(me.last)} that time, right on the pace." if d < 0.15 else
-                    f"That's a {lap_time_words(me.last)}, {gap_words(d)} off the best.")
+            lead = (f"A {self.ltw(me.last)} that time, right on the pace." if d < 0.15 else
+                    f"That's a {self.ltw(me.last)}, {gap_words(d)} off the best.")
             answer = self.pick("s_lap_ans", [
                 "The car is in a good window. Keep chipping away.",
                 "Time still to find, but the trend is the right way.",
@@ -1431,12 +1448,12 @@ class Writer(BanterMixin):
         pos = f.position or 0
         if f.car_ahead and f.gap_ahead is not None and f.gap_ahead < 2 and pos > 1:
             txt = self.pick("s_ans_press", [
-                f"{gap_words(f.gap_ahead)} to the car in front. The move is on if it stays this close.",
+                f"{self.gw(f.gap_ahead)} to the car in front. The move is on if it stays this close.",
                 f"Right in the tow now. {call_name(f.car_ahead.get('name', ''))} has company.",
             ])
         elif f.car_behind and f.gap_behind is not None and f.gap_behind < 2:
             txt = self.pick("s_ans_back", [
-                f"{gap_words(f.gap_behind)} back to {call_name(f.car_behind.get('name', ''))}. Mirror full.",
+                f"{self.gw(f.gap_behind)} back to {call_name(f.car_behind.get('name', ''))}. Mirror full.",
                 "Someone is filling the mirrors. The next few corners matter.",
             ])
         elif pos <= 3:
@@ -1445,7 +1462,7 @@ class Writer(BanterMixin):
                 f"{place(pos).capitalize()} and looking calm about it. Exactly where you want to be.",
             ])
         else:
-            g = f"{gap_words(f.gap_ahead)} to the car ahead. " if f.gap_ahead else ""
+            g = f"{self.gw(f.gap_ahead)} to the car ahead. " if f.gap_ahead else ""
             txt = self.pick("s_ans_mid", [
                 f"{g}Time to chip away at it, one car at a time.",
                 f"{g}Plenty to gain from here, and nothing to lose.",
@@ -1482,13 +1499,13 @@ class Writer(BanterMixin):
             d = me.last - me.best
             if d < 0.15:
                 txt = self.pick("s_lap_good", [
-                    f"Another strong lap from {self.n(me.id, now)}, a {lap_time_words(me.last)}.",
-                    f"A {lap_time_words(me.last)} that time, right on the pace.",
+                    f"Another strong lap from {self.n(me.id, now)}, a {self.ltw(me.last)}.",
+                    f"A {self.ltw(me.last)} that time, right on the pace.",
                 ])
             else:
                 txt = self.pick("s_lap_off", [
-                    f"That last one was a {lap_time_words(me.last)}, {gap_words(d)} off the best.",
-                    f"A {lap_time_words(me.last)}. The best today is a {lap_time_words(me.best)}.",
+                    f"That last one was a {self.ltw(me.last)}, {gap_words(d)} off the best.",
+                    f"A {self.ltw(me.last)}. The best today is a {self.ltw(me.best)}.",
                 ])
             return [Line(ANALYST, txt, 1)]
         self._solo_togo_told = me.laps
@@ -1518,7 +1535,7 @@ class Writer(BanterMixin):
             f"We're at {stage}, {self._km(d['km'])} of it, and {self.n(me.id, now) if me else 'our driver'} is on the start line{car}.",
         ]), 1)]
         if d.get("best"):
-            out.append(Line(ANALYST, f"The time to beat on this stage is a {lap_time_words(d['best'])}.", 1))
+            out.append(Line(ANALYST, f"The time to beat on this stage is a {self.ltw(d['best'])}.", 1))
         else:
             out.append(Line(ANALYST, "First time through here with this car, so this run sets the benchmark.", 1))
         return out
@@ -1533,7 +1550,7 @@ class Writer(BanterMixin):
         where = {0.25: "the first split", 0.5: "the halfway split", 0.75: "the final split"}.get(d["at"], "the split")
         delta = d.get("delta")
         if delta is None:
-            return [Line(LEAD, f"Through {where}, {lap_time_words(d['time'])} on the clock.", 1)]
+            return [Line(LEAD, f"Through {where}, {self.ltw(d['time'])} on the clock.", 1)]
         if delta <= -0.05:
             return [Line(LEAD, self.pick("split_up", [
                 f"Through {where}, and that's {gap_words(-delta)} up on the best!",
@@ -1581,7 +1598,7 @@ class Writer(BanterMixin):
 
     def ev_stage_finish(self, e, now):
         d = e.data
-        t = lap_time_words(d["time"])
+        t = self.ltw(d["time"])
         if d.get("new_best") and d.get("best"):
             out = [Line(LEAD, f"Stop the clock! A {t}, and that's a new best on this stage by {gap_words(-d['delta'])}!", 3)]
         elif d.get("new_best"):
@@ -1634,6 +1651,11 @@ class Writer(BanterMixin):
             return self._filler_grid(now)
         if tr.finished:
             return []
+        if getattr(tr, "nascar", False) and not self.active and self.chance(0.5):
+            from . import nascar                    # the oval broadcast's own segments: rundowns, clean air, ...
+            lines = self._fresh(nascar.filler(self, now, focus))
+            if lines:
+                return self.floor(lines)
         raw = self._due_call(now) or self._beat(now, focus) or self._aside(now, focus) or self._open(now, focus)
         lines = self._fresh(raw) or self._fresh(raw, 8) or raw
         if lines:
@@ -1680,7 +1702,7 @@ class Writer(BanterMixin):
         p1, p2 = self.tr.at(1), self.tr.at(2)
         if not (p1 and p2) or p2.interval is None or self.stories:
             return []
-        g = gap_words(p2.interval)
+        g = self.gw(p2.interval)
         if p2.interval < 1.0:
             return [Line(LEAD, f"Still nothing in it at the front: {self.n(p2.id, now)} is {g} behind {self.n(p1.id, now)}.", 1),
                     Line(ANALYST, f"{self.n(p1.id, now)} can't relax for a second here.", 1)]
@@ -1774,7 +1796,7 @@ class Writer(BanterMixin):
             a, b = tr.car(k[0]), tr.car(k[1])
             if a and b and b.interval is not None:
                 return (f"You are in the middle of the fight for {place(tr.pos_of(a.id))}: {self.n(a.id)} ahead, "
-                        f"{self.n(b.id)} {gap_words(b.interval)} behind.")
+                        f"{self.n(b.id)} {self.gw(b.interval)} behind.")
         if st.kind == "charge" and isinstance(k, int):
             c = tr.car(k)
             if c:
@@ -1977,7 +1999,7 @@ class Writer(BanterMixin):
             "You hear them before you see them. And you tell yourself not to look, and you look anyway.",
         ]), 1), Line(LEAD, self.pick("as_def_l", [
             f"So that's what {bn} is waiting for. One look in the mirror too many.",
-            f"And {bn} knows all of that, of course. {gap_words(f[2]).capitalize()} and waiting.",
+            f"And {bn} knows all of that, of course. {self.gw(f[2]).capitalize()} and waiting.",
         ]), 1)]
 
     def _aside_chase(self, now):
@@ -2040,7 +2062,7 @@ class Writer(BanterMixin):
             "You start doing sums. How big is the gap, how many corners left, how many mistakes can I afford. "
             "Usually none.",
         ]), 1), Line(LEAD, f"And {self.n(ld.id, now)} will be doing those sums now. "
-                           f"{gap_words(p2.interval).capitalize()} to {self.n(p2.id, now)}.", 1)]
+                           f"{self.gw(p2.interval).capitalize()} to {self.n(p2.id, now)}.", 1)]
 
     def _aside_start(self, now):
         ld = self.tr.leader()
@@ -2067,10 +2089,10 @@ class Writer(BanterMixin):
         behind, gb = self._behind(me.id)
         nm = self.n(me.id, now)
         if ahead and me.interval is not None and me.interval < 2.0:
-            think = (f"Get after {self.n(ahead.id, now)}. {gap_words(me.interval).capitalize()} is close enough "
+            think = (f"Get after {self.n(ahead.id, now)}. {self.gw(me.interval).capitalize()} is close enough "
                      "that one good lap does it.")
         elif behind and gb is not None and gb < 1.5:
-            think = (f"Honestly, the mirrors. {self.n(behind.id, now)} is {gap_words(gb)} back, and that's the "
+            think = (f"Honestly, the mirrors. {self.n(behind.id, now)} is {self.gw(gb)} back, and that's the "
                      "real fight.")
         else:
             think = (f"Rhythm. Nobody close either way, so it's about clean laps and being ready when the race "
@@ -2094,7 +2116,7 @@ class Writer(BanterMixin):
                     Line(LEAD, "Fair. I was hoping for something more interesting.", 1),
                     Line(ANALYST, "Sorry to disappoint.", 1)]
         return [Line(LEAD, f"{self.analyst_name}, if you could swap into any car out there right now?", 1),
-                Line(ANALYST, f"{self.n(fast.id, now)}'s. Quickest on the last lap, a {lap_time_words(t)}. "
+                Line(ANALYST, f"{self.n(fast.id, now)}'s. Quickest on the last lap, a {self.ltw(t)}. "
                               f"{place(self.tr.pos_of(fast.id)).capitalize()} on the road, but that's the car.", 1),
                 Line(LEAD, f"Not {self.n(ld.id, now)}, who's leading the race?", 1),
                 Line(ANALYST, f"{self.n(ld.id, now)} has the result. I'd want the speed.", 1)]
@@ -2121,7 +2143,7 @@ class Writer(BanterMixin):
         ]), 1), Line(ANALYST, f"I'll say {self.n(fav, now)}, because {reason}", 1),
             Line(LEAD, (f"I'll take {self.n(other, now)}. Track position, and {self._laps_left_words()}."
                         if other == ld.id else
-                        f"I'll go the other way. {self.n(other, now)} is {gap_words(p2.interval)} back, and "
+                        f"I'll go the other way. {self.n(other, now)} is {self.gw(p2.interval)} back, and "
                         + ("that's nothing." if p2.interval < 1.5 else f"there's {self._laps_left_words()}."))),
             Line(ANALYST, "Done. Loser buys dinner.", 1)]
 
@@ -2155,7 +2177,7 @@ class Writer(BanterMixin):
         return [Line(ANALYST, f"Can I say something about {self.n(ld.id, now)}? We've barely mentioned the leader.", 1),
                 Line(LEAD, "That's usually a compliment.", 1),
                 Line(ANALYST, self.pick("as_pr", [
-                    f"It is. {gap_words(p2.interval).capitalize()} in hand over {self.n(p2.id, now)}, no drama, "
+                    f"It is. {self.gw(p2.interval).capitalize()} in hand over {self.n(p2.id, now)}, no drama, "
                     "no mistakes. That's the hardest kind of driving to notice.",
                     "It is. Nobody's talking about them because there's been nothing to talk about. That's the job done "
                     "properly.",
@@ -2183,7 +2205,7 @@ class Writer(BanterMixin):
         parts = [
             Line(LEAD, self.pick("th_b_open", [
                 f"Right, eyes on {what}. {self.n(b, now)} is right on the back of {self.n(a, now)}, "
-                f"{gap_words(tr.car(b).interval)} between them. {stakes}",
+                f"{self.gw(tr.car(b).interval)} between them. {stakes}",
                 f"Have a look at this fight for {what}: {self.n(a, now)} ahead, {self.n(b, now)} all over it.",
                 f"{self.n(b, now)} has got right up behind {self.n(a, now)} for {what}. Stay with this one.",
             ]), 2),
@@ -2250,8 +2272,8 @@ class Writer(BanterMixin):
                     f"For me {an} holds on here. {read}",
                 ])
                 counter = self.pick("db_a_no", [
-                    f"I'd disagree. {bn} is {gap_words(gap)} away and has been all lap. That pressure tells eventually.",
-                    f"Really? I think {bn} has one big lunge in there somewhere, and {gap_words(gap)} is close enough.",
+                    f"I'd disagree. {bn} is {self.gw(gap)} away and has been all lap. That pressure tells eventually.",
+                    f"Really? I think {bn} has one big lunge in there somewhere, and {self.gw(gap)} is close enough.",
                     f"I don't know. {an} has had a mirror full of {bn} for a while now. Mistakes come from that.",
                 ])
             self._call((a, b), me, fav, now)
@@ -2275,8 +2297,8 @@ class Writer(BanterMixin):
                     f"Still {an} in front, {self._name(picker)}. Just saying.",
                     f"How's that prediction looking, {self._name(picker)}?",
                 ]), 1), Line(picker, self.pick("stick_b_a", [
-                    f"Still saying it. {gap_words(gap).capitalize()}, and {pk} isn't going away." if grew <= 0.1 else
-                    f"All right, it's taking longer than I thought. {gap_words(gap).capitalize()} now.",
+                    f"Still saying it. {self.gw(gap).capitalize()}, and {pk} isn't going away." if grew <= 0.1 else
+                    f"All right, it's taking longer than I thought. {self.gw(gap).capitalize()} now.",
                     f"Ask me again in two laps. {pk} is right there.",
                 ]), 1)], False
             return [Line(picker, self.pick("stick_a", [
@@ -2285,7 +2307,7 @@ class Writer(BanterMixin):
             ]), 1), Line(other, self.pick("stick_a_a", [
                 f"It's not over, there's {self._laps_left_words()}." if self._laps_left() != 1 else
                 "One lap. That's all it takes.",
-                f"{gap_words(gap).capitalize()}, though. I wouldn't be celebrating yet.",
+                f"{self.gw(gap).capitalize()}, though. I wouldn't be celebrating yet.",
             ]), 1)], False
 
         if shape == "ask":                                    # a real question, and an answer with a number in it
@@ -2300,10 +2322,10 @@ class Writer(BanterMixin):
 
         if gap < 0.4:
             txt = self.pick("th_b_tight", [
-                f"Look at that, {gap_words(gap)} in it, {bn} is virtually alongside.",
+                f"Look at that, {self.gw(gap)} in it, {bn} is virtually alongside.",
                 f"Nothing at all between them now! {bn} is right there.",
-                f"{bn} on the back of {an}, {gap_words(gap)}. Barely a car's width in it.",
-                f"Right on {an}'s gearbox, {gap_words(gap)}. {an} must know.",
+                f"{bn} on the back of {an}, {self.gw(gap)}. Barely a car's width in it.",
+                f"Right on {an}'s gearbox, {self.gw(gap)}. {an} must know.",
             ])
             reply = self.pick("th_b_tight_a", [
                 f"And that's where it goes wrong for the car in front. One lock-up and {bn} is through.",
@@ -2312,9 +2334,9 @@ class Writer(BanterMixin):
             ])
         elif moved and grew < 0:
             txt = self.pick("th_b_move", [
-                f"Closer still, {gap_words(gap)} now. {bn} is edging in.",
-                f"Down to {gap_words(gap)}. {bn} is picking the moment.",
-                f"{bn} keeps chipping away, {gap_words(gap)} the difference now.",
+                f"Closer still, {self.gw(gap)} now. {bn} is edging in.",
+                f"Down to {self.gw(gap)}. {bn} is picking the moment.",
+                f"{bn} keeps chipping away, {self.gw(gap)} the difference now.",
             ])
             reply = self.pick("th_b_move_a", [
                 f"That's not a gap that's going to hold. {an} is going to have to start defending.",
@@ -2322,8 +2344,8 @@ class Writer(BanterMixin):
             ])
         elif moved:
             txt = self.pick("th_b_out", [
-                f"And {an} has pulled a little out of that, {gap_words(gap)} now.",
-                f"{an} has answered. {gap_words(gap).capitalize()}, out of reach for a moment.",
+                f"And {an} has pulled a little out of that, {self.gw(gap)} now.",
+                f"{an} has answered. {self.gw(gap).capitalize()}, out of reach for a moment.",
             ])
             reply = self.pick("th_b_out_a", [
                 f"That's a response. {bn} pushed and {an} found a bit more.",
@@ -2331,10 +2353,10 @@ class Writer(BanterMixin):
             ])
         else:
             txt = self.pick("th_b_hold", [
-                f"Still {gap_words(gap)}. {an} is holding on, just about.",
-                f"No way through yet. {bn} is there, {gap_words(gap)} back.",
-                f"Held at {gap_words(gap)}. {bn} has to find something else.",
-                f"{an} is driving to a plan here, {gap_words(gap)} the margin.",
+                f"Still {self.gw(gap)}. {an} is holding on, just about.",
+                f"No way through yet. {bn} is there, {self.gw(gap)} back.",
+                f"Held at {self.gw(gap)}. {bn} has to find something else.",
+                f"{an} is driving to a plan here, {self.gw(gap)} the margin.",
             ])
             reply = self._read_fight(a, b, now)[2]
         return [Line(me, txt, 1), Line(you, reply, 1)], False
@@ -2428,7 +2450,7 @@ class Writer(BanterMixin):
         who = LEAD if st.beat % 2 else ANALYST
         other = ANALYST if who == LEAD else LEAD
         ahead = tr.at(p - 1)
-        gap = gap_words(c.interval) if c.interval is not None else "a gap"
+        gap = self.gw(c.interval) if c.interval is not None else "a gap"
         what = "second" if p - 1 == 2 else place(p - 1)
         return [
             Line(who, self.pick("th_c_beat", [
@@ -2476,11 +2498,11 @@ class Writer(BanterMixin):
                 Line(ANALYST, self.pick("th_t_open", [
                     f"Look at the timing screens. {self.n(c.id, now)} has found {gap_words(theirs and mine - theirs)} "
                     f"on the last lap alone, and it's for {what}.",
-                    f"{self.n(c.id, now)} is getting quicker lap by lap, a {lap_time_words(theirs)} last time round. "
+                    f"{self.n(c.id, now)} is getting quicker lap by lap, a {self.ltw(theirs)} last time round. "
                     f"That gap to {self.n(ld.id, now)} won't last at this rate.",
                 ]), 1),
                 Line(LEAD, self.pick("th_t_open_l", [
-                    f"And that's {gap_words(c.interval)} between them as it stands. This is becoming serious.",
+                    f"And that's {self.gw(c.interval)} between them as it stands. This is becoming serious.",
                     f"Watch that gap come down. {self.n(c.id, now)} is coming for this one.",
                 ]), 1),
             ]
@@ -2492,7 +2514,7 @@ class Writer(BanterMixin):
             return None, 0, []
         return ("stretch", (ld.id, p2.id)), float(p2.interval), [
             Line(LEAD, f"At the front, {self.n(ld.id, now)} is easing clear of {self.n(p2.id, now)}, "
-                       f"{gap_words(p2.interval)} now."),
+                       f"{self.gw(p2.interval)} now."),
             Line(ANALYST, self.pick("th_s_open", [
                 f"That's a gap built on pure pace. {self.n(p2.id, now)} has no answer to it.",
                 f"Nothing {self.n(p2.id, now)} can do about that at the moment. It's a long afternoon from here.",
@@ -2507,8 +2529,8 @@ class Writer(BanterMixin):
             return [], True
         st.mark = c.interval
         return [Line(ANALYST, self.pick("th_t_beat", [
-            f"Down to {gap_words(c.interval)} now. {self.n(c.id, now)} is right in this.",
-            f"And still it comes, {gap_words(c.interval)}. {self.n(ld.id, now)} is hanging on.",
+            f"Down to {self.gw(c.interval)} now. {self.n(c.id, now)} is right in this.",
+            f"And still it comes, {self.gw(c.interval)}. {self.n(ld.id, now)} is hanging on.",
         ]), 1),
             Line(LEAD, "Into the last few laps. This could get very interesting.")], False
 
@@ -2519,7 +2541,7 @@ class Writer(BanterMixin):
         if st.beat >= 1:
             return [], True
         return [Line(ANALYST, self.pick("th_s_beat", [
-            f"{gap_words(p2.interval)} and growing. {self.n(p2.id, now)} needs something soon.",
+            f"{self.gw(p2.interval)} and growing. {self.n(p2.id, now)} needs something soon.",
             f"{self.n(ld.id, now)} is managing this race from the front. That's a lead built properly.",
         ]), 1)], False
 
@@ -2694,9 +2716,9 @@ class Writer(BanterMixin):
         pos = tr.pos_of(ca.id)
         what = "the lead" if pos == 1 else place(pos)
         return [Line(LEAD, self.pick("f_battle", [
-            f"Still a tight one between {self.n(ca.id, now)} and {self.n(cb.id, now)} for {what}, {gap_words(cb.interval)} in it.",
-            f"{self.n(cb.id, now)} is still hounding {self.n(ca.id, now)}, {gap_words(cb.interval)} apart, the fight for {what}.",
-            f"Let's go back to the battle for {what}. {self.n(ca.id, now)} ahead, {self.n(cb.id, now)} right there, {gap_words(cb.interval)}.",
+            f"Still a tight one between {self.n(ca.id, now)} and {self.n(cb.id, now)} for {what}, {self.gw(cb.interval)} in it.",
+            f"{self.n(cb.id, now)} is still hounding {self.n(ca.id, now)}, {self.gw(cb.interval)} apart, the fight for {what}.",
+            f"Let's go back to the battle for {what}. {self.n(ca.id, now)} ahead, {self.n(cb.id, now)} right there, {self.gw(cb.interval)}.",
         ]), 1)]
 
     def _player_line(self, me, now, who=LEAD):
@@ -2706,9 +2728,9 @@ class Writer(BanterMixin):
         behind, gb = self._behind(me.id)
         bits = [f"{self.n(me.id, now)} is running {place(p)}"]
         if ahead and me.interval is not None:
-            bits.append(f"{gap_words(me.interval)} behind {self.n(ahead.id, now)}")
+            bits.append(f"{self.gw(me.interval)} behind {self.n(ahead.id, now)}")
         if behind and gb is not None and gb < 3:
-            bits.append(f"with {self.n(behind.id, now)} {gap_words(gb)} back")
+            bits.append(f"with {self.n(behind.id, now)} {self.gw(gb)} back")
         return [Line(who, ", ".join(bits) + ".", 1)]
 
     def _f_player(self, now):
@@ -2721,8 +2743,8 @@ class Writer(BanterMixin):
             rank = sorted(c.last for c in tr.cars.values() if c.last and not c.gone and not c.in_pit)
             if rank and me.last <= rank[min(2, len(rank) - 1)]:
                 out.append(Line(ANALYST, self.pick("f_me_fast", [
-                    f"And {self.n(me.id)} is one of the quickest cars out there at the moment, a {lap_time_words(me.last)} last time round.",
-                    f"The pace is there for {self.n(me.id)}. That last lap was a {lap_time_words(me.last)}.",
+                    f"And {self.n(me.id)} is one of the quickest cars out there at the moment, a {self.ltw(me.last)} last time round.",
+                    f"The pace is there for {self.n(me.id)}. That last lap was a {self.ltw(me.last)}.",
                 ]), 1))
             elif me.interval is not None and me.interval < 1.5:
                 out.append(Line(ANALYST, f"Within striking distance. {self.n(me.id)} just needs the right moment.", 1))
@@ -2740,19 +2762,19 @@ class Writer(BanterMixin):
         out, told = [], getattr(self, "_pace_told", set())
         for t, c in laps:
             txt = self.pick("f_pace", [
-                f"Quickest out there on the last lap was {self.n(c.id, now)}, a {lap_time_words(t)}.",
-                f"Interesting, {self.n(c.id, now)} is putting in some quick laps, a {lap_time_words(t)} that last one.",
+                f"Quickest out there on the last lap was {self.n(c.id, now)}, a {self.ltw(t)}.",
+                f"Interesting, {self.n(c.id, now)} is putting in some quick laps, a {self.ltw(t)} that last one.",
             ])
             if txt not in told:
                 out.append(Line(ANALYST, txt, 1))
                 break
         if not out:
             t, c = laps[0]
-            out.append(Line(ANALYST, f"Quickest out there on the last lap was {self.n(c.id, now)}, a {lap_time_words(t)}.", 1))
+            out.append(Line(ANALYST, f"Quickest out there on the last lap was {self.n(c.id, now)}, a {self.ltw(t)}.", 1))
         told.add(out[0].text)
         self._pace_told = told
         if tr.fastest and tr.fastest[1] != c.id:
-            line = f"Fastest lap still belongs to {self.n(tr.fastest[1], now)}, a {lap_time_words(tr.fastest[0])}."
+            line = f"Fastest lap still belongs to {self.n(tr.fastest[1], now)}, a {self.ltw(tr.fastest[0])}."
             if line not in told:
                 out.append(Line(LEAD, line, 1))
                 told.add(line)
@@ -2784,7 +2806,7 @@ class Writer(BanterMixin):
         c = min(cands, key=lambda c: c.mentioned)
         p = tr.pos_of(c.id)
         ahead = tr.at(p - 1)
-        gap = f", {gap_words(c.interval)} behind {self.n(ahead.id, now)}" if ahead and c.interval is not None else ""
+        gap = f", {self.gw(c.interval)} behind {self.n(ahead.id, now)}" if ahead and c.interval is not None else ""
         extra = ""
         if c.grid and c.grid != p:
             extra = f" Started {place(c.grid)}."
@@ -2812,12 +2834,12 @@ class Writer(BanterMixin):
         p1, p2 = tr.at(1), tr.at(2)
         if not p1 or not p1.best:
             return []
-        out = [Line(LEAD, f"{self.n(p1.id, now)} still sets the pace, a {lap_time_words(p1.best)}.", 1)]
+        out = [Line(LEAD, f"{self.n(p1.id, now)} still sets the pace, a {self.ltw(p1.best)}.", 1)]
         if p2 and p2.gap is not None:
-            out.append(Line(ANALYST, f"{self.n(p2.id, now)} is {gap_words(p2.gap)} off that.", 1))
+            out.append(Line(ANALYST, f"{self.n(p2.id, now)} is {self.gw(p2.gap)} off that.", 1))
         me = tr.player()
         if me and me.best and tr.pos_of(me.id) > 2 and now - me.mentioned > 30:
-            out.append(Line(ANALYST, f"{self.n(me.id, now)} is {place(tr.pos_of(me.id))} for now, {gap_words(me.gap)} off the top.", 1))
+            out.append(Line(ANALYST, f"{self.n(me.id, now)} is {place(tr.pos_of(me.id))} for now, {self.gw(me.gap)} off the top.", 1))
         return out
 
     def final_calls(self, now):
