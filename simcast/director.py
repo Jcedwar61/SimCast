@@ -78,8 +78,8 @@ class Director:
                 self.recent_events.append(ai_mod.describe(e, self.writer))
             except Exception:
                 pass
-            if e.kind == "winner":
-                self.winner_t = now
+            if e.kind == "winner" or (e.kind == "player_finish" and getattr(self.tr, "solo", False)):
+                self.winner_t = now                            # (your car only: your finish is the end of the race)
             self._remember_event(e)
             if self.recap is not None:
                 try:

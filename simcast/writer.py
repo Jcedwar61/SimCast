@@ -70,7 +70,7 @@ _PLAIN_STARTS = {"maybe", "really", "see", "can", "is", "how", "who's", "what", 
 def _sentences(text: str) -> str:
     """Every sentence starts with a capital, however the line was put together ('... today. six cars ...')."""
     text = text[:1].upper() + text[1:]
-    return re.sub(r"([.!?] )([a-z])", lambda m: m.group(1) + m.group(2).upper(), text)
+    return re.sub(r"((?<!\.\.)[.!?] )([a-z])", lambda m: m.group(1) + m.group(2).upper(), text)   # not after '...'
 
 
 def num_words(n: int) -> str:
@@ -1304,6 +1304,26 @@ class Writer(BanterMixin):
         if event:
             return [Line(LEAD, f"Welcome to {kind} for {event} at {track}, and we're with {who}.", 1)]
         return [Line(LEAD, f"Welcome to {track}, it's {kind}, and we're with {who}.", 1)]
+
+    def _solo_wrap(self, now):
+        """The sign-off when only the viewer's car is seen: where they finished, not who won."""
+        tr, f = self.tr, self._solo_frame()
+        me = tr.player()
+        if me is None:
+            return []
+        event = persona.the_race(self.cfg)
+        of = f" of {event}" if event else ""
+        pos = f.position if f and f.position else 0
+        start = getattr(tr, "_start_pos", None)
+        res = f"{place(pos)} for {self.n(me.id, now, full=True)}" if pos else f"the flag for {self.n(me.id, now, full=True)}"
+        out = [Line(LEAD, f"So, that's the race{of} here at {tr.track or 'the circuit'}: {res}.", 1)]
+        if pos and start and start != pos:
+            out.append(Line(ANALYST, f"{'Up' if pos < start else 'Down'} {plural(abs(start - pos), 'place')} from "
+                                     f"{place(start)} at the start. Thanks for watching, everybody.", 1))
+        else:
+            out.append(Line(ANALYST, "Thanks for watching, everybody.", 1))
+        out.append(Line(LEAD, "Thank you for having us. Goodnight.", 1))
+        return out
 
     def _solo_where(self, now, who, lead_in):
         f = self._solo_frame()
@@ -2824,6 +2844,8 @@ class Writer(BanterMixin):
 
     def wrap_up(self, now):
         tr = self.tr
+        if getattr(tr, "solo", False):
+            return self._solo_wrap(now)
         w = tr.car(tr.winner)
         if not w:
             return []

@@ -298,6 +298,16 @@ def describe(e, writer):
         return f"caution: {d.get('kind')}"
     if k == "green":
         return "green flag, racing resumed"
+    if k in ("solo_gain", "solo_loss"):
+        other = d.get("other")
+        return (f"{n(c[0])} {'gained' if k == 'solo_gain' else 'lost'} a place, now P{d.get('pos')} (was P{d.get('was')})"
+                + (f", {'passing' if k == 'solo_gain' else 'passed by'} {other}" if other else ""))
+    if k == "solo_closing":
+        return f"{n(c[0])} is closing on {d.get('other') or 'the car ahead'}, {d.get('gap', 0):.1f}s behind"
+    if k == "solo_pressure":
+        return f"{d.get('other') or 'the car behind'} is closing on {n(c[0])}, {d.get('gap', 0):.1f}s back"
+    if k == "solo_off":
+        return f"{n(c[0])} went off the track"
     return k.replace("_", " ") + (f": {', '.join(n(x) for x in c)}" if c else "")
 
 

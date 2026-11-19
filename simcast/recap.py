@@ -92,6 +92,12 @@ class Recap:
         path = os.path.join(self.folder, f"{when} {safe}{' (demo)' if demo else ''}.md")
         out = [f"# {title}{' (demo race)' if demo else ''}, {time.strftime('%d %B %Y')}", ""]
         st = tr.standings() if hasattr(tr, "standings") else []
+        fr = getattr(tr, "frame", None)
+        if getattr(tr, "solo", False) and st:                # one car seen: its real place, not 'P1 of 1'
+            pos = fr.position if fr is not None and fr.position else None
+            out += ["## Result", "", f"{st[0]['name']}: " + (f"P{pos}" + (f" of {fr.cars}" if fr.cars else "") if pos
+                                                              else "finished"), ""]
+            st = []
         if st:
             out += ["## Result", "", "| Pos | Driver | Grid | Best lap |", "|---|---|---|---|"]
             for s in st:

@@ -1572,6 +1572,35 @@ gcast = headless_run(laps=2, seed=5, log=lambda m: None)
 check(gcast.mode == "field" and "BROADCAST" not in ai_mod.race_brief(gcast.tracker, gcast.director.writer, [], []),
       "nascar: Automatic leaves the GT3 demo alone")
 
+# ---------------------------------------------------------------- your car only: the race ends properly
+from simcast.demo import DemoRace  # noqa: E402
+from simcast.app import LOOP_HZ  # noqa: E402
+from simcast.recap import Recap  # noqa: E402
+import random  # noqa: E402
+rdir = tempfile.mkdtemp(prefix="simcast-recap-")
+scast = SimCast(dict(DEFAULTS), audio=SimAudio(), log=lambda m: None, booth=False, save=False)
+scast.source = "TEST"
+scast.director.recap = Recap(rdir, log=lambda m: None)
+scast.director.writer.rng = random.Random(4)
+sdemo, t = DemoRace(laps=3, seed=4), 0.0
+while t < 1500:
+    sf = sdemo.read(1.0 / LOOP_HZ)
+    if sf is not None:
+        sf.game, sf.field, sf.track, sf.car = "AC", None, "Martinsville (Oval)", "Gen6 Cup Chevrolet"
+    scast.feed(sf, t)
+    scast.tick(t)
+    scast.audio.tick(t)
+    if sdemo.finished and scast.director.wrapped and not scast.audio.speaking(t):
+        break
+    t += 1.0 / LOOP_HZ
+scast.director.finish_recap(demo=False)
+stext = " ".join(ln.text for _, ln in scast.audio.spoken)
+check(scast.mode == "nascar_solo" and scast.director.wrapped and "Goodnight" in stext and "victory for" not in stext,
+      "your car only: the booth signs off with your result, not a 'winner'")
+recaps = os.listdir(rdir)
+check(len(recaps) == 1 and "## Result" in open(os.path.join(rdir, recaps[0])).read() and
+      "| 1 |" not in open(os.path.join(rdir, recaps[0])).read(), f"your car only: the recap is written ({recaps})")
+
 # ---------------------------------------------------------------- cost estimate
 from simcast.usage import Meter, parse_rates  # noqa: E402
 check(parse_rates("openai 2/8, elevenlabs 200; junk") == {"openai": (2.0, 8.0), "elevenlabs": (200.0,)},

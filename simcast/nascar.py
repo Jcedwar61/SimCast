@@ -176,7 +176,7 @@ class NascarTracker(RaceTracker):
             self.leaders.append(leader.id)
         for i, end in enumerate(self.stage_ends):
             stage = i + 1
-            if n == end and stage not in self._stage_told:
+            if before < end <= n and stage not in self._stage_told:     # a lap skipped in the data still counts
                 self._stage_told.add(stage)
                 self.stage = stage + 1
                 self.stage_winners.append(leader.id)
@@ -184,7 +184,7 @@ class NascarTracker(RaceTracker):
                 last = stage == len(self.stage_ends)
                 ev.append(Event("stage_end", now, 92, (leader.id,), {"stage": stage, "top": top, "final_next": last},
                                 ttl=30, key=f"stage{stage}"))
-            elif end - n == 3 and ("togo", stage) not in self._stage_told and end >= 10:
+            elif before < end - 3 <= n < end and ("togo", stage) not in self._stage_told and end >= 10:
                 self._stage_told.add(("togo", stage))
                 ev.append(Event("stage_to_go", now, 45, (leader.id,), {"stage": stage, "to_go": 3}, ttl=25,
                                 key=f"stagetogo{stage}"))
