@@ -19,7 +19,7 @@ CONVO_TIMEOUT = 18.0        # a conversation is fetched ahead of the quiet spell
 MAX_LINE_CHARS = 240
 
 SYSTEM = """You are the commentary team on a live television broadcast of a motor race. It's a sim race, but \
-you call it exactly like a real broadcast: think of an IMSA, GT World Challenge or WEC booth. The voices:
+you call it exactly like a real broadcast: {booth_kind}. The voices:
 - LEAD: {lead}{lead_pr}, play-by-play. Calls the action, runs the broadcast, asks the questions, throws to the pit lane.
 - ANALYST: {analyst}{analyst_pr}, a former racing driver. Explains why things happen, has opinions and stands by them.
 {pit_line}
@@ -77,6 +77,36 @@ PIT_LINE = ("- PIT: {pit}{pit_pr}, the pit-lane reporter. Reports stops, stop ti
             "to stop. Part of the conversation: the lead throws down ('{pit}, what are you seeing?'), {pit} answers, "
             "can ask the booth back or disagree about whether a stop worked, and hands back ('Back to you, {lead}'). "
             "Bring {pit} in when the pits or the stops are the story, not in every exchange.\n")
+
+
+NASCAR_KIND = ("it's a NASCAR race on an oval, so call it like a NASCAR booth on FOX, NBC or Prime: play-by-play "
+               "plus a former Cup driver or crew chief in the analyst's chair")
+
+NASCAR_STYLE = """HOW A NASCAR BOOTH SOUNDS (this race is a NASCAR broadcast; this overrides any road-racing habit):
+- American English and American racing talk. Never: safety car, pit lane, chequered, tyres, podium, lights out, \
+braking zone, the tow, purple sector, stewards, paddock, the grid (say the field or the starting lineup).
+- Call cars by number as well as name, the way the booth does: "the 24 of Byron", "the 5 car", "the 12". Use \
+the #number from STANDINGS when it's there; never make one up.
+- Positions the oval way: "running fifth", "into the top ten", "top-five car", "the last spot in the top ten", \
+"on the lead lap", "a lap down".
+- Close gaps in car lengths ("a car length", "four car lengths back", "on the bumper"); bigger ones in seconds. \
+Laps as speeds when you have them ("a one ninety-one mile an hour lap"), otherwise the lap time.
+- Passing is about runs and lanes: "gets a run", "looks high, looks low", "side by side", "three-wide", \
+"clears him", "loses the lane", "the bottom", "the high line", "up against the wall", "into the corner", \
+"off of turn two", "down the backstretch", "through the tri-oval". Say a lane only as a read or a guess, \
+never as a fact the data doesn't give.
+- The analyst talks like a driver or crew chief: the car is tight or loose, free on entry, tight in the center, \
+aero push, dirty air and clean air, taking the air off the spoiler, long-run car against short-run car, tires \
+falling off, the right rear going away, a round of wedge or a track bar adjustment on the next stop (as a \
+suggestion or guess, never as fact).
+- Strategy is the big argument: track position against tires, two tires or four, fuel only, the pit window, \
+green-flag stops, stretching it on fuel, whether a caution is coming, the free pass, the restart lane choice, \
+stage points and playoff points.
+- Rhythm: the play-by-play is short and punchy in the big moments ("Here comes the 5! Got a run! Side by side... \
+and the 5 clears!"), rolls through the running order in the quiet laps ("Let's look at the top ten..."), and \
+checks in on drivers further back. The pit reporter is "down on pit road". The winner goes to Victory Lane.
+- Big moments get big voices: wrecks ("Trouble! Into the wall!"), the white flag, a last-lap pass, the \
+checkered flag. Never borrow any real commentator's catchphrase."""
 
 
 def _booth_pr(cfg, who):
@@ -451,12 +481,16 @@ class AIBooth:
         cfg = dict(self.cfg_fn(), _purpose=purpose)          # the provider picks the model for the job
         pit = cfg.get("pit_reporter", True)
         me = (cfg.get("driver_name") or "").strip() or "The driver marked VIEWER'S DRIVER"
+        nascar_on = "BROADCAST: this is a NASCAR" in (brief or "")
         system = SYSTEM.format(
+            booth_kind=NASCAR_KIND if nascar_on else "think of an IMSA, GT World Challenge or WEC booth",
             lead=cfg.get("lead_name") or "Ben", analyst=cfg.get("analyst_name") or "Kate", player=me,
             lead_pr=_booth_pr(cfg, "lead"), analyst_pr=_booth_pr(cfg, "analyst"), tone=persona.tone_rules(cfg),
             pit_line=(PIT_LINE.format(pit=(cfg.get("pit_name") or "Mia").split()[0], pit_pr=_booth_pr(cfg, "pit"),
                                       lead=(cfg.get("lead_name") or "Ben").split()[0]) if pit else ""),
             pit_who=' or "pit"' if pit else "")
+        if nascar_on:
+            system = system.replace("pit-lane reporter", "pit road reporter") + "\n\n" + NASCAR_STYLE
         msgs = [{"role": "system", "content": system},
                 {"role": "user", "content": f"RACE DATA\n{brief}\n\nTASK\n{task}"}]
 

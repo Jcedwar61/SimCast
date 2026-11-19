@@ -1565,6 +1565,25 @@ idle.toggle_nascar()
 check(idle.nascar_on(), "nascar button: switched on before the race")
 idle.feed(frame(pass_scn(0), 0, race_laps=30), 0.0)
 check(idle.mode == "nascar", "nascar button: ... and the next race is NASCAR")
+# The NASCAR way of saying it: car lengths, mph, an oval booth's words
+gtr = NascarTracker(log=lambda m: None)
+gtr.track_len = 858.0                                   # Martinsville, about half a mile
+check(nascar.gap_say(gtr, 0.1) == "a car length" and nascar.gap_say(gtr, 0.4) == "four car lengths" and
+      nascar.gap_say(gtr, 0.02) == "inches" and nascar.gap_say(gtr, 2.5) == "two point five seconds",
+      f"nascar: close gaps in car lengths, bigger ones in seconds ({nascar.gap_say(gtr, 0.4)})")
+check(nascar.lap_say(gtr, 19.8) == "ninety-seven mile an hour lap" and
+      nascar.lap_say(NascarTracker(log=lambda m: None), 19.8) == "nineteen point eight",
+      f"nascar: laps as mph when the track's length is known ({nascar.lap_say(gtr, 19.8)})")
+gtr.track_len = 4023.0
+check(nascar.lap_say(gtr, 47.0) == "one ninety-one mile an hour lap", "nascar: 'one ninety-one' at Daytona speed")
+nlines = [ln.text for _, ln in ncast.audio.spoken]
+check(any("car length" in t for t in nlines) and any("mile an hour lap" in t for t in nlines) and
+      any("running order" in t or "clean air" in t or "laps today" in t for t in nlines),
+      "nascar: the booth measures in car lengths and mph, and does an oval broadcast's segments")
+check(not any(re.search(r"(?i)braking zone|in the mirrors|purple|the grid|stewards|tenths? (behind|back|apart|between)",
+                        t) for t in nlines), "nascar: no road-racing phrases left on air")
+check("NASCAR booth" in ai_mod.NASCAR_KIND and "car lengths" in ai_mod.NASCAR_STYLE,
+      "nascar: the AI booth gets a NASCAR booth's style")
 brief = ai_mod.race_brief(ncast.tracker, ncast.director.writer, [], [])
 check("BROADCAST: this is a NASCAR" in brief and "STAGES:" in brief and "LAPS LED:" in brief,
       "nascar: the AI is told it's a NASCAR broadcast, with stages and laps led")

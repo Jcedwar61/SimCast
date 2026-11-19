@@ -24,6 +24,19 @@ each other: while SimCoach's coach or crew speaks, the booth drops under them an
 * **Linux / Steam Deck:** [install-simcast-wine.sh](install-simcast-wine.sh) installs SimCast into the sim's
   own Proton prefix (see below).
 
+### What's new in 1.9
+* **NASCAR mode sounds like a NASCAR broadcast now, not a road race.** Close gaps are in car lengths (*"three car
+  lengths back"*, *"right on the back bumper"*), laps are speeds (*"a one ninety-one mile an hour lap"*), and passes
+  are runs and lanes (*"gets the run... side by side... and clears for fifth"*). Lead changes are counted, moves
+  into the top five and top ten are called, wrecks are wrecks, and retired cars are *"headed to the garage"*. Pit
+  road reports spots gained or lost under caution. The quiet laps get an oval booth's segments: the running-order
+  rundown, clean air and dirty air, tires falling off on a long run, laps led, how many cars are left on the lead
+  lap, the stage, your fuel window and a check-in on you. The side chat is American too (donuts, not biscuits),
+  and the AI booth gets a full NASCAR booth's style guide: car numbers, tight and loose, aero push, two tires or
+  four, track position, restart lanes.
+* **Your-car-only races end properly** (Assetto Corsa without CrewChiefEx, AC EVO): the booth signs off with your
+  result and the recap is written, with your real finishing place.
+
 ### What's new in 1.8
 * **NASCAR mode:** stock cars (iRacing's NASCAR Cup, Xfinity and Truck cars, ARCA, Late Models, Legends,
   Modifieds, Assetto Corsa's stock car mods) and oval tracks (in Assetto Corsa, by the track's name and layout) get
