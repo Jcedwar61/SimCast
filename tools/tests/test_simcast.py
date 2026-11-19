@@ -1584,6 +1584,64 @@ check(not any(re.search(r"(?i)braking zone|in the mirrors|purple|the grid|stewar
                         t) for t in nlines), "nascar: no road-racing phrases left on air")
 check("NASCAR booth" in ai_mod.NASCAR_KIND and "car lengths" in ai_mod.NASCAR_STYLE,
       "nascar: the AI booth gets a NASCAR booth's style")
+# Lanes from the cars' world positions (Assetto Corsa with CrewChiefEx): a made-up oval, 8 cars on the bottom; car 7
+# runs a lane higher (or lower), pulls alongside car 6 and gets by
+import math  # noqa: E402
+from simcast.writer import Writer  # noqa: E402
+
+
+def oval_lanes(off7, track="Test Speedway (Oval)"):
+    R = 150.0
+    L = 2 * math.pi * R
+
+    def scn(t):
+        cars = []
+        for k in range(8):
+            d = max(0.0, t - 3) / (18.0 + k * 0.01) - k * 0.012
+            off = 0.0
+            if k == 7 and t > 120:
+                off = off7
+                d += min(0.0264, (t - 120) / 30 * 0.0264)
+            cars.append((k, d, off))
+        pos = {c[0]: i + 1 for i, c in enumerate(sorted(cars, key=lambda c: -c[1]))}
+        fld = [sc.field_entry(k, f"Driver {chr(65 + k)}ski", "NASCAR Cup Chevrolet", pos[k], int(d), d % 1.0,
+                              player=k == 2, speed=0 if t < 3 else 150,
+                              xyz=((R + off) * math.cos(2 * math.pi * (d % 1.0)), 0.0,
+                                   (R + off) * math.sin(2 * math.pi * (d % 1.0)))) for k, d, off in cars]
+        f = sc.Frame("AC", track, "NASCAR Cup Chevrolet", 0, 0, 150, 1, 0, 0, 4, 7000, 0, 0, False, False,
+                     track_len=L, session="race", position=pos[2], cars=8, race_laps=40)
+        f.field = fld
+        return f
+    ltr = NascarTracker(log=lambda m: None)
+    lw = Writer(ltr, dict(DEFAULTS), seed=2)
+    t, out, said = 0.0, [], []
+    while t < 170:
+        for e in ltr.update(scn(t), t):
+            out.append(e)
+            if e.kind in ("side_by_side", "overtake"):
+                said += [ln.text for ln in lw.event(e, t)]
+        t += 1 / 30
+    return ltr, out, said
+
+
+ltr, levs, lsaid = oval_lanes(5.0)
+sbs = [e for e in levs if e.kind == "side_by_side"]
+lov = [e for e in levs if e.kind == "overtake" and e.cars[:2] == (7, 6)]
+check(ltr.oval and ltr.cars[7].lat is not None and ltr.cars[7].lat - ltr.cars[6].lat > 3.5,
+      f"lanes: the car up high measured a lane above ({ltr.cars[7].lat}, {ltr.cars[6].lat})")
+check(len(sbs) == 1 and sbs[0].cars == (6, 7), f"lanes: side by side called, low car first ({[e.cars for e in sbs]})")
+check(len(lov) == 1 and lov[0].data.get("lane") == "high", f"lanes: the pass is around the outside ({[e.data for e in lov]})")
+check(any("on the bottom" in t and "outside" in t or "low" in t and "high" in t for t in lsaid) and
+      any(re.search(r"outside|Up high|high line", t) for t in lsaid), f"lanes: the booth says who's low and high ({lsaid})")
+ltr, levs, lsaid = oval_lanes(-5.0)
+lov = [e for e in levs if e.kind == "overtake" and e.cars[:2] == (7, 6)]
+check(len(lov) == 1 and lov[0].data.get("lane") == "low" and any(re.search(r"bottom|Underneath|inside", t) for t in lsaid),
+      f"lanes: a pass underneath is called on the bottom ({lsaid})")
+ltr, levs, lsaid = oval_lanes(5.0, track="Spa")
+check(not ltr.oval and any(e.kind == "side_by_side" for e in levs) and
+      not any(re.search(r"bottom|outside|Up high|high line|low", t) for t in lsaid),
+      f"lanes: on a road course it's side by side, but no low and high ({lsaid})")
+
 brief = ai_mod.race_brief(ncast.tracker, ncast.director.writer, [], [])
 check("BROADCAST: this is a NASCAR" in brief and "STAGES:" in brief and "LAPS LED:" in brief,
       "nascar: the AI is told it's a NASCAR broadcast, with stages and laps led")

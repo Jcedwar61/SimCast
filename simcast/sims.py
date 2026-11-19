@@ -119,7 +119,7 @@ class Frame:
 
 def field_entry(cid, name, car, position, laps, pct, in_pit=False, last=None, best=None, status=None, pits=None,
                 player=False, speed=None, cls=None, number=None, team=None, incidents=None, tyre=None,
-                penalties=None):
+                penalties=None, xyz=None):
     """One car of Frame.field, the whole grid, for SimCast's commentary. Times in seconds (None when the sim doesn't
     say or the value isn't believable), pct is the fraction of the current lap, laps the laps completed, status one of
     None/'running', 'finished', 'dnf', 'dsq'. Kept small and plain so a capture or a test can build one by hand."""
@@ -133,7 +133,9 @@ def field_entry(cid, name, car, position, laps, pct, in_pit=False, last=None, be
             "number": str(number).strip("# ") if number not in (None, "") else None, "team": team or None,
             "incidents": int(incidents) if isinstance(incidents, (int, float)) and 0 <= incidents < 1000 else None,
             "tyre": tyre or None,
-            "penalties": int(penalties) if isinstance(penalties, (int, float)) and 0 <= penalties < 100 else None}
+            "penalties": int(penalties) if isinstance(penalties, (int, float)) and 0 <= penalties < 100 else None,
+            "xyz": tuple(float(v) for v in xyz) if xyz is not None and len(xyz) == 3 and all(v == v for v in xyz)
+            else None}
 
 
 class Reader:
@@ -541,7 +543,7 @@ class ACReader(Reader):
         fr.field = [field_entry(c[0], _cstr(blk, c[5] + 4, 64), nice_name(_cstr(blk, c[5] + 68, 64)), c[3] + 1,
                                 _i(blk, c[5] + 140), _f(blk, c[5] + 184), bool(c[4] or _i(blk, c[5] + 168)),
                                 _i(blk, c[5] + 152) / 1000.0, _i(blk, c[5] + 136) / 1000.0, player=c[0] == me,
-                                speed=_f(blk, c[5] + 132) * 3.6)
+                                speed=_f(blk, c[5] + 132) * 3.6, xyz=c[1])
                     for c in cars if c[3] >= 0]
         others_pos, others_meta = [], []
         for c in cars:

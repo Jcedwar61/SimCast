@@ -63,7 +63,7 @@ KIND_MOOD = {
     "battle": ("tense", "tense"), "closing": ("tense", ""), "penalty": ("shocked", "frustrated"),
     "caution": ("tense", "frustrated"), "player_finish": ("excited", ""), "podium": ("excited", ""),
     "accident": ("shocked", "angry"), "rally_moment": ("shocked", "tense"), "solo_off": ("shocked", "frustrated"),
-    "stage_end": ("thrilled", "excited"), "green": ("excited", "tense"), "free_pass": ("amused", ""),
+    "stage_end": ("thrilled", "excited"), "side_by_side": ("excited", "tense"), "green": ("excited", "tense"), "free_pass": ("amused", ""),
 }
 OUTBURST_MOOD = {"overtake": "thrilled", "moment": "shocked", "contact": "angry", "stopped": "gutted",
                  "retired": "gutted", "fastest_lap": "excited", "pit_out": "amused", "winner": "thrilled"}

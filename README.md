@@ -24,6 +24,14 @@ each other: while SimCoach's coach or crew speaks, the booth drops under them an
 * **Linux / Steam Deck:** [install-simcast-wine.sh](install-simcast-wine.sh) installs SimCast into the sim's
   own Proton prefix (see below).
 
+### What's new in 1.10
+* **Lanes in NASCAR mode (Assetto Corsa with CrewChiefEx):** CrewChiefEx shares where every car is on track, so
+  SimCast learns the groove from where the field drives and knows who's low and who's high. The booth calls it:
+  *"Underneath Moretti goes Okafor!"*, *"around the outside for fifth"*, *"side by side for the lead, Okafor on the
+  bottom, Moretti up top"*, *"three-wide for fifth!"*, and the AI booth gets the lanes as facts. On road courses
+  it's side by side without low and high. (iRacing doesn't share the other cars' positions, so there the lanes
+  stay the booth's read.)
+
 ### What's new in 1.9
 * **NASCAR mode sounds like a NASCAR broadcast now, not a road race.** Close gaps are in car lengths (*"three car
   lengths back"*, *"right on the back bumper"*), laps are speeds (*"a one ninety-one mile an hour lap"*), and passes
