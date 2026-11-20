@@ -24,6 +24,13 @@ each other: while SimCoach's coach or crew speaks, the booth drops under them an
 * **Linux / Steam Deck:** [install-simcast-wine.sh](install-simcast-wine.sh) installs SimCast into the sim's
   own Proton prefix (see below).
 
+### What's new in 1.13
+* **ElevenLabs voices cost half as much:** SimCast now uses ElevenLabs' v4 Turbo model ($0.04 per 1,000 characters,
+  against $0.08 for v3), which is v4's expressiveness tuned for speed (about 0.1 s to start speaking), with the
+  emotion cues as before. An account that can't use it falls back to v4, then v3, then multilingual v2.
+* The cost estimate in *Settings → AI* uses ElevenLabs' current price. A 30-minute race with an ElevenLabs voice on
+  the lead commentator only comes to roughly $0.45.
+
 ### What's new in 1.12
 * **A new look.** SimCast's window now looks like a TV race graphics package instead of yet another dark dashboard:
   black, broadcast yellow and white, condensed capitals (Bahnschrift, built into Windows), slanted graphics, a red

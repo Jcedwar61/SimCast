@@ -1,9 +1,10 @@
 """ElevenLabs voices: the most emotional of the lot.
 
-ElevenLabs' v3 model reads emotion cues written into the text ('[excited] Into the lead!', '[sighs] That's
-their race over.'), so each line's mood (persona.MOODS) becomes a cue, and the louder the booth's personality,
-the looser the voice is allowed to get. If v3 isn't available on the account, the multilingual v2 model is
-used without the cues. The voices offered are the ones on your ElevenLabs account (fetched with your key).
+ElevenLabs' v4 Turbo, v4 and v3 models read emotion cues written into the text ('[excited] Into the lead!',
+'[sighs] That's their race over.'), so each line's mood (persona.MOODS) becomes a cue, and the louder the booth's
+personality, the looser the voice is allowed to get. v4 Turbo comes first: v4's expressiveness, tuned for speed
+(about 0.1 s), at half v4's price ($0.04 against $0.08 per 1,000 characters). A model the account can't use is
+skipped for the rest of the session: v4, then v3, then multilingual v2, which is used without the cues. The voices offered are the ones on your ElevenLabs account (fetched with your key).
 Voice ids are stored as 'eleven:<voice id>'.
 """
 from __future__ import annotations
@@ -14,7 +15,8 @@ import urllib.error
 import urllib.request
 
 API = "https://api.elevenlabs.io/v1"
-MODELS = ("eleven_v3", "eleven_multilingual_v2")       # emotion cues first; the reliable one if v3 is refused
+MODELS = ("eleven_v4_turbo", "eleven_v4", "eleven_v3", "eleven_multilingual_v2")   # best value first
+CUE_MODELS = {"eleven_v4_turbo", "eleven_v4", "eleven_v3"}                      # the ones that take emotion cues
 CUES = {"excited": "[excited]", "thrilled": "[excited]", "angry": "[angry]", "frustrated": "[sighs]",
         "shocked": "[excited]", "gutted": "[sad]", "amused": "[laughs]", "sarcastic": "[sarcastic]"}
 LOOSENESS = {"broadcast": (0.5, 0.35), "loose": (0.4, 0.55), "unhinged": (0.25, 0.8)}   # (stability, style)
@@ -89,7 +91,7 @@ def synth(cfg, voice_id, text, mood, path, timeout=20.0):
     for model in MODELS:
         if (key[-8:], model) in _refused:
             continue
-        c = cue(mood) if model == "eleven_v3" else ""
+        c = cue(mood) if model in CUE_MODELS else ""
         body = {"text": f"{c} {text}".strip(), "model_id": model,
                 "voice_settings": {"stability": stab, "similarity_boost": 0.75, "style": style,
                                    "use_speaker_boost": True}}

@@ -1378,8 +1378,8 @@ def _fake_urlopen(req, timeout=0):
     sent.append((req.full_url, req.headers.get("Xi-api-key"), body))
     if req.full_url.endswith("/voices"):
         return _Resp(json.dumps({"voices": [{"voice_id": "v1", "name": "Rory", "labels": {"accent": "irish"}}]}).encode())
-    if body and body["model_id"] == "eleven_v3" and "refuse" in body["text"]:
-        raise _ue.HTTPError(req.full_url, 403, "no v3", {}, None)
+    if body and body["model_id"] != "eleven_multilingual_v2" and "refuse" in body["text"]:
+        raise _ue.HTTPError(req.full_url, 403, "not on this account", {}, None)
     return _Resp(b"ID3fake-mp3")
 
 
@@ -1397,11 +1397,14 @@ finally:
     eleven.urllib.request.urlopen = _orig_open
 check(vs == [("Rory (Irish) - ElevenLabs (your key)", "eleven:v1")] and eleven.voices(ecfg) == vs,
       "ElevenLabs: the voices on the account are listed")
-check(first[1] == "sk-test" and first[2]["text"] == "[excited] Into the lead!" and first[2]["model_id"] == "eleven_v3"
-      and first[2]["voice_settings"]["style"] >= 0.7 and open(out_mp3, "rb").read() == b"ID3fake-mp3",
-      "ElevenLabs: v3 with the emotion cue, and an unhinged booth lets the voice go")
-check(fell[2]["model_id"] == "eleven_multilingual_v2" and fell[2]["text"] == "refuse this",
-      "ElevenLabs: an account without v3 falls back to v2, without the cue")
+check(first[1] == "sk-test" and first[2]["text"] == "[excited] Into the lead!" and
+      first[2]["model_id"] == "eleven_v4_turbo" and first[2]["voice_settings"]["style"] >= 0.7 and
+      open(out_mp3, "rb").read() == b"ID3fake-mp3",
+      "ElevenLabs: v4 Turbo (best value) with the emotion cue, and an unhinged booth lets the voice go")
+tried = [b[2]["model_id"] for b in sent if b[2] and b[1] == "sk-other"]
+check(tried == ["eleven_v4_turbo", "eleven_v4", "eleven_v3", "eleven_multilingual_v2"] and
+      fell[2]["text"] == "refuse this" and all(b[2]["text"].startswith("[angry]") for b in sent[-4:-1]),
+      f"ElevenLabs: an account without the newer models falls back v4, v3, then v2 without the cue ({tried})")
 
 # ---------------------------------------------------------------- faster reactions: streamed line by line
 reply = ('```json\n{"lines": [{"who": "analyst", "text": "That {brace} \\"quote\\" move was huge.", "energy": 2, '
@@ -1696,19 +1699,19 @@ check(len(recaps) == 1 and "## Result" in open(os.path.join(rdir, recaps[0])).re
 
 # ---------------------------------------------------------------- cost estimate
 from simcast.usage import Meter, parse_rates  # noqa: E402
-check(parse_rates("openai 2/8, elevenlabs 200; junk") == {"openai": (2.0, 8.0), "elevenlabs": (200.0,)},
+check(parse_rates("openai 2/8, elevenlabs 40; junk") == {"openai": (2.0, 8.0), "elevenlabs": (40.0,)},
       "cost: rates read as written")
 mt = Meter()
 mt.chat("openai", 1_000_000, 100_000)
 mt.speech("elevenlabs", 10_000)
-check(abs(Meter.cost(mt.race) - (2.0 + 0.8 + 2.0)) < 1e-6, "cost: tokens and characters priced with the default rates")
-check(abs(Meter.cost(mt.race, "openai 1/1") - (1.0 + 0.1 + 2.0)) < 1e-6, "cost: edited rates win")
+check(abs(Meter.cost(mt.race) - (2.0 + 0.8 + 0.4)) < 1e-6, "cost: tokens and characters priced with the default rates")
+check(abs(Meter.cost(mt.race, "openai 1/1") - (1.0 + 0.1 + 0.4)) < 1e-6, "cost: edited rates win")
 mt.race_t0 -= 600
 summ = mt.summary()
-check("about $4.80" in summ and "OpenAI 1000.0k tokens in, 100.0k out" in summ and "ElevenLabs 10.0k chars" in summ
-      and "30-minute race is about $14.40" in summ, f"cost: the summary for Settings ({summ})")
+check("about $3.20" in summ and "OpenAI 1000.0k tokens in, 100.0k out" in summ and "ElevenLabs 10.0k chars" in summ
+      and "30-minute race is about $9.60" in summ, f"cost: the summary for Settings ({summ})")
 mt.new_race()
-check(not mt.race and "Last race: about $4.80" in mt.summary(), "cost: a new race starts the count again")
+check(not mt.race and "Last race: about $3.20" in mt.summary(), "cost: a new race starts the count again")
 check(Meter().summary() == "Nothing paid for has been used yet.", "cost: nothing used, nothing to pay")
 
 done()
