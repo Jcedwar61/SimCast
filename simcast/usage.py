@@ -11,11 +11,11 @@ import threading
 import time
 
 # $ per 1M tokens (input, output) / per 1M characters. Rough; edit in Settings > AI.
-DEFAULT_RATES = "openai 2/8, gemini 0.3/2.5, deepseek 0.3/1.2, openai-voice 15, elevenlabs 200"
+DEFAULT_RATES = "openai 2/8, gemini 0.3/2.5, deepseek 0.3/1.2, openai-voice 15, elevenlabs 40"
 
 
 def parse_rates(text):
-    """'openai 2/8, deepseek 0.3/1.2, elevenlabs 200' -> {'openai': (2.0, 8.0), ..., 'elevenlabs': (200.0,)}."""
+    """'openai 2/8, deepseek 0.3/1.2, elevenlabs 40' -> {'openai': (2.0, 8.0), ..., 'elevenlabs': (40.0,)}."""
     out = {}
     for part in re.split(r"[,;\n]", str(text or "")):
         m = re.match(r"\s*([a-z0-9\-]+)\s+([\d.]+)(?:\s*/\s*([\d.]+))?\s*$", part.strip().lower())
