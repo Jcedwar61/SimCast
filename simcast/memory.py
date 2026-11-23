@@ -35,7 +35,7 @@ class Memory:
     def __init__(self, path, log=print):
         self.path, self.log = path, log
         self.lock = threading.Lock()
-        self.data = {"races": [], "incidents": [], "calls": {}}
+        self.data = {"races": [], "incidents": [], "calls": {}, "storylines": []}
         self.current = []                    # incidents in the race being run, written when it ends
         self.calls_now = []                  # calls settled in this race
         self._load()
@@ -51,6 +51,8 @@ class Memory:
                         self.data[k] = d[k]
                 if isinstance(d.get("calls"), dict):
                     self.data["calls"] = d["calls"]
+                if isinstance(d.get("storylines"), list):
+                    self.data["storylines"] = [str(x) for x in d["storylines"] if isinstance(x, str)][:8]
         except FileNotFoundError:
             pass
         except Exception as e:
@@ -68,7 +70,7 @@ class Memory:
 
     def forget(self):
         with self.lock:
-            self.data = {"races": [], "incidents": [], "calls": {}}
+            self.data = {"races": [], "incidents": [], "calls": {}, "storylines": []}
             self.current, self.calls_now = [], []
         self.save()
 
@@ -158,6 +160,40 @@ class Memory:
         rec = self.data["calls"].get(key(commentator))
         return (rec["right"], rec["wrong"]) if rec else None
 
+    # ------------------------------------------------------------------ season storylines (assist.py writes them)
+    def season_facts(self, races=12):
+        """The recent results and incidents as text for the storyline writer, or '' with fewer than two races."""
+        with self.lock:
+            rs = list(self.data["races"])[-races:]
+            first = len(self.data["races"]) - len(rs)
+            incs = [i for i in self.data["incidents"] if i.get("race", 0) >= first]
+        if len(rs) < 2:
+            return ""
+        out = [f"RESULTS of the last {len(rs)} races, oldest first (pos. driver, grid in brackets, DNF if retired):"]
+        for k, r in enumerate(rs):
+            res = sorted(r.get("results") or [], key=lambda x: x.get("pos") or 99)[:15]
+            bits = [f"{x['pos']}. {x['name']}" + (f" (grid {x['grid']})" if x.get("grid") else "") +
+                    (" DNF" if x.get("status") in ("dnf", "dsq") else "") + (" [viewer]" if x.get("player") else "")
+                    for x in res]
+            back = len(rs) - 1 - k
+            out.append(f"Race {k + 1} ({ago(back)}, {r.get('track') or 'unknown track'}): " + "; ".join(bits)
+                       + (f". Fastest lap: {r['fastest']}" if r.get("fastest") else ""))
+        if incs:
+            what = {"contact": "contact", "lead_pass": "pass for the lead", "retired": "retired", "moment": "moment"}
+            out.append("INCIDENTS: " + "; ".join(
+                f"race {i.get('race', 0) - first + 1}: {what.get(i['kind'], i['kind'])} ({', '.join(i['names'])})"
+                for i in incs[-40:]))
+        return "\n".join(out)
+
+    def set_storylines(self, stories):
+        with self.lock:
+            self.data["storylines"] = [str(s) for s in stories][:8]
+        self.save()
+
+    def storylines(self):
+        with self.lock:
+            return list(self.data.get("storylines") or [])
+
     @staticmethod
     def pair_words(p):
         what = {"contact": "made contact", "lead_pass": "swapped the lead", "moment": "had a moment together"}
@@ -190,4 +226,4 @@ class Memory:
             r = self.record(c)
             if r and sum(r):
                 out.append(f"{c}'s predictions in earlier races: {r[0]} right, {r[1]} wrong")
-        return out
+        return [f"Season storyline: {s}" for s in self.storylines()[:4]] + out

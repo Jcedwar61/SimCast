@@ -54,6 +54,8 @@ CONVO_LABELS = {"auto": "Automatic (a second provider with a key)", "same": "The
 NASCAR_LABELS = {"auto": "Automatic (stock cars, ovals)", "on": "On", "off": "Off"}
 PRONOUN_LABELS = {"auto": "From my name", "he": "He", "she": "She", "they": "They"}
 PROVIDERS = {"openai": "OpenAI", "gemini": "Google Gemini", "deepseek": "DeepSeek"}
+ASSIST_LABELS = {"auto": "Automatic (DeepSeek, then OpenAI)", "off": "Off", "deepseek": "DeepSeek",
+                 "openai": "OpenAI", "gemini": "Google Gemini"}
 
 
 def _dpi_aware():
@@ -885,7 +887,9 @@ class SettingsWindow:
                                              cfg),
                  ttk.Button(f, text="Forget", style="Small.TButton", command=self._forget))
         self.note(f, 12, "So the booth can say 'these two made contact at Spa last time out'. Demo races aren't "
-                         "remembered. Drivers are matched by name.")
+                         "remembered. Drivers are matched by name. With an AI key and 'Season storylines' on, the AI "
+                         "reads the results after each race and writes the running stories (a streak, a rivalry, a "
+                         "slump) for the booth to bring up next time.")
         rf = ttk.Frame(f, style="Card.TFrame")
         self.entry(rf, "roster_file", cfg, width=34).pack(side="left", fill="x", expand=True)
         ttk.Button(rf, text="Browse", style="Small.TButton", command=self._browse_roster).pack(side="left", padx=(6, 0))
@@ -902,6 +906,9 @@ class SettingsWindow:
                          "Empty: about 30% and 60% of a race of 20 laps or more. off: no stages.")
         self.row(f, 18, "", self.check(f, "nascar_voices", "American voices for NASCAR races (unless you've picked "
                                                            "your own)", cfg))
+        self.row(f, 19, "Season storylines", self.check(f, "season_stories", "The AI writes the season's running "
+                                                                             "stories into the memory after each race",
+                                                        cfg))
 
         # ---------------------------------------------------------------- Voices
         f = page("Voices")
@@ -993,6 +1000,18 @@ class SettingsWindow:
         self.note(f, r + 4, f"{METER.summary(cfg.get('ai_rates') or '')} Rough estimate: dollars per million tokens "
                             f"(in/out) and per million characters for voices. Empty uses these defaults, which may be "
                             f"out of date: {DEFAULT_RATES}.", span=3)
+        self.row(f, r + 5, "Write-ups", self.combo(f, "ai_assist", list(ASSIST_LABELS), ASSIST_LABELS, cfg))
+        self.note(f, r + 6, "Jobs off the air, with time to do them well: a race report, YouTube titles, a "
+                            "description and tags in each recap, and the season's storylines for the booth's memory. "
+                            "Automatic uses DeepSeek (the cheapest good writer) when it has a key, then OpenAI. "
+                            "Turn each one on or off under Stream and Booth." +
+                            (f" Now: {st['ai_assist']}." if st.get("ai_assist") else ""))
+        keys_fr = ttk.Frame(f, style="Card.TFrame")
+        keys_msg = ttk.Label(f, text="", style="Card.TLabel", foreground=P["mut"], wraplength=500, justify="left")
+        ttk.Button(keys_fr, text="Test keys", style="Small.TButton",
+                   command=lambda: self._test_keys(keys_msg)).pack(side="left")
+        self.row(f, r + 7, "Check", keys_fr, sticky="w")
+        keys_msg.grid(row=r + 8, column=0, columnspan=3, sticky="w")
 
         # ---------------------------------------------------------------- Sims
         f = page("Sims")
@@ -1038,11 +1057,13 @@ class SettingsWindow:
         self.row(f, 3, "Twitch channel", self.entry(f, "twitch_channel", cfg))
         self.row(f, 4, "", self.check(f, "twitch_chat", "The booth answers the odd message in a quiet spell", cfg))
         self.row(f, 5, "", self.check(f, "twitch_only_booth", "Only messages that start with !booth", cfg))
-        self.note(f, 6, "Chat is read without logging in, and nothing is ever posted. It needs an AI key: the AI picks "
+        self.row(f, 6, "", self.check(f, "twitch_moderate", "Screen chat with OpenAI's moderation check first "
+                                                            "(free with an OpenAI key)", cfg))
+        self.note(f, 7, "Chat is read without logging in, and nothing is ever posted. It needs an AI key: the AI picks "
                         "a message, puts it in its own words and answers it ('Kate, someone in chat says you're "
                         "wrong'). Abuse, spam, links and attempts to make the booth say something are ignored, and "
                         "chat is never read out word for word.")
-        self.row(f, 7, "Recap", self.check(f, "recap", "Write a recap after each race", cfg),
+        self.row(f, 8, "Recap", self.check(f, "recap", "Write a recap after each race", cfg),
                  ttk.Button(f, text="Open folder", style="Small.TButton",
                             command=lambda: (os.makedirs(os.path.join(APP_DIR, "Recaps"), exist_ok=True),
                                              _open_path(os.path.join(APP_DIR, "Recaps")))))
@@ -1050,10 +1071,13 @@ class SettingsWindow:
         self.entry(off, "recap_offset", cfg, width=8).pack(side="left")
         ttk.Label(off, text="  seconds from the start of your stream to lights out", style="Card.TLabel",
                   foreground=P["mut"]).pack(side="left")
-        self.row(f, 8, "Offset", off, sticky="w")
-        self.note(f, 9, "The result, YouTube chapters to paste into the description, the highlights and the whole "
-                        "transcript, with timestamps from lights out (plus the offset). In Recaps next to the "
-                        "settings.")
+        self.row(f, 9, "", self.check(f, "recap_ai", "Add an AI race report, YouTube titles, a description "
+                                                     "and tags", cfg))
+        self.row(f, 10, "Offset", off, sticky="w")
+        self.note(f, 11, "The result, YouTube chapters to paste into the description, the highlights and the whole "
+                         "transcript, with timestamps from lights out (plus the offset). In Recaps next to the "
+                         "settings. With an AI key, a written race report and what you need to post the video are "
+                         "added a minute later (not for demo races).")
 
         # ---------------------------------------------------------------- About
         f = page("About")
@@ -1317,6 +1341,32 @@ class SettingsWindow:
                 out[k] = DEFAULTS[k]
         out["speech_rate"] = int(round(float(out.get("speech_rate", 0))))
         return out
+
+    def _test_keys(self, label):
+        """Settings > AI > Test keys: a tiny request to every provider with a key, in the background."""
+        from . import assist
+        self.app.cast.update_settings(self._collect())
+        cfg = self.app.cast.config()
+        if not any(providers.ai_key(cfg, p) for p in providers.AI_PROVIDERS):
+            label.configure(text="No AI key to test yet.", foreground=P["mut"])
+            return
+        label.configure(text="Testing...", foreground=P["mut"])
+
+        def work():
+            res = assist.test_keys(cfg)
+            ok = all(v[0] for v in res.values())
+            text = "\n".join(v[1] for v in res.values())
+
+            def show():
+                try:
+                    label.configure(text=text, foreground=P["green"] if ok else P["red"])
+                except Exception:
+                    pass
+            try:
+                self.win.after(0, show)
+            except Exception:
+                pass
+        threading.Thread(target=work, daemon=True, name="key-test").start()
 
     def test_voice(self, who):
         self.app.cast.update_settings(self._collect())

@@ -129,6 +129,52 @@ class Recap:
         return path
 
 
+    def facts(self, tr, writer, offset=0.0, max_lines=70):
+        """The race as text for the AI's race report: the event, the result, the highlights and what was said."""
+        cfg = getattr(writer, "cfg", {}) or {}
+        event = " ".join(str(cfg.get("race_name") or "").split())
+        out = [f"EVENT: {event + ' at ' if event else ''}{tr.track or 'unknown track'}, {time.strftime('%d %B %Y')}"
+               + (f", in {tr.game}" if getattr(tr, "game", "") else "") + "."]
+        me = (cfg.get("driver_name") or "").strip()
+        st = tr.standings() if hasattr(tr, "standings") else []
+        fr = getattr(tr, "frame", None)
+        if getattr(tr, "solo", False) and st:
+            pos = fr.position if fr is not None and fr.position else None
+            out.append(f"RESULT: only the viewer's car was timed. {me or st[0]['name']} (the viewer's driver): "
+                       + (f"P{pos}" + (f" of {fr.cars}" if fr.cars else "") if pos else "finished") + ".")
+        elif st:
+            out.append("RESULT (pos, driver, grid slot, best lap, pit stops, notes):")
+            for s in st[:30]:
+                c = tr.car(s["id"])
+                notes = []
+                if s.get("player"):
+                    notes.append("the VIEWER'S DRIVER" + (f", called {me}" if me else ""))
+                if s.get("status") in ("dnf", "dsq"):
+                    notes.append(s["status"].upper())
+                if getattr(c, "car", None):
+                    notes.append(c.car)
+                best = _laptime(c.best) if c is not None and c.best else "-"
+                out.append(f"{s['pos']}. {s['name']}, grid {s.get('grid') or '-'}, best {best}, stops "
+                           f"{s.get('pits', 0)}" + (f" ({'; '.join(notes)})" if notes else ""))
+            if len(st) > 30:
+                out.append(f"(... {len(st) - 30} more)")
+        fl = getattr(tr, "fastest", None)
+        if fl and tr.car(fl[1]) is not None:
+            out.append(f"FASTEST LAP: {tr.car(fl[1]).name}, {_laptime(fl[0])} on lap {fl[2]}.")
+        hl = self.highlights(offset)
+        if hl:
+            out.append("HIGHLIGHTS (time from lights out, what happened):")
+            out += [f"{stamp(t)} {text}" for t, text in hl[:30]]
+        if self.lines:
+            lines = self.lines
+            if len(lines) > max_lines:
+                head = max_lines // 3
+                lines = lines[:head] + [(None, "", "...")] + lines[-(max_lines - head):]
+            out.append("COMMENTARY (what the booth said on air, in order):")
+            out += [text if t is None else f"[{stamp(self._rel(t, offset))}] {name}: {text}" for t, name, text in lines]
+        return "\n".join(out)
+
+
 def _laptime(x):
     m, s = divmod(x, 60)
     return f"{int(m)}:{s:06.3f}" if m else f"{s:.3f}"
