@@ -19,9 +19,10 @@ from .nascar import NascarTracker
 from .solo import RallyTracker, SoloTracker, StageStore
 from . import ai as ai_mod
 from . import nascar, persona, providers, sims
+from .assist import ASSIST_CHOICES, assist_label
 
 APP_NAME = "SimCast"
-APP_VERSION = "1.13"
+APP_VERSION = "1.14"
 APP_DIR = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), "SimCast")
 CONFIG_PATH = os.path.join(APP_DIR, "config.json")
 LOG_PATH = os.path.join(APP_DIR, "simcast.log")
@@ -58,7 +59,8 @@ DEFAULTS = {
     "booth_tone": "broadcast", "swearing": False, "banter": "normal", "driver_pronouns": "auto",
     "ai_convo": "auto", "drive_mode": "stream", "race_sponsor": "", "race_name": "",
     "memory": True, "roster_file": "", "obs_captions": False, "obs_port": 8686, "twitch_channel": "",
-    "twitch_chat": True, "twitch_only_booth": False,
+    "twitch_chat": True, "twitch_only_booth": False, "twitch_moderate": True,
+    "ai_assist": "auto", "recap_ai": True, "season_stories": True,
     "recap": True, "recap_offset": 0, "ai_rates": "", "hotkey_skip": "", "hotkey_mute": "", "hotkey_me": "", "hotkey_mode": "", "hotkey_nascar": "", "my_sponsors": "", "driver_sponsors": "", "invent_sponsors": True,
 }
 STYLES = {   # the booth in one click; Custom is anything else
@@ -81,6 +83,7 @@ CHOICES = {"tts": ("on", "off"), "chatter": ("quiet", "normal", "chatty"),
            "focus": ("field", "balanced", "me"), "ai_provider": ("openai", "gemini", "deepseek"),
            "simcoach_duck": tuple(DUCK_LEVELS), "booth_tone": persona.TONES, "banter": persona.BANTER,
            "driver_pronouns": persona.PRONOUN_CHOICES, "ai_convo": providers.CONVO_CHOICES,
+           "ai_assist": ASSIST_CHOICES,
            "drive_mode": ("stream", "driver"), "nascar": nascar.CHOICES}
 SECRET_KEYS = ("openai_api_key", "gemini_api_key", "deepseek_api_key", "elevenlabs_api_key")
 ROLE_LABEL = {"lead": "lead", "analyst": "analyst", "pit": "pit lane"}
@@ -125,7 +128,7 @@ def clean_config(cfg):
         cfg[k] = " ".join(str(cfg.get(k) or "").split())[:120]
     cfg["driver_sponsors"] = str(cfg.get("driver_sponsors") or "").strip()[:2000]
     cfg["nascar_stages"] = nascar.clean_stages(cfg.get("nascar_stages"))
-    for k in ("swearing", "invent_sponsors", "nascar_voices"):
+    for k in ("swearing", "invent_sponsors", "nascar_voices", "twitch_moderate", "recap_ai", "season_stories"):
         cfg[k] = bool(cfg.get(k, DEFAULTS[k]))
     try:
         cfg["obs_port"] = max(1024, min(65535, int(cfg.get("obs_port") or 8686)))
@@ -367,7 +370,7 @@ class SimCast:
     # -------------------------------------------------------------- streaming: OBS captions, Twitch chat
     def sync_stream(self):
         """Start or stop the OBS captions page and the Twitch chat reader to match the settings."""
-        from . import stream
+        from . import assist, stream
         cfg = self.config()
         want = bool(cfg.get("obs_captions"))
         srv = self.captions_server
@@ -381,7 +384,7 @@ class SimCast:
         if stream.clean_channel(cfg.get("twitch_channel")) and self.chat is None:
             self.chat = stream.TwitchChat(lambda: self.config().get("twitch_channel"),
                                           lambda: "!booth" if self.config().get("twitch_only_booth") else "",
-                                          log=self.log)
+                                          log=self.log, allow_fn=assist.Moderator(self.config, log=self.log).allow)
             self.chat.start()
         self.director.chat = self.chat if cfg.get("twitch_chat", True) else None
 
@@ -560,6 +563,7 @@ class SimCast:
             "ai": self.booth.label() if self.booth else "",
             "ai_convo": (lambda c: c if c and c != (self.booth.label() if self.booth else "") else "")(
                 self.convo_booth.label() if self.convo_booth else ""), "ai_error": self.booth.last_error if self.booth else "",
+            "ai_assist": assist_label(cfg),
             "demo": self.demo is not None, "nascar": self.nascar_on(), "settings": public, "errors": list(self.errors),
             "voice_note": getattr(self.audio, "engine_note", ""),
             "simcoach": bool(getattr(self.audio, "link", None) and self.audio.link.connected()),

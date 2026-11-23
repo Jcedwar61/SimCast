@@ -124,9 +124,20 @@ class Director:
         self._remembered = True
         if self._remembering():
             try:
-                self.memory.end_race(self.tr)
+                if self.memory.end_race(self.tr):
+                    self._season_storylines()
             except Exception as ex:
                 self.log(f"Memory: {ex}")
+
+    def _season_storylines(self):
+        """After a remembered race, the AI writes the season's running storylines from the memory (in the
+        background; the booth brings them up next race)."""
+        from . import assist
+        cfg = self.cfg_fn()
+        if not cfg.get("season_stories", True) or assist.assist_provider(cfg) is None:
+            return
+        mem = self.memory
+        assist.background("Storylines", lambda: assist.write_storylines(cfg, mem, log=self.log), log=self.log)
 
     def heard(self, line, t=None):
         """The audio calls this as each line goes on air."""
@@ -150,7 +161,21 @@ class Director:
         except Exception as ex:
             self.log(f"Recap: {ex}")
             self.recap_path = None
+        if self.recap_path:
+            self._race_report(cfg, self.recap_path, demo)
         return self.recap_path
+
+    def _race_report(self, cfg, path, demo=False):
+        """The AI writes a race report, video titles, a description and tags into the recap (in the background)."""
+        from . import assist
+        if demo or not cfg.get("recap_ai", True) or assist.assist_provider(cfg) is None:
+            return                                           # a demo race isn't worth paying to write up
+        try:
+            facts = self.recap.facts(self.tr, self.writer, float(cfg.get("recap_offset") or 0))
+        except Exception as ex:
+            self.log(f"Race report: {ex}")
+            return
+        assist.background("Race report", lambda: assist.write_report(cfg, path, facts, log=self.log), log=self.log)
 
     def set_tracker(self, tr):
         self.tr = tr

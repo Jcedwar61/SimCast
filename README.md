@@ -24,6 +24,17 @@ each other: while SimCoach's coach or crew speaks, the booth drops under them an
 * **Linux / Steam Deck:** [install-simcast-wine.sh](install-simcast-wine.sh) installs SimCast into the sim's
   own Proton prefix (see below).
 
+### What's new in 1.14
+* **Your OpenAI and DeepSeek keys help off the air too** (*Settings → AI → Write-ups*; Automatic uses DeepSeek,
+  the cheapest good writer, then OpenAI):
+  * **AI race report:** a minute after each race, the recap gets a written race report, three YouTube title ideas, a
+    video description, tags and a social post, written from the result, the highlights and what the booth said.
+  * **Season storylines:** after each remembered race, the AI reads the booth's memory and writes the season's running
+    stories (a winning streak, a rivalry, a driver in a slump). The booth brings them up next race.
+  * **Safer Twitch chat:** with an OpenAI key, every message goes through OpenAI's moderation check (free) before the
+    booth sees it.
+  * **Test keys:** one click checks every AI key and says what's wrong with any that don't work.
+
 ### What's new in 1.13
 * **ElevenLabs voices cost half as much:** SimCast now uses ElevenLabs' v4 Turbo model ($0.04 per 1,000 characters,
   against $0.08 for v3), which is v4's expressiveness tuned for speed (about 0.1 s to start speaking), with the

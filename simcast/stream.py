@@ -160,8 +160,9 @@ class TwitchChat:
 
     HOST, PORT = "irc.chat.twitch.tv", 6697
 
-    def __init__(self, channel_fn, prefix_fn=lambda: "", log=print):
+    def __init__(self, channel_fn, prefix_fn=lambda: "", log=print, allow_fn=None):
         self.channel_fn, self.prefix_fn, self.log = channel_fn, prefix_fn, log
+        self.allow_fn = allow_fn                 # assist.Moderator.allow: an AI safety check before the booth sees it
         self.messages: deque = deque(maxlen=30)
         self.used: set = set()
         self._stop = threading.Event()
@@ -183,6 +184,8 @@ class TwitchChat:
             return None
         text = usable(m.group("text"), self.prefix_fn() or "")
         if not text:
+            return None
+        if self.allow_fn is not None and not self.allow_fn(text):
             return None
         msg = (m.group("user"), text, time.monotonic() if now is None else now)
         self.messages.append(msg)

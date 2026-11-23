@@ -11,6 +11,8 @@ import tempfile
 from _common import REPO, check, done
 
 os.environ["APPDATA"] = tempfile.mkdtemp(prefix="simcast-test-")
+for _k in ("OPENAI_API_KEY", "GEMINI_API_KEY", "DEEPSEEK_API_KEY"):
+    os.environ.pop(_k, None)                         # a real key in the shell must never be used by the tests
 sys.path.insert(0, REPO)
 from simcast import sims as sc                        # noqa: E402  (SimCast's own readers: no SimCoach)
 from simcast import providers                         # noqa: E402
@@ -1713,5 +1715,123 @@ check("about $3.20" in summ and "OpenAI 1000.0k tokens in, 100.0k out" in summ a
 mt.new_race()
 check(not mt.race and "Last race: about $3.20" in mt.summary(), "cost: a new race starts the count again")
 check(Meter().summary() == "Nothing paid for has been used yet.", "cost: nothing used, nothing to pay")
+
+# ---------------------------------------------------------------- the AI off the air: reports, storylines, chat, keys
+from simcast import assist  # noqa: E402
+from simcast.recap import Recap  # noqa: E402
+assist.SYNC = True
+check(assist.assist_provider(DEFAULTS) is None, "write-ups: no key, no write-ups")
+check(assist.assist_provider(dict(DEFAULTS, openai_api_key="o", deepseek_api_key="d")) == "deepseek",
+      "write-ups: Automatic prefers DeepSeek")
+check(assist.assist_provider(dict(DEFAULTS, openai_api_key="o")) == "openai", "write-ups: else OpenAI")
+check(assist.assist_provider(dict(DEFAULTS, openai_api_key="o", deepseek_api_key="d", ai_assist="openai")) == "openai",
+      "write-ups: a provider picked in Settings wins")
+check(assist.assist_provider(dict(DEFAULTS, openai_api_key="o", ai_assist="off")) is None, "write-ups: Off is off")
+check(assist.assist_provider(dict(DEFAULTS, openai_api_key="o", ai_assist="gemini")) == "openai",
+      "write-ups: a picked provider without a key falls back to one with a key")
+check(assist.assist_cfg(dict(DEFAULTS, deepseek_api_key="d"))["_purpose"] == "convo",
+      "write-ups: the strongest writer, not the quickest")
+
+REPORT = json.dumps({"headline": "Moretti holds on", "report": "Luca Moretti won the race.\n\nIt was close all the way to the flag, with the field never more than a few seconds apart.",
+                     "youtube_titles": ["Moretti holds on at Test Ring", ""], "description": "A close one.",
+                     "tags": ["sim racing", "Test Ring"], "social": "What a finish."})
+check(assist.parse_report("not json") is None and assist.parse_report('{"report": "short"}') is None,
+      "race report: an unusable answer is dropped")
+rep = assist.parse_report("```json\n" + REPORT + "\n```")
+check(rep and rep["youtube_titles"] == ["Moretti holds on at Test Ring"] and rep["report"].count("\n\n") == 1,
+      "race report: read from the answer, empty titles dropped, paragraphs kept")
+md = assist.report_markdown(rep, "DeepSeek deepseek-chat")
+check(md.startswith("## Race report") and "### Moretti holds on" in md and "sim racing, Test Ring" in md and
+      "Written by DeepSeek" in md, "race report: as a recap section")
+
+rdir2 = tempfile.mkdtemp()
+rc = Recap(rdir2, log=lambda m: None)
+rep_calls = []
+
+
+def _report_chat(cfg, msgs, max_tokens=0, timeout=0):
+    rep_calls.append(msgs)
+    return REPORT
+
+
+assist_chat_real = assist.assist_chat
+assist.assist_chat = _report_chat
+rr = headless_run(laps=4, seed=3, recap=rc, cfg=dict(openai_api_key="o"), log=lambda m: None)
+check(not rep_calls, "race report: not written for a demo race")
+rr.director._recap_done = False
+path = rr.director.finish_recap(demo=False)
+text = open(path, encoding="utf-8").read() if path else ""
+facts = rep_calls[0][1]["content"] if rep_calls else ""
+check(rep_calls and "RESULT" in facts and "COMMENTARY" in facts and "HIGHLIGHTS" in facts,
+      "race report: the AI gets the result, the highlights and the commentary")
+check("## Race report" in text and text.index("## Race report") < text.index("## Result") and
+      "## Transcript" in text and "Moretti holds on at Test Ring" in text,
+      "race report: added to the recap, before the result, with the rest kept")
+rep_calls.clear()
+rr2 = headless_run(laps=4, seed=3, recap=Recap(tempfile.mkdtemp(), log=lambda m: None),
+                   cfg=dict(openai_api_key="o", recap_ai=False), log=lambda m: None)
+rr2.director._recap_done = False
+rr2.director.finish_recap(demo=False)
+check(not rep_calls, "race report: switched off, not asked for")
+
+ms = Memory(os.path.join(tempfile.mkdtemp(), "memory.json"), log=lambda m: None)
+check(ms.season_facts() == "", "storylines: not before two races")
+story_calls = []
+
+
+def _story_chat(cfg, msgs, max_tokens=0, timeout=0):
+    story_calls.append(msgs)
+    return json.dumps({"storylines": ["Moretti has won both races so far and is the one to beat.", "x"]})
+
+
+assist.assist_chat = _story_chat
+headless_run(laps=4, seed=3, memory=ms, cfg=dict(deepseek_api_key="d"), log=lambda m: None)
+check(not story_calls, "storylines: one race isn't a season yet")
+headless_run(laps=4, seed=3, memory=ms, cfg=dict(deepseek_api_key="d"), log=lambda m: None)
+check(story_calls and "Race 1" in story_calls[0][1]["content"] and "Race 2" in story_calls[0][1]["content"],
+      "storylines: the AI gets the results of the races remembered")
+check(Memory(ms.path, log=lambda m: None).storylines() == ["Moretti has won both races so far and is the one to beat."],
+      "storylines: kept in the memory (too-short ones dropped)")
+check(ms.brief(["Nobody"])[0].startswith("Season storyline: Moretti"), "storylines: the AI booth gets them first")
+story_calls.clear()
+headless_run(laps=4, seed=3, memory=ms, cfg=dict(deepseek_api_key="d", season_stories=False), log=lambda m: None)
+check(not story_calls, "storylines: switched off, not asked for")
+ms.forget()
+check(ms.storylines() == [], "storylines: Forget clears them too")
+assist.assist_chat = assist_chat_real
+
+seen = []
+mod = assist.Moderator(lambda: dict(DEFAULTS, openai_api_key="o"), log=lambda m: None,
+                       create_fn=lambda key, text: seen.append(text) or "idiot" in text)
+check(mod.allow("Kate is wrong about Okafor") and not mod.allow("you idiot") and mod.blocked == 1,
+      "chat safety: a flagged message is held back")
+check(assist.Moderator(lambda: dict(DEFAULTS), create_fn=lambda k, t: True).allow("anything"),
+      "chat safety: no OpenAI key, the booth's own rules only")
+check(assist.Moderator(lambda: dict(DEFAULTS, openai_api_key="o", twitch_moderate=False),
+                       create_fn=lambda k, t: True).allow("anything"), "chat safety: switched off")
+
+
+def _down(k, t):
+    raise ConnectionError("down")
+
+
+md_down = assist.Moderator(lambda: dict(DEFAULTS, openai_api_key="o"), log=lambda m: None, create_fn=_down)
+check(all(md_down.allow("hello there") for _ in range(4)) and md_down.rest_until > 0,
+      "chat safety: if the check fails, chat still works, and the check rests")
+tcm = stream.TwitchChat(lambda: "x", log=lambda m: None, allow_fn=mod.allow)
+check(tcm.feed(":u!u@u PRIVMSG #x :Kate is wrong, Okafor has it?", now=1.0) is not None and
+      tcm.feed(":u!u@u PRIVMSG #x :Kate you idiot", now=2.0) is None, "chat safety: Twitch messages go through it")
+
+
+def _keys(p, key, model):
+    if p == "deepseek":
+        raise ValueError("no API key")
+
+
+kr = assist.test_keys(dict(DEFAULTS, openai_api_key="o", deepseek_api_key="d"), chat_fn=_keys)
+check(set(kr) == {"openai", "deepseek"} and kr["openai"][0] and not kr["deepseek"][0] and
+      kr["deepseek"][1] == "DeepSeek: There's no DeepSeek API key.", f"test keys: each provider with a key, and what's wrong ({kr})")
+check(assist.test_keys(dict(DEFAULTS)) == {}, "test keys: no keys, nothing to test")
+assist.SYNC = False
 
 done()
