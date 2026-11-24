@@ -1,5 +1,5 @@
 """A league roster: one spreadsheet (CSV) with every driver's number, team, pronouns, sponsors and how to say
-their name. What it says wins over every guess (pronouns from first names, made-up sponsors), and it gives the
+their name. What it says wins over every guess (pronouns from first names, sponsors the AI looked up), and it gives the
 booth 'the number 12 Porsche' and the team names.
 
 Columns, in any order, any of these headings (case doesn't matter); only Driver is needed:

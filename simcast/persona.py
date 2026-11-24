@@ -4,12 +4,12 @@
   isn't clearly one or the other (Alex, Sam, Jordan, a gamer tag, a surname on its own) stays 'they': a wrong
   guess is worse than a neutral word.
 - The booth's personality: professional, loose or unhinged, with or without swearing.
-- Sponsors: the race's title sponsor and each car's backers, from the settings, or made-up brands when asked.
+- Sponsors: the race's title sponsor and each car's backers, from the settings, the league roster, or real ones
+  the AI looks up (sponsor_lookup.py). Never made up.
 """
 from __future__ import annotations
 
 import re
-import zlib
 
 # ------------------------------------------------------------------------------------------------- names
 # Common first names that are clearly one or the other across the countries sim racers and sim AI fields come
@@ -207,39 +207,6 @@ def tone_rules(cfg) -> str:
 
 
 # ------------------------------------------------------------------------------------------------- sponsors
-# Made-up brands only: two halves put together, so every driver gets a believable backer that isn't a real company.
-_BRAND_A = ("Vantor", "Kestrel", "Halcyon", "Novalith", "Brightwater", "Corvane", "Redline", "Ashgrove", "Zentrix",
-            "Polaris", "Ironbark", "Silverpeak", "Quillon", "Tarrant", "Velocis", "Northstar", "Bluefen", "Orbis",
-            "Cobaltis", "Starling", "Granford", "Lumora", "Hexley", "Thornfield", "Apexa", "Marlowe", "Ravelin",
-            "Solent", "Drummond", "Ventura")
-_BRAND_B = ("Lubricants", "Energy Drinks", "Logistics", "Watches", "Tyres", "Insurance", "Telecom", "Coffee",
-            "Software", "Bank", "Motor Oil", "Freight", "Brakes", "Beverages", "Airlines", "Cloud", "Tools",
-            "Fuels", "Electronics", "Apparel", "Racing Gear", "Batteries", "Holdings", "Crypto Exchange",
-            "Pizza", "Mattresses", "Sunglasses", "Hardware")
-
-
-def _h(s: str) -> int:
-    return zlib.crc32(str(s).lower().encode("utf-8"))
-
-
-def made_up_sponsors(name: str, n=2):
-    """One or two fictional backers for a driver, the same every time for the same name."""
-    h = _h(name)
-    out = []
-    for k in range(n if h % 3 else 1):
-        a = _BRAND_A[(h >> (k * 7)) % len(_BRAND_A)]
-        b = _BRAND_B[(h >> (k * 5 + 3)) % len(_BRAND_B)]
-        s = f"{a} {b}"
-        if s not in out and not any(x.split()[0] == a for x in out):
-            out.append(s)
-    return out
-
-
-def made_up_title(track: str) -> str:
-    h = _h("title:" + (track or "race"))
-    return f"{_BRAND_A[h % len(_BRAND_A)]} {_BRAND_B[(h >> 5) % len(_BRAND_B)]}"
-
-
 def parse_sponsor_list(text: str):
     """'Brand A, Brand B' -> ['Brand A', 'Brand B']."""
     return [s.strip() for s in re.split(r"[,/|]", str(text or "")) if s.strip()][:4]
@@ -277,21 +244,25 @@ def the_race(cfg) -> str:
 
 
 class Sponsors:
-    """Who is backed by whom, worked out from the settings each time they're asked for (they can change mid-race)."""
+    """Who is backed by whom, worked out from the settings each time they're asked for (they can change mid-race).
+    Only real names: what the settings or the roster say, then what the AI looks up. Never made up."""
 
-    def __init__(self, cfg_fn, roster=None):
+    def __init__(self, cfg_fn, roster=None, lookup=None):
         self.cfg_fn = cfg_fn
         self.roster = roster                      # roster.Roster: a league's own list wins over everything
+        self.lookup = lookup                      # sponsor_lookup.SponsorLookup: real sponsors from the AI
 
     def title(self, track=""):
         cfg = self.cfg_fn()
         t = " ".join(str(cfg.get("race_sponsor") or "").split())
         if t:
             return t
-        return made_up_title(track) if cfg.get("invent_sponsors", True) else ""
+        if self.lookup is not None:
+            return self.lookup.race(cfg.get("race_name"), track)
+        return ""
 
     def of(self, car):
-        """The sponsors on a car (a race.Car), [] if none."""
+        """The sponsors on a car (a race.Car), [] if none are known."""
         if car is None:
             return []
         cfg = self.cfg_fn()
@@ -307,8 +278,9 @@ class Sponsors:
         for key in (name, (car.call or "").lower(), (cfg.get("driver_name") or "").strip().lower() if car.player else None):
             if key and key in table:
                 return table[key]
-        if cfg.get("invent_sponsors", True):
-            return made_up_sponsors(car.name)
+        if self.lookup is not None:
+            team = (ent or {}).get("team") or getattr(car, "team", None)
+            return self.lookup.driver(car.name, team, getattr(car, "car", None))
         return []
 
 

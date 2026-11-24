@@ -882,7 +882,8 @@ class SettingsWindow:
         self.row(f, 8, "Other drivers", self.entry(f, "driver_sponsors", cfg, width=44))
         self.note(f, 9, "Name: sponsors, separated by semicolons, e.g. Okafor: Acme Oil, Bolt; Lewis Hamilton: Zed "
                         "Watches.")
-        self.row(f, 10, "", self.check(f, "invent_sponsors", "Make up sponsors for anyone without any", cfg))
+        self.row(f, 10, "", self.check(f, "lookup_sponsors", "Look up real sponsors with the AI (the race's, and "
+                                                             "real drivers' and teams')", cfg))
         self.row(f, 11, "Memory", self.check(f, "memory", "Remember races: results, rivalries and who called what",
                                              cfg),
                  ttk.Button(f, text="Forget", style="Small.TButton", command=self._forget))

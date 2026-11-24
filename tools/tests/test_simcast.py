@@ -918,8 +918,50 @@ check(persona.from_choice("she", "Lewis Hamilton") == "f" and persona.from_choic
 check(persona.voice_gender("en-GB-SoniaNeural") == "f" and persona.voice_gender("Ryan (British) - Microsoft") == "m"
       and persona.voice_gender("kokoro:bf_emma") == "f" and persona.voice_gender("openai:alloy") is None,
       "pronouns: a commentator with an unclear name goes by their voice")
-check(persona.made_up_sponsors("Okafor") == persona.made_up_sponsors("Okafor") and persona.made_up_sponsors("Okafor"),
-      "sponsors: made-up backers are the same every time for a driver")
+check(not hasattr(persona, "made_up_sponsors") and not hasattr(persona, "made_up_title"),
+      "sponsors: SimCast has no made-up brands at all")
+from simcast.sponsor_lookup import SponsorLookup  # noqa: E402
+from simcast.race import Car as _Car  # noqa: E402
+sp_asked = []
+
+
+def sp_chat(cfg, messages, max_tokens=300, timeout=20.0):
+    task = messages[-1]["content"]
+    sp_asked.append(task)
+    if "title sponsor of that" in task:
+        real = "Indianapolis 500" in task
+        return json.dumps({"real": real, "title_sponsor": "Marlboro" if real else "Something Made Up"})
+    if "Some Guy" in task and "Lewis Hamilton" not in task:
+        return "not json"                                    # a broken reply: asked again later, not 'none'
+    return json.dumps({"drivers": [{"name": "Lewis Hamilton", "sponsors": ["Petronas", "Petronas", "none"]}]})
+
+
+sp_cfg = {"openai_api_key": "test", "race_name": "1994 Indianapolis 500"}
+spl = SponsorLookup(lambda: sp_cfg, sp_chat, providers._json_reply, log=lambda m: None)
+spl.sync = True
+spons = persona.Sponsors(lambda: sp_cfg, None, spl)
+check(spons.title("Indianapolis") == "" and spons.title("Indianapolis") == "Marlboro",
+      "sponsors: a real race's title sponsor is looked up by the AI (in the background, then remembered)")
+ham = _Car(1, {"name": "Lewis Hamilton", "team": "Mercedes"}, 0.0)
+nobody = _Car(2, {"name": "xX_Speed_Xx"}, 0.0)
+spons.of(ham), spons.of(nobody)
+check(spons.of(ham) == ["Petronas"] and spons.of(nobody) == [],
+      "sponsors: a real driver gets their real backers, an online player gets none")
+n = len(sp_asked)
+spons.of(ham), spons.of(nobody), spons.title("Indianapolis")
+check(len(sp_asked) == n, "sponsors: each name is only asked about once")
+sp_cfg2 = {"openai_api_key": "test", "race_name": "Thursday Night League Round 3"}
+spons2 = persona.Sponsors(lambda: sp_cfg2, None, SponsorLookup(lambda: sp_cfg2, sp_chat, providers._json_reply,
+                                                                log=lambda m: None))
+spons2.lookup.sync = True
+spons2.title(), spons2.of(_Car(3, {"name": "Some Guy"}, 0.0))
+check(spons2.title() == "" and spons2.of(_Car(3, {"name": "Some Guy"}, 0.0)) == [] and spons2.lookup.retry_at > 0,
+      "sponsors: a made-up race gets no title sponsor, even when the AI offers one; a bad reply is tried again")
+check(persona.Sponsors(lambda: {"race_name": "1994 Indianapolis 500"}, None,
+                       SponsorLookup(lambda: {"race_name": "x"}, sp_chat, providers._json_reply)).title() == "",
+      "sponsors: no AI key, nothing looked up and nothing made up")
+check(persona.Sponsors(lambda: dict(sp_cfg, race_sponsor="Acme Oil"), None, spl).title() == "Acme Oil",
+      "sponsors: the race sponsor typed in Settings wins over the AI")
 check(persona.parse_driver_sponsors("Okafor: Acme Oil, Bolt; Lewis Hamilton = Zed\nnonsense") ==
       {"okafor": ["Acme Oil", "Bolt"], "lewis hamilton": ["Zed"]}, "sponsors: other drivers' list is read")
 check(persona.car_make("Porsche 911 GT3 R (992)") == "Porsche" and persona.car_make("Aston Martin Vantage") ==
@@ -1000,13 +1042,22 @@ check(any('EVENT: this race is called "2026 Las Vegas Grand Prix" and it\'s bein
       "race name: reaches the AI booth")
 w = c.director.writer
 check(persona.car_make("GT3 #12") == "" and persona.car_make("LMP2") == "", "sponsors: a class isn't a make")
-w.cfg = dict(w.cfg, race_sponsor="Acme Oil", banter="lots")
+w.cfg = dict(w.cfg, banter="lots")
+w.__dict__.pop("sponsor_lookup", None)
+quiet = []
+for _ in range(30):
+    w._sponsor_t = -1e9
+    quiet += [ln.text for ln in w._tg_sponsor(1000.0)]
+check(quiet == [] and all(w.sponsors.of(cc) == [] for cc in w.tr.cars.values()) and not ai_mod._has_sponsors(w),
+      "sponsors: with none given or looked up, nobody has any and the booth doesn't read one")
+w.cfg = dict(w.cfg, race_sponsor="Acme Oil", driver_sponsors="; ".join(f"{cc.name}: Zed Watches"
+                                                                        for cc in w.tr.cars.values()))
 reads = []
 for _ in range(30):
     w._sponsor_t = -1e9
     reads += [ln.text for ln in w._tg_sponsor(1000.0)]
 check(any("Acme Oil" in t for t in reads), "sponsors: the race sponsor is read out in the quiet spells")
-check(any(x in t for t in reads for x in persona._BRAND_A), "sponsors: and a car's backers")
+check(any("Zed Watches" in t for t in reads), "sponsors: and a car's backers")
 w.cfg = dict(w.cfg, booth_tone="broadcast")
 check(all(lvl >= 1 for k, lvl, sw, t in banter.OUTBURSTS) and w._outburst(type("E", (), {"kind": "overtake",
       "cars": ()})(), "analyst", 0) == [], "personality: the professional booth has no outbursts")

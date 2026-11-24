@@ -51,8 +51,9 @@ mood that matches it.
 the fuel reaches the flag, who's on the wrong tyre for a track this hot or this wet, rain on the way, a driver one \
 more incident from trouble. That's where the best disagreements are.
 - Sponsors: now and then, the way TV booths do, work in a sponsor from SPONSORS: the race's title sponsor \
-("welcome back to the ... Grand Prix"), or a car's backers ("the Vantor Lubricants Porsche of Okafor"). Only the \
-names given there, never more than one mention in a reply, and not in every reply.
+("welcome back to the ... Grand Prix"), or a car's backers ("the Acme Oil Porsche of Okafor"). Only the \
+names given there, never more than one mention in a reply, and not in every reply. They are all real: never name \
+a sponsor, backer or brand that isn't in SPONSORS, and with no SPONSORS in the data, don't mention sponsors.
 Never say: "good, clean, hard racing", "lovely racing", "this is worth watching", "it's all happening", \
 "what a race this has become", "absolutely", "exactly", "make no mistake", "at the end of the day".
 
@@ -553,6 +554,18 @@ class AIBooth:
         return True
 
 
+def _has_sponsors(writer):
+    """Is there any real sponsor to read: the race's, or one on a car still running?"""
+    spons = getattr(writer, "sponsors", None)
+    if spons is None:
+        return False
+    try:
+        tr = writer.tr
+        return bool(spons.title(tr.track) or any(spons.of(c) for c in tr.cars.values() if not c.gone))
+    except Exception:
+        return False
+
+
 # Task wording for each kind of request -------------------------------------------------------------------
 
 def react_task(event_text, said, speaker="Ben", other="Kate"):
@@ -596,7 +609,7 @@ def filler_task(writer, now, focus, shape=None):
         pool += ["tangent"] * extra + ["aside"] * (extra // 2)
         if writer.cfg.get("banter") == "rare":
             pool.remove("aside")
-        if getattr(writer, "sponsors", None) is not None and (extra or writer.chance(0.5)):
+        if _has_sponsors(writer) and (extra or writer.chance(0.5)):
             pool.append("sponsor")
         shape = rng.choice(pool) if rng else "story"
     if shape == "pit" and not has_pit:

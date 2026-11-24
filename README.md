@@ -151,8 +151,9 @@ each other: while SimCoach's coach or crew speaks, the booth drops under them an
 * **League roster:** a spreadsheet with each driver's number, team, pronouns, sponsors and how to say their name:
   *"the number 12 Porsche"*. Without one, drivers are "he" or "she" when the first name makes it clear and "they"
   when it doesn't.
-* **Sponsors:** the race's title sponsor, yours and other drivers' (or made-up ones), worked in the way TV
-  booths do.
+* **Sponsors, real ones only:** the race's title sponsor, yours and other drivers', worked in the way TV booths
+  do. Nothing is made up: with an AI key, the AI looks up the title sponsor of a real race named in Settings (from
+  any point in history) and the real backers of real drivers and teams in the field.
 * **More from the sims:** iRacing's temperatures, sky, track wetness, car numbers, teams, tyres and incident
   points; Le Mans Ultimate and rFactor 2's temperatures, cloud, tyres, car numbers and penalties; ACC's car
   numbers. Your fuel per lap is worked out, and the AI argues strategy with all of it.
@@ -308,6 +309,7 @@ simcast/director.py          what goes on air, when, and what gets cut off
 simcast/writer.py            the instant lines, in three voices
 simcast/ai.py, providers.py  the AI booth; OpenAI / Gemini / DeepSeek, a model for each job, streamed reactions
 simcast/persona.py, banter.py  pronouns, personality, emotion, sponsors, outbursts and random conversations
+simcast/sponsor_lookup.py      real race, driver and team sponsors, looked up by the AI
 simcast/cockpit.py           driving mode: quiet while the driver is busy
 simcast/hotkeys.py           keyboard and wheel-button hotkeys
 simcast/memory.py, roster.py  the booth's memory across races; the league roster (CSV)

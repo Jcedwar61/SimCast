@@ -61,7 +61,7 @@ DEFAULTS = {
     "memory": True, "roster_file": "", "obs_captions": False, "obs_port": 8686, "twitch_channel": "",
     "twitch_chat": True, "twitch_only_booth": False, "twitch_moderate": True,
     "ai_assist": "auto", "recap_ai": True, "season_stories": True,
-    "recap": True, "recap_offset": 0, "ai_rates": "", "hotkey_skip": "", "hotkey_mute": "", "hotkey_me": "", "hotkey_mode": "", "hotkey_nascar": "", "my_sponsors": "", "driver_sponsors": "", "invent_sponsors": True,
+    "recap": True, "recap_offset": 0, "ai_rates": "", "hotkey_skip": "", "hotkey_mute": "", "hotkey_me": "", "hotkey_mode": "", "hotkey_nascar": "", "my_sponsors": "", "driver_sponsors": "", "lookup_sponsors": True,
 }
 STYLES = {   # the booth in one click; Custom is anything else
     "tv": {"chatter": "normal", "focus": "balanced", "booth_tone": "broadcast", "swearing": False, "banter": "normal"},
@@ -128,7 +128,7 @@ def clean_config(cfg):
         cfg[k] = " ".join(str(cfg.get(k) or "").split())[:120]
     cfg["driver_sponsors"] = str(cfg.get("driver_sponsors") or "").strip()[:2000]
     cfg["nascar_stages"] = nascar.clean_stages(cfg.get("nascar_stages"))
-    for k in ("swearing", "invent_sponsors", "nascar_voices", "twitch_moderate", "recap_ai", "season_stories"):
+    for k in ("swearing", "lookup_sponsors", "nascar_voices", "twitch_moderate", "recap_ai", "season_stories"):
         cfg[k] = bool(cfg.get(k, DEFAULTS[k]))
     try:
         cfg["obs_port"] = max(1024, min(65535, int(cfg.get("obs_port") or 8686)))
@@ -191,6 +191,11 @@ class SimCast:
             eleven.fetch_in_background(self.cfg, log=log)
         self.director = Director(self.tracker, self.audio, self.config, booth=self.booth, log=log,
                                  convo_booth=self.convo_booth)
+        if booth:                                          # real sponsors from the AI, never made-up ones
+            from .sponsor_lookup import SponsorLookup
+            self.director.writer.sponsor_lookup = SponsorLookup(
+                self.config, providers.ai_chat, providers._json_reply,
+                path=os.path.join(APP_DIR, "sponsors.json") if save else None, log=log)
         self.memory = Memory(os.path.join(APP_DIR, "memory.json"), log=log) if save else None
         self.director.set_memory(self.memory)
         from .recap import Recap

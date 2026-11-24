@@ -112,7 +112,7 @@ class BanterMixin:
         return r
 
     def car_words(self, cid, sponsor=None):
-        """'the number 12 Vantor Lubricants Porsche', as much of it as is known."""
+        """'the number 12 Acme Oil Porsche', as much of it as is known."""
         c = self.tr.car(cid)
         if c is None:
             return "the car"
@@ -130,6 +130,7 @@ class BanterMixin:
         sp = getattr(self, "_sponsors", None)
         if sp is None:
             sp = self._sponsors = persona.Sponsors(lambda: self.cfg, self.roster)
+        sp.lookup = getattr(self, "sponsor_lookup", None)     # sponsor_lookup.SponsorLookup, set by the app
         return sp
 
     # ------------------------------------------------------------------ settings
@@ -330,7 +331,7 @@ class BanterMixin:
             return []
         c = self.tr.car(pick[0])
         nm = self.n(c.id, now)
-        what = self.car_words(c.id, lst[0])[4:]                  # 'number 12 Vantor Porsche' 
+        what = self.car_words(c.id, lst[0])[4:]                  # 'number 12 Acme Oil Porsche' 
         out = [Line(LEAD, self.pick("sp_car", [
             f"Look at the {what} of {nm}. Lovely-looking thing.",
             f"{nm} in the {what}" + (f", with {lst[1]} on board as well." if len(lst) > 1 else "."),
