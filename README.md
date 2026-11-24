@@ -24,6 +24,12 @@ each other: while SimCoach's coach or crew speaks, the booth drops under them an
 * **Linux / Steam Deck:** [install-simcast-wine.sh](install-simcast-wine.sh) installs SimCast into the sim's
   own Proton prefix (see below).
 
+### What's new in 1.15
+* **The track's real name, never the mod's:** on a stream, the booth now says "Daytona International Speedway", not
+  the mod's folder (`rt_daytona`) or its tags. In Assetto Corsa, SimCast reads the name the track gives itself (its
+  `ui_track.json`, the layout's first), and in every sim the modding team's tags, brackets and version numbers are
+  taken out (`Daytona International Speedway [RT] v1.3`, `RT - Charlotte Motor Speedway`, `Iowa Speedway (RT)`).
+
 ### What's new in 1.14
 * **Your OpenAI and DeepSeek keys help off the air too** (*Settings → AI → Write-ups*; Automatic uses DeepSeek,
   the cheapest good writer, then OpenAI):
