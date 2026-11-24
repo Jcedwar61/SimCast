@@ -1494,6 +1494,31 @@ check(all(nascar.is_stock_car(c) for c in ("nascar_2023_chevy_camaro", "gen6_cup
                                                 "stock_car_brasil_2022")), "nascar: Assetto Corsa's stock car mods")
 check(sc.nice_name("rt_daytona") == "Daytona" and sc.nice_name("bristol_motor_speedway") == "Bristol Motor Speedway",
       "Assetto Corsa's folder names said as names")
+check(sc.nice_name("daytona_rt") == "Daytona" and sc.nice_name("legion_bristol") == "Bristol",
+      "Assetto Corsa: a modding team's tag at either end of a folder name isn't said")
+_mods = {"Daytona International Speedway [RT]": "Daytona International Speedway",
+         "RT - Charlotte Motor Speedway": "Charlotte Motor Speedway",
+         "Bristol Motor Speedway v1.2": "Bristol Motor Speedway", "Watkins Glen (v1.05)": "Watkins Glen",
+         "Road America - ACU": "Road America", "Mosport by Pyyer": "Mosport", "Iowa Speedway (RT)": "Iowa Speedway",
+         "Talladega Superspeedway | RT": "Talladega Superspeedway", "Daytona (Oval)": "Daytona (Oval)",
+         "Nordschleife - Endurance": "Nordschleife - Endurance", "Spa-Francorchamps": "Spa-Francorchamps",
+         "Monza 1966": "Monza 1966", "[RT]": ""}
+_bad = {k: sc.clean_track_name(k) for k, v in _mods.items() if sc.clean_track_name(k) != v}
+check(not _bad, f"track names: the mod's tags and versions taken out, the track's own name kept ({_bad})")
+_acdir = tempfile.mkdtemp(prefix="simcast-ac-")
+for _sub, _txt in ((os.path.join("rt_daytona", "ui", "oval"), '\ufeff{"name": "Daytona International Speedway [RT] v1.3",\n'
+                    '"description": "line one\nline two", "tags": ["oval",],}'),
+                   (os.path.join("rt_daytona", "ui"), '{"name": "RT Daytona"}'),
+                   (os.path.join("acu_bathurst", "ui"), '{"name": "Mount Panorama - ACU"}')):
+    os.makedirs(os.path.join(_acdir, "content", "tracks", _sub), exist_ok=True)
+    with open(os.path.join(_acdir, "content", "tracks", _sub, "ui_track.json"), "w", encoding="utf-8") as _fh:
+        _fh.write(_txt)
+check(sc.ac_track_name("rt_daytona", "oval", dirs=[_acdir]) == "Daytona International Speedway" and
+      sc.ac_track_name("rt_daytona", "", dirs=[_acdir]) == "Daytona" and
+      sc.ac_track_name("rt_daytona", "roval", dirs=[_acdir]) == "Daytona" and
+      sc.ac_track_name("acu_bathurst", "", dirs=[_acdir]) == "Mount Panorama" and
+      sc.ac_track_name("nope", "", dirs=[_acdir]) == "" and sc.ac_track_name("..", "", dirs=[_acdir]) == "",
+      "Assetto Corsa: the track's own name from its ui_track.json (layout's first), mod tags taken out")
 acast = SimCast(dict(DEFAULTS), audio=SimAudio(), log=lambda m: None, booth=False, save=False)
 acf = sc.Frame("AC", "Martinsville (Oval)", "Gen6 Cup Chevrolet", 0, 0.1, 0.0, 0, 0, 0, 1, 900, 0, 0, False, False,
                session="race", position=4, cars=20, race_laps=50)

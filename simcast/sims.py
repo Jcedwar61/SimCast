@@ -288,9 +288,12 @@ class ACReader(Reader):
         if not track:
             return None
         game = self._cur_game or self._game() or "AC"
-        if game == "AC":                     # AC gives the mod folders ('rt_daytona'): say them like names
-            track, layout, car_name = nice_name(track), nice_name(layout), nice_name(car_name) or car_name
-        if layout and game != "ACC" and layout.lower() not in track.lower():
+        if game == "AC":                     # AC gives the mod folders ('rt_daytona'): the track's own name instead
+            ui_name = ac_track_name(track, layout)
+            track, layout, car_name = (ui_name or nice_name(track)), nice_name(layout), nice_name(car_name) or car_name
+        elif game != "ACC":
+            track = clean_track_name(track) or track
+        if layout and game != "ACC" and _plain_name(layout) not in _plain_name(track):
             track = f"{track} ({layout})"
         gas, brake, fuel = _U_3f(p, 4)
         gear, rpm = _U_2i(p, 16)
@@ -1000,7 +1003,7 @@ class _RF2Family(Reader):
                 self._wcal_car = tel[32:96]
                 cal.reset()
             wk = cal.update(spd, thr, brk, spins)
-        fr = Frame(game, _cstr(sc_info, 0, 64), _cstr(tel, 32, 64), max(0, _U_h(veh, 100)[0]),
+        fr = Frame(game, clean_track_name(_cstr(sc_info, 0, 64)) or _cstr(sc_info, 0, 64), _cstr(tel, 32, 64), max(0, _U_h(veh, 100)[0]),
                    (lapdist / lap_len) % 1.0 if lap_len > 0 else 0.0, spd,
                    thr, brk, _d(tel, 404), _i(tel, 352), _d(tel, 356),
                    max(0.0, _d(veh, 464)), max(0.0, _d(veh, 168)), bool(veh[198]), False, _d(tel, 524),
@@ -2522,14 +2525,112 @@ _RE_MODEL_YEAR = re.compile(r"(19|20)\d\d")
 
 
 _RE_MODEL_YEAR = re.compile(r"(19|20)\d\d")
-_MOD_PREFIXES = frozenset(("ks", "rss", "vrc", "urd", "acf", "rt"))
-
-
-_MOD_PREFIXES = frozenset(("ks", "rss", "vrc", "urd", "acf", "rt"))
+_MOD_PREFIXES = frozenset(("ks", "rss", "vrc", "urd", "acf", "rt", "acu", "srp", "tsrf", "legion", "lilski", "rtm",
+                           "acsr"))
 _UPPER_TOKENS = frozenset(("bmw", "amg", "gt", "gte", "lmp", "dtm", "rs", "srs", "gtr", "gtd", "vw"))
 
 
 _UPPER_TOKENS = frozenset(("bmw", "amg", "gt", "gte", "lmp", "dtm", "rs", "srs", "gtr", "gtd", "vw"))
+
+
+_MOD_TEAMS = (r"rt|reboot(?: team)?|acu|legion|vrc|urd|rss|acf|srp|tsrf|lilski|rtm|acsr|rsr|f1rc|asr|"
+              r"mak-?corp|trackday|pyyer|ac ?legends|simtraxx|ignite|terrasan|patreon|csp|mod(?:ded)?|by [^)\]]+")
+_RE_MOD_BRACKETS = re.compile(r"\s*\[[^\]]*\]\s*")                                   # '[RT]', '[Legion v1.2]'
+_RE_MOD_PARENS = re.compile(rf"\s*\((?:[^)]*\bv?\d+\.\d[^)]*|\s*(?:{_MOD_TEAMS})\s*)\)", re.I)  # '(v1.1)', '(RT)'
+_RE_MOD_VERSION = re.compile(r"\s+v\d+(?:\.\d+)*[a-z]?\b", re.I)                   # ' v1.05'
+_RE_MOD_TAIL = re.compile(rf"\s*(?:[-|/:]\s*|\bby\s+)(?:{_MOD_TEAMS})(?:\s+\S+)?\s*$", re.I)  # ' - RT', ' by Pyyer'
+_RE_MOD_HEAD = re.compile(rf"^\s*(?:{_MOD_TEAMS})\s*(?:[-|:]|\s(?=[A-Z]))\s*", re.I)  # 'RT - Daytona', 'ACU Bathurst'
+
+
+def clean_track_name(name):
+    """A track's name with the mod's tags taken out, so a stream hears 'Daytona International Speedway' and not
+    'Daytona International Speedway [RT] v1.2': bracketed tags, versions, and a modding team's name at either end."""
+    s = " ".join(str(name or "").split())
+    if not s:
+        return ""
+    s = _RE_MOD_BRACKETS.sub(" ", s)
+    s = _RE_MOD_PARENS.sub("", s)
+    s = _RE_MOD_VERSION.sub("", s)
+    for _ in range(2):
+        s = _RE_MOD_TAIL.sub("", s)
+        s = _RE_MOD_HEAD.sub("", s)
+    s = re.sub(r"\s*[-|:/_]+\s*$", "", s)
+    s = re.sub(r"^\s*[-|:/_]+\s*", "", s)
+    s = " ".join(s.split())
+    return s if re.search(r"[A-Za-z]", s) else ""
+
+
+_AC_TRACKS = {}
+_AC_DIRS, _AC_DIRS_RETRY = None, 0.0
+_RE_UI_NAME = re.compile(r'"name"\s*:\s*"((?:[^"\\]|\\.)*)"')
+
+
+def _ac_dirs():
+    """Assetto Corsa's install folders (the running game's own first, then every Steam library's)."""
+    global _AC_DIRS, _AC_DIRS_RETRY
+    if _AC_DIRS is None:
+        if time.monotonic() < _AC_DIRS_RETRY:
+            return []
+        _AC_DIRS_RETRY = time.monotonic() + 30.0         # not found: look again in a while, never every frame
+        dirs = []
+        try:
+            import psutil
+            for p in psutil.process_iter(["name", "exe"]):
+                if (p.info.get("name") or "").lower() in ("acs.exe", "acs_x86.exe") and p.info.get("exe"):
+                    dirs.append(os.path.dirname(p.info["exe"]))
+        except Exception:
+            pass
+        try:
+            from .detect import steam_libraries
+            for lib in steam_libraries():
+                dirs.append(os.path.join(lib, "steamapps", "common", "assettocorsa"))
+        except Exception:
+            pass
+        out = [d for d in dict.fromkeys(dirs) if os.path.isdir(os.path.join(d, "content", "tracks"))]
+        if not out:
+            return []                                   # not found yet: look again next time
+        _AC_DIRS = out
+    return _AC_DIRS
+
+
+def _ui_name(path):
+    try:
+        with open(path, "rb") as fh:
+            raw = fh.read(65536)
+    except OSError:
+        return ""
+    text = raw.decode("utf-8-sig", errors="ignore")
+    try:
+        v = json.loads(text, strict=False).get("name")
+        if isinstance(v, str):
+            return v
+    except Exception:
+        pass
+    m = _RE_UI_NAME.search(text)                       # mods' ui_track.json often isn't strict JSON
+    return m.group(1).replace('\\"', '"') if m else ""
+
+
+def ac_track_name(folder, layout="", dirs=None):
+    """The name an Assetto Corsa track gives itself (content/tracks/<folder>/ui[/<layout>]/ui_track.json), with
+    the mod's tags taken out; '' when the track's files can't be found."""
+    folder, layout = (folder or "").strip(), (layout or "").strip()
+    if not folder or any(c in folder + layout for c in "/\\:") or ".." in folder + layout:
+        return ""
+    key = (folder.lower(), layout.lower())
+    if dirs is None and key in _AC_TRACKS:
+        return _AC_TRACKS[key]
+    name = ""
+    for d in (_ac_dirs() if dirs is None else dirs):
+        ui = os.path.join(d, "content", "tracks", folder, "ui")
+        for path in ([os.path.join(ui, layout, "ui_track.json")] if layout else []) + [os.path.join(ui, "ui_track.json")]:
+            name = clean_track_name(_ui_name(path))
+            if name:
+                break
+        if name:
+            break
+    if dirs is None and (name or _AC_DIRS):
+        _AC_TRACKS[key] = name                         # found, or the game's folders searched: don't look again
+    return name
 
 
 def nice_name(raw):
@@ -2540,6 +2641,8 @@ def nice_name(raw):
     words = [w for w in _RE_NAME_SPLIT.split(s) if w]
     if words and words[0].lower() in _MOD_PREFIXES:
         words = words[1:]
+    if len(words) > 1 and words[-1].lower() in _MOD_PREFIXES and words[-1].lower() != "ks":   # 'daytona_rt'
+        words = words[:-1]
     out = []
     n_words = len(words)
     for w in words:
