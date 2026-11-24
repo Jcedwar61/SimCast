@@ -22,7 +22,7 @@ from . import nascar, persona, providers, sims
 from .assist import ASSIST_CHOICES, assist_label
 
 APP_NAME = "SimCast"
-APP_VERSION = "1.15"
+APP_VERSION = "1.16"
 APP_DIR = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), "SimCast")
 CONFIG_PATH = os.path.join(APP_DIR, "config.json")
 LOG_PATH = os.path.join(APP_DIR, "simcast.log")
@@ -52,7 +52,7 @@ DEFAULTS = {
     "driver_name": "", "ai_provider": "openai", "ai_fallback": True,
     "openai_api_key": "", "gemini_api_key": "", "deepseek_api_key": "", "elevenlabs_api_key": "",
     "openai_model": "auto", "gemini_model": "auto", "deepseek_model": "auto", "openai_tts_model": "auto",
-    "f1_port": 20777, "dr2_port": 20779, "udp_share_simhub": True, "game_setup": True, "guide_seen": False,
+    "f1_port": 20777, "dr2_port": 20779, "forza_port": 5300, "udp_share_simhub": True, "game_setup": True, "guide_seen": False,
     "demo_laps": 8, "captions": False, "captions_pos": None, "window": None,
     "check_updates": True, "update_skip": "",
     "nascar": "auto", "nascar_stages": "", "nascar_voices": True,
@@ -483,7 +483,8 @@ class SimCast:
                         active = next((r for r in self.readers if self._safe(r.connected)), None)
                         if active is None:
                             other = self._safe(sims.unsupported_sim)
-                            self.status = f"{other[0]} isn't supported" if other else "Waiting for a sim..."
+                            hint = None if other else self._safe(lambda: sims.waiting_hint(self.cfg))
+                            self.status = f"{other[0]} isn't supported" if other else (hint or "Waiting for a sim...")
                         if active is not None:
                             self.log(f"Connected to {active.name}")
                             self.source = active.name

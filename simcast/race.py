@@ -240,8 +240,8 @@ class RaceTracker:
                     dist = raw
             else:
                 c._mismatch_since = None
-        if prev is not None and dist < prev - 0.3:
-            c.cross.clear()
+        if prev is not None and abs(dist - prev) > 0.3:
+            c.cross.clear()                                 # no loop times across a jump: they'd all be one instant
             c.g = None
         sim_speed = e.get("speed")
         if sim_speed is not None:

@@ -1020,6 +1020,7 @@ class SettingsWindow:
                         "CrewChiefEx app (backing up what it changes). Restart a game once after it's been set up.")
         self.row(f, 2, "F1 25 port", self.entry(f, "f1_port", cfg, width=8), sticky="w")
         self.row(f, 3, "SimHub", self.check(f, "udp_share_simhub", "Share UDP port 20777 with SimHub", cfg))
+        self.row(f, 4, "Forza port", self.entry(f, "forza_port", cfg, width=8), sticky="w")
         box = ttk.Frame(f, style="Card.TFrame")
         box.grid(row=5, column=0, columnspan=3, sticky="w", pady=(8, 4))
         sims_list(box, cast.state().get("sims") or [], self.f, wrap=480)
@@ -1029,9 +1030,9 @@ class SettingsWindow:
             sims_list(box, cast.state().get("sims") or [], self.f, wrap=480)
         ttk.Button(f, text="Scan again", style="Small.TButton", command=rescan).grid(row=6, column=0, sticky="w",
                                                                                    pady=(4, 8))
-        self.note(f, 7, "Whole field: Le Mans Ultimate, rFactor 2, iRacing, Automobilista 2, RaceRoom, F1 25, ACC, "
-                        "Assetto Corsa (with the CrewChiefEx app). Your car only: AC EVO, Assetto Corsa without "
-                        "CrewChiefEx. Rally stages: EA SPORTS WRC, DiRT Rally 2.0, AC Rally. The Guide has the "
+        self.note(f, 7, "Whole field: Le Mans Ultimate, rFactor 2, iRacing, Automobilista 2, Project CARS 2 and 3, "
+                        "RaceRoom, F1 25, ACC, Assetto Corsa (with the CrewChiefEx app). Your car only: AC EVO, "
+                        "Forza Motorsport, Forza Horizon 5 and 4, Assetto Corsa without CrewChiefEx. Rally stages: EA SPORTS WRC, DiRT Rally 2.0, AC Rally. The Guide has the "
                         "one-time game settings.", span=3)
         r = 8
         self.hotkey_vars = {}
@@ -1334,7 +1335,7 @@ class SettingsWindow:
             out[f"{p}_model"] = providers.AUTO if val.startswith("Automatic") else val
         val = self.tts_box.get()
         out["openai_tts_model"] = providers.AUTO if val.startswith("Automatic") else val
-        for k in ("demo_laps", "f1_port", "obs_port", "recap_offset"):
+        for k in ("demo_laps", "f1_port", "forza_port", "obs_port", "recap_offset"):
             try:
                 out[k] = int(out.get(k) or DEFAULTS[k])
             except ValueError:

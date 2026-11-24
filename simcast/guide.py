@@ -31,8 +31,8 @@ They talk to each other, and to the race: a fight or a driver on the move is ope
 ## Four kinds of coverage
 SimCast picks the right one by itself and shows it at the top of the window.
 - NASCAR: stock cars (iRacing's NASCAR Cup, Xfinity and Truck cars, ARCA, Late Models, Legends, Modifieds, and Assetto Corsa's stock car mods) and oval tracks (Assetto Corsa ovals are recognised by the track's name and layout: Daytona's oval layout yes, its road course no) get an American oval broadcast. Everything the whole field gets, plus the green flag, cautions (the first, the second, the one for the stage break), restarts with the front row, the free pass for the first car a lap down, stages with the stage winner and who scores stage points, laps led and the number of leaders, and Victory Lane. The whole booth sounds like an oval broadcast, not a road race: close gaps in car lengths ("three car lengths back", "on the back bumper"), laps as speeds ("a one ninety-one mile an hour lap"), passes as runs and lanes ("gets the run, side by side, clears for fifth"), lead changes counted, moves into the top five and top ten called, wrecks, cars "headed to the garage", spots gained or lost on pit road, and in the quiet laps the running-order rundown, clean air and dirty air, tires falling off on a long run, laps led, how many cars are on the lead lap, the stage, the fuel window and a check-in on you. The words change too: pit road, the pace car, tires, the checkered flag, "the 24 of Byron". In Assetto Corsa with the CrewChiefEx app, SimCast also knows every car's lane: CrewChiefEx shares where each car is on track, SimCast learns the groove from where the field drives (it takes a lap or so), and the booth calls who's low and who's high: "goes to the bottom", "around the outside", "side by side for the lead, Okafor on the bottom, Moretti up top", "three-wide for fifth!". The AI booth gets the lanes as facts too. On road courses it calls side by side without low and high. iRacing doesn't share where the other cars are, so there the lanes stay the booth's read. The AI booth is told to call it like a NASCAR booth. American voices take over unless you've chosen your own. The NASCAR button at the top of the window switches it on or off for the race you're in (or the next one, if no sim is running), straight away and without losing the race so far; it goes back to the setting when the track changes. A hotkey can do the same from your wheel (Settings > Sims). Settings > Booth > NASCAR mode is the default: Automatic, On (the demo race too) or Off. In Assetto Corsa, SimCast needs the CrewChiefEx app (Setting up your sim) to see the whole field: without it the booth only sees your car, so you get NASCAR's words and voices but no stages or laps led. AC has no full-course cautions, so there are no caution calls, restarts or free passes there; the stage breaks are still called.
-- Whole field: the sim shares every car (Le Mans Ultimate, rFactor 2, iRacing, Automobilista 2, RaceRoom, F1 25, ACC, and Assetto Corsa with the CrewChiefEx app). Overtakes anywhere, battles, pit stops, the leader, the podium.
-- Your car only: the sim shares just your car (AC EVO, Assetto Corsa without CrewChiefEx). The booth follows you: places gained and lost, the gap to the car ahead, pressure from behind, trips off the track, your laps and the finish.
+- Whole field: the sim shares every car (Le Mans Ultimate, rFactor 2, iRacing, Automobilista 2, Project CARS 2 and 3, RaceRoom, F1 25, ACC, and Assetto Corsa with the CrewChiefEx app). Overtakes anywhere, battles, pit stops, the leader, the podium.
+- Your car only: the sim shares just your car (AC EVO, Forza Motorsport, Forza Horizon 5 and 4, Assetto Corsa without CrewChiefEx). The booth follows you: places gained and lost, the gap to the car ahead, pressure from behind, trips off the track, your laps and the finish.
 - Rally stage: EA SPORTS WRC, DiRT Rally 2.0 and AC Rally. Splits against your best run on that stage, big moments, damage and the stage time. SimCast remembers your best run on every stage, so the comparison gets better every time.
 
 ## How it judges the race
@@ -48,6 +48,8 @@ When it starts, SimCast looks for the supported sims installed on this PC (every
 
 ## Set once in the game
 - Automobilista 2: Options > System > Shared Memory = "Project CARS 2".
+- Project CARS 2 and Project CARS 3: in the game's options, Shared Memory = "Project CARS 2". The whole field, like Automobilista 2.
+- Forza Motorsport, Forza Horizon 5 and Forza Horizon 4: Settings > Gameplay & HUD (Forza Horizon: HUD and Gameplay) > Data Out = On, Data Out IP Address = 127.0.0.1, Data Out IP Port = 5300 (another port: Settings > Sims > Forza port). Forza Motorsport also asks for a packet format: pick "Car Dash". Forza shares only your car, so the booth follows you: your place, places gained and lost, your laps and personal bests, and the finish. It has no track names or lap lengths in its data, so SimCast learns the lap length on your first lap. Forza Horizon is covered in circuit races (free roam isn't a race). Steam and Microsoft Store/Game Pass copies both work.
 
 ## SimCast sets these up for you
 - ACC: SimCast switches on ACC's broadcasting port (in Documents\\Assetto Corsa Competizione\\Config\\broadcasting.json) to see the whole grid. If ACC was running when this happened, restart ACC once.
@@ -61,7 +63,7 @@ Anything SimCast changes is backed up next to the original as .simcast-backup. S
 To see the other cars, SimCast uses the CrewChiefEx Python app, which comes with CrewChief. With CrewChief installed, SimCast puts the app into Assetto Corsa's apps\\python folder (if CrewChief hasn't already) and switches it on for you; restart AC once afterwards. CrewChief itself doesn't need to be running for this. If you run it as your spotter too, SimCast can't hear it, so the two can talk over each other; Driving mode (Settings > Commentary) keeps the booth quieter in traffic and braking zones. you can also do it in Content Manager > Settings > Assetto Corsa > Python apps. Without it, SimCast covers your car only.
 
 ## SimHub and SimCoach
-SimCast can run next to SimHub and SimCoach. On UDP port 20777 (F1 25, DiRT Rally 2.0) it shares the port when SimHub listens on all addresses, and it also listens on 20778 (F1) and 20779 (DiRT Rally 2.0) as a fallback.
+SimCast can run next to SimHub and SimCoach. On UDP port 20777 (F1 25, DiRT Rally 2.0) it shares the port when SimHub listens on all addresses, and it also listens on 20778 (F1) and 20779 (DiRT Rally 2.0) as a fallback. Forza sends its Data Out to one port only: if SimHub reads Forza too, give SimCast the same port as SimHub (Settings > Sims > Forza port) and SimCast shares it the same way.
 
 ## Not supported
 NASCAR 25, NASCAR Heat 5, Project Motor Racing, WRC Generations, KartKraft and BeamNG.drive don't share live data SimCast can read. SimCast says so at the top of the window instead of waiting.
@@ -201,13 +203,15 @@ F1 25, EA WRC and DiRT Rally 2.0 send UDP, which works between any prefix; the l
 ## "Waiting for a sim"
 - The start screen lists the sims SimCast found and what each still needs.
 - The game must be running and in a session (not the menus).
-- Automobilista 2 needs Shared Memory = Project CARS 2; F1 25 needs UDP telemetry on.
+- Automobilista 2, Project CARS 2 and 3 need Shared Memory = Project CARS 2; F1 25 needs UDP telemetry on.
+- Forza needs Data Out on, to 127.0.0.1 port 5300 (Forza Motorsport: format Car Dash), and you in a race (Forza Horizon: not free roam).
+- Forza Horizon 4 from the Microsoft Store is a sandboxed app that Windows doesn't let send to its own PC: use the Steam copy, or allow it with Windows' CheckNetIsolation LoopbackExempt tool.
 - EA WRC, DiRT Rally 2.0 and ACC: restart the game once after SimCast first set it up.
 
 ## Only my car is covered
 - Assetto Corsa: install CrewChief (for its CrewChiefEx app); SimCast switches the app on. Restart AC once.
 - ACC: restart ACC once after SimCast switched on its broadcasting port.
-- AC EVO shares only your car.
+- AC EVO and Forza share only your car.
 
 ## AI isn't talking
 Settings > AI shows the model in use and the last problem (wrong key, no credit, no internet). The booth carries on with its own lines.

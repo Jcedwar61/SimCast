@@ -507,6 +507,71 @@ check("halfway split" in said and "up on the best" in said, "rally: splits again
 check("new best on this stage by ten seconds" in said, "rally: a new stage best, by how much")
 check(c.stages.get("EA WRC|Monte Carlo - Col de Turini|Hyundai i20 N Rally1")["best"] == 140.0, "rally: the best run is kept")
 
+# ---------------------------------------------------------------- Forza's Data Out (your car only)
+
+
+def forza_pkt(size=331, on=1, speed=50.0, dist=0.0, last=0.0, cur=0.0, race_t=0.0, lap=0, pos=5, gear=4):
+    b = bytearray(size)
+    struct.pack_into("<iIfff", b, 0, on, 0, 8000.0, 900.0, 6000.0)
+    struct.pack_into("<3f3f4f7fH6B3b", b, 244 if size == 324 else 232, 0, 0, 0, speed, 0, 0, 180, 180, 176, 176,
+                     0, 0.5, dist, 0, last, cur, race_t, lap, pos, 255, 0, 0, 0, gear, 0, 0, 0)
+    return bytes(b)
+
+
+fz = sc.ForzaReader(port=53999)
+check(fz.parse(b"x" * 100) is None and fz.parse(bytes(232)) is None, "Forza: other packets (Sled) ignored")
+f0 = fz.parse(forza_pkt(dist=100.0, cur=2.0, race_t=2.0), now=0.0)
+check(f0.game == "Forza Motorsport" and f0.session == "race" and f0.position == 5 and f0.laps_done == 0 and
+      f0.pct == 0.0 and abs(f0.speed - 180.0) < 0.01 and f0.gear == 4 and f0.throttle == 1.0 and
+      abs(f0.tyre_temps[0] - 82.2) < 0.1, "Forza: speed, place, inputs and tyre temps (F to C)")
+fz.parse(forza_pkt(dist=4000.0, last=90.0, race_t=90.0, lap=1), now=90.0)
+f1 = fz.parse(forza_pkt(dist=6000.0, last=90.0, cur=45.0, race_t=135.0, lap=1), now=135.0)
+check(fz.lap_len == 4000.0 and abs(f1.pct - 0.5) < 1e-6 and f1.track_len == 4000.0 and f1.last_time == 90.0,
+      f"Forza: the lap length is learnt from the first lap ({fz.lap_len}, {f1.pct})")
+check(all(fz.parse(forza_pkt(on=0, race_t=135.0, lap=1), now=136.0 + i) is None for i in range(20)),
+      "Forza: a pause mid-lap isn't the end of the race")
+fz.parse(forza_pkt(dist=8000.0, last=90.0, race_t=180.0, lap=2), now=181.0)
+f2 = fz.parse(forza_pkt(dist=8050.0, last=90.0, race_t=181.0, lap=2), now=182.0)
+check(not f2.race_over, "Forza: racing on after a lap")
+fz.parse(forza_pkt(dist=8100.0, last=90.0, race_t=181.0, lap=2), now=183.0)
+f3 = fz.parse(forza_pkt(dist=8200.0, last=90.0, race_t=181.0, lap=2), now=184.5)
+check(f3 is not None and f3.race_over, "Forza: the race clock stopping at the line, car still rolling, is the finish")
+f4 = fz.parse(forza_pkt(dist=10.0, race_t=0.5, lap=0, pos=8), now=200.0)
+check(f4.restart and not f4.race_over and f4.position == 8 and f4.laps_done == 0, "Forza: a new race starts fresh")
+fz.close()
+fh = sc.ForzaReader(port=53998)
+check(fh.parse(forza_pkt(size=324, pos=0), now=0.0) is None, "Forza Horizon: free roam isn't a race")
+fh_f = fh.parse(forza_pkt(size=324, pos=2), now=1.0)
+check(fh_f.game == "Forza Horizon 5" and fh_f.position == 2 and abs(fh_f.speed - 180.0) < 0.01,
+      "Forza Horizon: read at its own offset")
+check(sc.ForzaReader.parse(sc.ForzaReader.__new__(sc.ForzaReader), b"") is None, "Forza: empty packet")
+fh.close()
+
+# A Forza race through the whole app: the booth follows the car, and calls the finish.
+fz_race = sc.ForzaReader(port=53997)
+
+
+def forza_frame(t):
+    lap_s, L_fz = 70.0, 3500.0
+    rt = max(0.0, t - 5.0)
+    done = rt >= 3 * lap_s
+    rt_shown = min(rt, 3 * lap_s)
+    laps = int(rt_shown // lap_s)
+    pos = 6 if t < 100 else 5
+    pkt = forza_pkt(speed=0.0 if t < 5 else 50.0, dist=rt_shown / lap_s * L_fz, last=lap_s if laps else 0.0,
+                    cur=rt_shown % lap_s, race_t=rt_shown, lap=laps, pos=pos)
+    return fz_race.parse(pkt, now=t) if not done or t < 3 * lap_s + 40 else None
+
+
+c, said = drive(forza_frame, 3 * 70.0 + 50, {"driver_name": "Sam Carter"})
+fz_race.close()
+check(c.mode == "solo" and not c.errors, f"Forza: covered as your car ({c.mode}, {list(c.errors)})")
+check("Sam Carter" in said and re.search(r"(chequered flag|crossing the line|finish)\w* in fifth", said),
+      f"Forza: the intro and the finish in fifth ({said[-400:]})")
+check("lost time" not in said and "Big moment" not in said,
+      "Forza: the first lap, before the lap length is known, isn't mistaken for time lost on the next")
+check(sc.waiting_hint({}) is None, "waiting hint: nothing running, nothing to say")
+
 # ---------------------------------------------------------------- ACC's broadcasting API
 from simcast.acc_broadcast import ACCBroadcast, read_config  # noqa: E402
 
@@ -637,6 +702,14 @@ check("[HELICORSA]\nACTIVE=1" in ini and "[CREWCHIEFEX]\nACTIVE=1\n" in ini, "si
 check('udp enabled="true"' in open(os.path.join(f1dir, "hardware_settings_config.xml")).read() and
       'format="2025"' in open(os.path.join(f1dir, "hardware_settings_config.xml")).read(), "sims set up: F1 25 UDP on, format kept")
 check("Found 4" in detect.summary(list(found.values())), "sims found: a summary for the log")
+lib3 = os.path.join(tempfile.mkdtemp(), "Steam")
+os.makedirs(os.path.join(lib3, "steamapps", "common", "ForzaHorizon5"))
+for appid in (2440510, 378860):
+    open(os.path.join(lib3, "steamapps", f"appmanifest_{appid}.acf"), "w").write('"AppState" { }')
+more = {x.key: x for x in detect.scan(libraries=[lib3], documents=docs2) if x.found}
+check(set(more) - {"f1"} == {"forza", "fh5", "pc2"} and more["forza"].coverage == "own" and "Data Out" in more["forza"].status
+      and "Car Dash" in more["forza"].status and "circuit races" in more["fh5"].status
+      and "Project CARS 2" in more["pc2"].status, f"sims found: Forza Motorsport, Forza Horizon 5, Project CARS 2 ({more})")
 # CrewChief installed, but its CrewChiefEx app not yet put into AC: SimCast copies it over and switches it on
 cc_home = tempfile.mkdtemp(prefix="simcast-cc-")
 cc_app = os.path.join(cc_home, "Britton IT Ltd", "CrewChiefV4", "plugins", "assettocorsa", "apps", "python", "CrewChiefEx")
