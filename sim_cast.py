@@ -18,9 +18,8 @@ overtakes, battles, pit stops, fastest laps, cars in trouble and the finish, for
 just yours. Stands alone: SimCoach doesn't need to be installed (the two can run side by side).
 
   SimCast.exe / SimCast.bat   the SimCast window
-  --demo                      start with the demo race (no sim needed)
   --console                   no window: commentary in the console
-  --test [--laps N]           a whole demo race, silently, on a fast clock: prints the commentary
+  --test [--laps N]           (for development) a built-in test race, silently, on a fast clock
   --no-voice                  text only
   --setup                     download the packages and exit (the installer runs this)
 """
@@ -49,9 +48,8 @@ def _crash_logging(log):
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description="SimCast: live TV-style race commentary for sim racing.")
-    ap.add_argument("--demo", action="store_true", help="start with the demo race")
     ap.add_argument("--console", action="store_true", help="no window: print the commentary")
-    ap.add_argument("--test", action="store_true", help="silent demo race on a fast clock; print the commentary")
+    ap.add_argument("--test", action="store_true", help="development: a silent built-in test race on a fast clock; print the commentary")
     ap.add_argument("--setup", action="store_true", help="check the packages load, then exit")
     ap.add_argument("--laps", type=int, default=None)
     ap.add_argument("--seed", type=int, default=3)
@@ -90,12 +88,10 @@ def main(argv=None):
 
     if not args.console:
         from simcast.gui import SimCastWindow
-        SimCastWindow(cast, start_demo=args.demo).run()
+        SimCastWindow(cast).run()
         return 0
 
     print(f"SimCast {app_mod.APP_VERSION}: waiting for a sim... (Ctrl+C to quit)")
-    if args.demo:
-        cast.start_demo(args.laps)
     stop = threading.Event()
     loop = threading.Thread(target=cast.run, args=(stop,), daemon=True, name="simcast-loop")
     loop.start()

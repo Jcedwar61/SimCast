@@ -657,7 +657,7 @@ check(all(v in [x for _, x in VOICES] and american(v) for v in NASCAR_VOICES.val
       "voices: NASCAR's voices are listed, American, and match the defaults' genders (the booth's names fit)")
 from simcast.guide import TOPICS  # noqa: E402
 gtext = " ".join(t for _, t in TOPICS)
-for word in ("Play on", "Demo race", "Personality", "Random chat", "Sponsors", "Call me", "Captions window", "install-simcast-wine.sh", "Automatic", "CrewChiefEx",
+for word in ("Play on", "Personality", "Random chat", "Sponsors", "Call me", "Captions window", "install-simcast-wine.sh", "Automatic", "CrewChiefEx",
              "EA SPORTS WRC", "DiRT Rally 2.0", "AC Rally", "AC EVO", "ACC", "iRacing", "F1 25", "Le Mans Ultimate",
              "rFactor 2", "Automobilista 2", "RaceRoom", "Assetto Corsa"):
     check(word in gtext, f"guide covers: {word}")

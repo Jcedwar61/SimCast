@@ -11,30 +11,20 @@ import tkinter as tk
 from collections import deque
 from tkinter import ttk
 
-from . import hotkeys, providers, update
+from . import hotkeys, providers, ui, update
 from .app import APP_DIR, APP_NAME, APP_VERSION, DEFAULTS, STYLES, file_log, style_of
 from .link import DUCK_LABELS
 from .audio import VOICE_LABEL, VOICES
 from .guide import TOPICS as GUIDE
+from .ui import P, Btn, Pill, Segmented, Switch, px
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ASSETS = os.path.join(HERE, "assets")
 ICO = os.path.join(os.path.dirname(HERE), "SimCast.ico")
 LICENSE_DIR = os.path.join(HERE, "licenses")
 
-# The look of a TV race graphics package: black, broadcast yellow and white, slanted shapes, condensed capitals,
-# and red only for the live tally light.
-P = {"bg": "#070707", "panel": "#121212", "panel2": "#1c1c1c", "stripe": "#171717", "line": "#2c2c2c",
-     "fg": "#f5f5f0", "mut": "#9a9a92", "acc": "#ffc917", "acc_dk": "#d6a600", "ink": "#0a0a0a",
-     "red": "#e5132e", "red_dk": "#9e0c1f", "amber": "#ff8a00", "purple": "#a855f7", "green": "#1fc95b",
-     "hover": "#2a2a2a", "e3": "#ffc917"}
-WHO_COLOUR = {"lead": P["acc"], "analyst": P["fg"], "pit": P["red"]}       # each voice's name tag
-WHO_INK = {"lead": P["ink"], "analyst": P["ink"], "pit": "#ffffff"}         # the text on it
-
-
-def slant(x, y, w, h, s=8):
-    """A parallelogram, the shape of every broadcast graphic: (x, y) top-left, s the lean."""
-    return (x + s, y, x + w, y, x + w - s, y + h, x, y + h)
+WHO_COLOUR = {"lead": P["amber"], "analyst": P["blue"], "pit": P["rose"]}     # each voice's colour
+WHO_TINT = {"lead": P["amber_tint"], "analyst": P["blue_tint"], "pit": P["red_tint"]}
 CHATTER_LABELS = {"quiet": "Quiet", "normal": "Normal", "chatty": "Chatty"}
 FOCUS_LABELS = {"field": "Whole field", "balanced": "Balanced", "me": "Mostly me"}
 STYLE_LABELS = {"tv": "TV broadcast", "late": "Late-night stream", "pub": "Mates down the pub", "custom": "Custom"}
@@ -48,10 +38,10 @@ STYLE_NOTES = {
 }
 TONE_LABELS = {"broadcast": "Professional", "loose": "Loose", "unhinged": "Unhinged"}
 BANTER_LABELS = {"rare": "Rarely", "normal": "Sometimes", "lots": "Whenever there's time"}
-DRIVE_LABELS = {"stream": "Stream (the full show)", "driver": "Driving (quiet in traffic and braking zones)"}
+DRIVE_LABELS = {"stream": "Stream", "driver": "Driving"}
 CONVO_LABELS = {"auto": "Automatic (a second provider with a key)", "same": "The same as above",
                 "openai": "OpenAI", "gemini": "Google Gemini", "deepseek": "DeepSeek"}
-NASCAR_LABELS = {"auto": "Automatic (stock cars, ovals)", "on": "On", "off": "Off"}
+NASCAR_LABELS = {"auto": "Automatic", "on": "On", "off": "Off"}
 PRONOUN_LABELS = {"auto": "From my name", "he": "He", "she": "She", "they": "They"}
 PROVIDERS = {"openai": "OpenAI", "gemini": "Google Gemini", "deepseek": "DeepSeek"}
 ASSIST_LABELS = {"auto": "Automatic (DeepSeek, then OpenAI)", "off": "Off", "deepseek": "DeepSeek",
@@ -71,7 +61,7 @@ def _dpi_aware():
             pass
 
 
-def dark_titlebar(win):
+def dark_titlebar(win, caption=None):
     """Windows 10/11: a dark title bar, and on Windows 11 a caption and border in SimCast's colours."""
     if sys.platform != "win32":
         return
@@ -87,20 +77,22 @@ def dark_titlebar(win):
 
         def rgb(h):
             return ctypes.c_int(int(h[5:7], 16) << 16 | int(h[3:5], 16) << 8 | int(h[1:3], 16))
-        dwm.DwmSetWindowAttribute(hwnd, 35, ctypes.byref(rgb(P["bg"])), 4)
+        dwm.DwmSetWindowAttribute(hwnd, 35, ctypes.byref(rgb(caption or P["bg"])), 4)
         dwm.DwmSetWindowAttribute(hwnd, 34, ctypes.byref(rgb(P["line"])), 4)
         dwm.DwmSetWindowAttribute(hwnd, 36, ctypes.byref(rgb(P["fg"])), 4)
+        corner = ctypes.c_int(2)                                  # Windows 11: rounded window corners
+        dwm.DwmSetWindowAttribute(hwnd, 33, ctypes.byref(corner), 4)
     except Exception:
         pass
 
 
 def _gap_text(s, i, session):
     if i == 0:
-        return "LEADER" if session == "race" else (_lap(s["best"]) if s["best"] else "")
+        return "Leader" if session == "race" else (_lap(s["best"]) if s["best"] else "")
     if s["status"] in ("dnf", "dsq"):
-        return "OUT"
+        return "Out"
     if session != "race":
-        return f"+{s['gap']:.3f}" if s["gap"] is not None else ("" if s["best"] else "no time")
+        return f"+{s['gap']:.3f}" if s["gap"] is not None else ("" if s["best"] else "No time")
     if s["interval"] is not None:
         return f"+{s['interval']:.1f}"
     if s["laps_down"]:
@@ -113,21 +105,32 @@ def _lap(t):
     return f"{int(m)}:{sec:06.3f}" if m else f"{sec:.3f}"
 
 
+def section_title(parent, text, sub=None):
+    """A card's heading: the title, and a quieter note on the right."""
+    bg = ui.bg_of(parent)
+    row = tk.Frame(parent, bg=bg)
+    tk.Label(row, text=text, font=ui.F["h3"], fg=P["fg"], bg=bg).pack(side="left")
+    lab = tk.Label(row, text=sub or "", font=ui.F["small"], fg=P["mut"], bg=bg)
+    lab.pack(side="right")
+    return row, lab
+
+
 class SimCastWindow:
     POLL_MS = 400
     UPDATE_FIRST_MS = 4000                         # first update check, once the window is up
     UPDATE_EVERY_MS = 12 * 3600 * 1000             # then every 12 hours while SimCast is open
 
-    def __init__(self, cast, start_demo=False):
+    def __init__(self, cast):
         _dpi_aware()
         self.cast = cast
+        cast.director.on_air = False               # SimCast always opens off air: the booth talks when you ask
         self.root = r = tk.Tk(className="SimCast")
         r.title(f"{APP_NAME} {APP_VERSION}")
         r.configure(bg=P["bg"])
-        r.minsize(880, 560)
-        geo = cast.cfg.get("window")
-        r.geometry(geo if isinstance(geo, str) and "x" in geo else "1180x760")
         self._fonts()
+        r.minsize(px(880), px(560))
+        geo = cast.cfg.get("window")
+        r.geometry(geo if isinstance(geo, str) and "x" in geo else f"{px(1200)}x{px(780)}")
         self._style()
         self._icons()
         self._build()
@@ -143,8 +146,6 @@ class SimCastWindow:
         self.stop = threading.Event()
         self.loop = threading.Thread(target=cast.run, args=(self.stop,), daemon=True, name="simcast-loop")
         r.protocol("WM_DELETE_WINDOW", self.close)
-        if start_demo:
-            cast.start_demo()
         if cast.cfg.get("captions"):
             self.toggle_captions(True)
         if not cast.cfg.get("guide_seen"):                 # first start: open the guide on Getting started
@@ -154,88 +155,10 @@ class SimCastWindow:
 
     # ------------------------------------------------------------------ look
     def _fonts(self):
-        """Condensed capitals for everything that's a graphic (Bahnschrift is on every Windows 10/11 PC), a clean
-        face for the commentary itself."""
-        import tkinter.font as tkfont
-        fams = set(tkfont.families(self.root))
-
-        def pick(*names, d="TkDefaultFont"):
-            return next((f for f in names if f in fams), d)
-        ui = pick("Bahnschrift", "Segoe UI", "Roboto", "Helvetica", "DejaVu Sans")
-        cond = pick("Bahnschrift SemiBold Condensed", "Bahnschrift Condensed", "Roboto Condensed",
-                    "DejaVu Sans Condensed", "Arial Narrow", d=ui)
-        self.cond = cond
-        self.f = {"ui": (ui, 10), "uib": (ui, 10, "bold"), "small": (ui, 9), "smallb": (cond, 9, "bold"),
-                  "title": (cond, 19, "bold italic"), "h1": (cond, 30, "bold"), "tower": (cond, 13),
-                  "towerb": (cond, 13, "bold"), "tag": (cond, 8, "bold"), "line": (ui, 11),
-                  "line2": (ui, 11, "bold"), "line3": (cond, 16, "bold"), "who": (cond, 10, "bold"),
-                  "cap": (cond, 24, "bold"), "capwho": (cond, 12, "bold"), "btn": (cond, 11, "bold"),
-                  "strip": (cond, 13, "bold"), "tab": (cond, 11, "bold"), "tally": (cond, 12, "bold italic"),
-                  "gh": (cond, 18, "bold")}
+        self.f = ui.setup(self.root)
 
     def _style(self):
-        st = ttk.Style(self.root)
-        st.theme_use("clam")
-        st.configure(".", background=P["bg"], foreground=P["fg"], fieldbackground=P["panel2"], font=self.f["ui"],
-                     bordercolor=P["line"], lightcolor=P["line"], darkcolor=P["line"], troughcolor=P["panel"],
-                     focuscolor=P["acc"], selectbackground=P["acc"], selectforeground=P["ink"],
-                     insertcolor=P["fg"])
-        st.configure("TFrame", background=P["bg"])
-        st.configure("Card.TFrame", background=P["panel"])
-        st.configure("TLabel", background=P["bg"], foreground=P["fg"])
-        st.configure("Card.TLabel", background=P["panel"], foreground=P["fg"])
-        st.configure("Mut.TLabel", background=P["bg"], foreground=P["mut"])
-        st.configure("CardMut.TLabel", background=P["panel"], foreground=P["mut"], font=self.f["smallb"])
-        st.configure("TButton", background=P["panel2"], foreground=P["fg"], borderwidth=0, padding=(12, 6),
-                     relief="flat", font=self.f["btn"], width=0)        # as wide as the label, no wider
-        st.map("TButton", background=[("active", P["hover"]), ("disabled", P["panel"])],
-               foreground=[("disabled", P["mut"])])
-        st.configure("Accent.TButton", background=P["acc"], foreground=P["ink"])
-        st.map("Accent.TButton", background=[("active", P["acc_dk"])], foreground=[("active", P["ink"])])
-        st.configure("OnAir.TButton", background=P["red"], foreground="#ffffff")           # the tally light
-        st.map("OnAir.TButton", background=[("active", P["red_dk"])])
-        st.configure("OffAir.TButton", background=P["panel2"], foreground=P["mut"])
-        st.configure("Nascar.TButton", background=P["acc"], foreground=P["ink"])
-        st.map("Nascar.TButton", background=[("active", P["acc_dk"])], foreground=[("active", P["ink"])])
-        st.configure("Small.TButton", padding=(8, 3), font=self.f["smallb"])
-        st.configure("TNotebook", background=P["bg"], borderwidth=0, tabmargins=(0, 0, 0, 0))
-        st.configure("TNotebook.Tab", background=P["bg"], foreground=P["mut"], padding=(16, 7), borderwidth=0,
-                     font=self.f["tab"])
-        st.map("TNotebook.Tab", background=[("selected", P["acc"])], foreground=[("selected", P["ink"])])
-        st.configure("TEntry", fieldbackground=P["panel2"], foreground=P["fg"], padding=5)
-        st.configure("TCombobox", fieldbackground=P["panel2"], background=P["panel2"], foreground=P["fg"],
-                     arrowcolor=P["acc"], padding=4)
-        st.map("TCombobox", fieldbackground=[("readonly", P["panel2"])], foreground=[("readonly", P["fg"])],
-               selectbackground=[("readonly", P["panel2"])], selectforeground=[("readonly", P["fg"])])
-        self.root.option_add("*TCombobox*Listbox.background", P["panel2"])
-        self.root.option_add("*TCombobox*Listbox.foreground", P["fg"])
-        self.root.option_add("*TCombobox*Listbox.selectBackground", P["acc"])
-        self.root.option_add("*TCombobox*Listbox.selectForeground", P["ink"])
-        for w in ("TRadiobutton", "TCheckbutton"):
-            st.configure(w, background=P["panel"], foreground=P["fg"], indicatorbackground=P["panel2"],
-                         indicatorforeground=P["panel2"], upperbordercolor=P["line"], lowerbordercolor=P["line"],
-                         indicatormargin=(0, 0, 6, 0))
-            st.map(w, indicatorbackground=[("selected", P["acc"]), ("active", P["hover"])],
-                   indicatorforeground=[("selected", P["ink"])], background=[("active", P["panel"])])
-        st.configure("Bar.TCheckbutton", background=P["bg"], font=self.f["smallb"])
-        st.map("Bar.TCheckbutton", background=[("active", P["bg"])])
-        st.configure("Horizontal.TScale", background=P["acc"], troughcolor=P["panel2"], bordercolor=P["line"],
-                     lightcolor=P["acc"], darkcolor=P["acc_dk"], sliderlength=18)
-        st.map("Horizontal.TScale", background=[("active", P["acc_dk"])])
-        st.configure("Vertical.TScrollbar", background=P["panel2"], troughcolor=P["panel"], arrowcolor=P["mut"],
-                     bordercolor=P["panel"], lightcolor=P["panel2"], darkcolor=P["panel2"], gripcount=0,
-                     arrowsize=12)
-        st.map("Vertical.TScrollbar", background=[("active", P["line"])])
-
-    def tab(self, parent, text, bg=None, fill=None, ink=None):
-        """A slanted graphics tab with a heading in it: TIMING, THE BOOTH..."""
-        import tkinter.font as tkfont
-        font = self.f["tab"]
-        w = tkfont.Font(root=self.root, font=font).measure(text) + 30
-        c = tk.Canvas(parent, width=w, height=24, bg=bg or P["panel"], highlightthickness=0, bd=0)
-        c.create_polygon(slant(0, 0, w, 24, 9), fill=fill or P["acc"], outline="")
-        c.create_text(w / 2, 12, text=text, font=font, fill=ink or P["ink"])
-        return c
+        ui.style_ttk(self.root)
 
     def _img(self, name):
         try:
@@ -246,6 +169,10 @@ class SimCastWindow:
     def _icons(self):
         self.img_logo = self._img("logo-40.png")
         self.img_hero = self._img("hero-car-240.png")
+        if self.img_hero is not None and ui.SCALE < 1.5:
+            self.img_hero_s = self.img_hero.subsample(2)     # a quieter 120 px mark for the stand-by screen
+        else:
+            self.img_hero_s = self.img_hero
         self.img_helmet = self._img("helmet-32.png")
         icon = self._img("icon-48.png")
         if icon is not None:
@@ -262,67 +189,64 @@ class SimCastWindow:
         r = self.root
         r.columnconfigure(0, weight=1)
         r.rowconfigure(2, weight=1)
+        G = px(20)                                  # the page's outer margin
 
-        # the broadcast bar: the SIMCAST bug, the tally light, the controls
-        self.hdr = hdr = tk.Frame(r, bg=P["bg"], padx=16, pady=10)
+        # the app bar: the mark and name, the status, the controls
+        self.hdr = hdr = tk.Frame(r, bg=P["bg"], padx=G, pady=px(14))
         hdr.grid(row=0, column=0, sticky="ew")
         hdr.columnconfigure(2, weight=1)
-        import tkinter.font as tkfont
-        tw = tkfont.Font(root=r, font=self.f["title"]).measure("SIMCAST") + 44
-        bug = tk.Canvas(hdr, width=tw + 6, height=38, bg=P["bg"], highlightthickness=0, bd=0)
-        bug.grid(row=0, column=0, padx=(0, 12))
-        bug.create_polygon(slant(6, 4, tw, 32, 12), fill=P["red"], outline="")      # a red edge under the bug
-        bug.create_polygon(slant(0, 0, tw, 32, 12), fill=P["acc"], outline="")
-        bug.create_text(tw / 2, 16, text="SIMCAST", font=self.f["title"], fill=P["ink"])
-        self.tally = tk.Canvas(hdr, width=96, height=26, bg=P["bg"], highlightthickness=0, bd=0)
-        self.tally.grid(row=0, column=1, sticky="w")
-        self.tally_box = self.tally.create_polygon(slant(0, 0, 96, 26, 8), fill=P["panel2"], outline="")
-        self.tally_txt = self.tally.create_text(48, 13, text="STANDBY", font=self.f["tally"], fill=P["mut"])
+        brand = tk.Frame(hdr, bg=P["bg"])
+        brand.grid(row=0, column=0, sticky="w")
+        if self.img_logo:
+            tk.Label(brand, image=self.img_logo, bg=P["bg"]).pack(side="left", padx=(0, px(10)))
+        tk.Label(brand, text="SimCast", font=self.f["title"], fg=P["fg"], bg=P["bg"]).pack(side="left")
+        self.tally = tk.Canvas(hdr, height=px(24), bg=P["bg"], highlightthickness=0, bd=0)
+        self.tally.grid(row=0, column=1, sticky="w", padx=(px(14), 0))
+        self.tally_box = self.tally.create_image(0, 0, anchor="nw")
+        self.tally_dot = self.tally.create_oval(px(10), px(9), px(16), px(15), outline="")
+        self.tally_txt = self.tally.create_text(px(22), px(12), anchor="w", text="STANDBY", font=self.f["micro"],
+                                                fill=P["mut"])
+        self._tally_state = None
         btns = tk.Frame(hdr, bg=P["bg"])
         btns.grid(row=0, column=3, sticky="e")
-        self.demo_btn = ttk.Button(btns, text="▶  DEMO RACE", command=self.toggle_demo)
-        self.demo_btn.pack(side="left", padx=3)
-        self.nascar_btn = ttk.Button(btns, text="NASCAR OFF", command=self.toggle_nascar)
-        self.nascar_btn.pack(side="left", padx=3)
-        ttk.Button(btns, text="SKIP", command=self.skip).pack(side="left", padx=3)
-        self.air_btn = ttk.Button(btns, text="●  ON AIR", style="OnAir.TButton", command=self.toggle_air)
-        self.air_btn.pack(side="left", padx=3)
-        self.guide_btn = ttk.Button(btns, text="GUIDE", command=self.open_guide)
-        self.guide_btn.pack(side="left", padx=3)
-        self.settings_btn = ttk.Button(btns, text="SETTINGS", command=self.open_settings)
-        self.settings_btn.pack(side="left", padx=(3, 0))
+        self.nascar_btn = Btn(btns, text="NASCAR off", kind="ghost", command=self.toggle_nascar)
+        self.nascar_btn.pack(side="left", padx=px(2))
+        Btn(btns, text="Skip line", kind="ghost", command=self.skip).pack(side="left", padx=px(2))
+        self.guide_btn = Btn(btns, text="Guide", kind="ghost", command=self.open_guide)
+        self.guide_btn.pack(side="left", padx=px(2))
+        self.settings_btn = Btn(btns, text="Settings", command=self.open_settings)
+        self.settings_btn.pack(side="left", padx=(px(2), px(10)))
+        self.air_btn = Btn(btns, text="Go on air", style="OffAir.TButton", command=self.toggle_air, minwidth=px(112))
+        self.air_btn.pack(side="left")
 
-        # the graphics strip: where we are, the flag, what SimCast is connected to
-        strip = tk.Frame(r, bg=P["panel"])
-        strip.grid(row=1, column=0, sticky="ew", padx=16)
-        strip.columnconfigure(1, weight=1)
-        tk.Frame(strip, bg=P["acc"], width=5).grid(row=0, column=0, sticky="ns")
-        self.session = tk.Label(strip, text="", font=self.f["strip"], fg=P["fg"], bg=P["panel"], padx=12, pady=6,
-                                anchor="w")
-        self.session.grid(row=0, column=1, sticky="w")
-        self.flag = tk.Label(strip, text="", font=self.f["smallb"], fg=P["ink"], bg=P["panel"], padx=10, pady=2)
-        self.flag.grid(row=0, column=2, padx=(0, 10))
-        self.status = tk.Label(strip, text="Starting…", font=self.f["smallb"], fg=P["mut"], bg=P["panel"], padx=12)
-        self.status.grid(row=0, column=3, sticky="e")
+        # the session bar: the track, the lap, the flag, what SimCast is connected to
+        strip = ui.card(r, r=10)
+        strip.grid(row=1, column=0, sticky="ew", padx=G)
+        strip.columnconfigure(2, weight=1)
+        self.session = tk.Label(strip, text="", font=self.f["track"], fg=P["fg"], bg=P["panel"], anchor="w")
+        self.session.grid(row=0, column=0, sticky="w", padx=(px(18), 0), pady=px(12))
+        self.lap = tk.Label(strip, text="", font=self.f["ui"], fg=P["mut"], bg=P["panel"], anchor="w")
+        self.lap.grid(row=0, column=1, sticky="w", padx=(px(12), 0))
+        self.flag = Pill(strip, "")
+        self.flag.grid(row=0, column=3, padx=(0, px(12)))
+        self.status = tk.Label(strip, text="Starting…", font=self.f["small"], fg=P["mut"], bg=P["panel"])
+        self.status.grid(row=0, column=4, sticky="e", padx=(0, px(18)))
 
-        self.body = tk.Frame(r, bg=P["bg"], padx=16, pady=10)
+        self.body = tk.Frame(r, bg=P["bg"], padx=G, pady=px(14))
         self.body.grid(row=2, column=0, sticky="nsew")
-        self.body.columnconfigure(0, weight=0, minsize=330)
+        self.body.columnconfigure(0, weight=0, minsize=px(340))
         self.body.columnconfigure(1, weight=1)
         self.body.rowconfigure(0, weight=1)
 
-        # the timing tower, drawn like the one on TV
-        tw_ = tk.Frame(self.body, bg=P["panel"])
-        tw_.grid(row=0, column=0, sticky="nsew", padx=(0, 12))
+        # the timing tower
+        tw_ = ui.card(self.body)
+        tw_.grid(row=0, column=0, sticky="nsew", padx=(0, px(14)))
         tw_.rowconfigure(1, weight=1)
         tw_.columnconfigure(0, weight=1)
-        th = tk.Frame(tw_, bg=P["panel"], padx=12, pady=10)
-        th.grid(row=0, column=0, sticky="ew")
-        self.tab(th, "TIMING").pack(side="left")
-        self.tower_info = tk.Label(th, text="", font=self.f["smallb"], fg=P["mut"], bg=P["panel"])
-        self.tower_info.pack(side="right")
-        self.tower = tk.Canvas(tw_, bg=P["panel"], highlightthickness=0, bd=0, width=320)
-        self.tower.grid(row=1, column=0, sticky="nsew", padx=(10, 10), pady=(0, 10))
+        th, self.tower_info = section_title(tw_, "Timing")
+        th.grid(row=0, column=0, sticky="ew", padx=px(18), pady=(px(16), px(10)))
+        self.tower = tk.Canvas(tw_, bg=P["panel"], highlightthickness=0, bd=0, width=px(320))
+        self.tower.grid(row=1, column=0, sticky="nsew", padx=px(10), pady=(0, px(12)))
         self.tower.bind("<Configure>", lambda e: self._draw_tower(force=True))
         self.tower.bind("<MouseWheel>", lambda e: self.tower.yview_scroll(-1 if e.delta > 0 else 1, "units"))
         self.tower.bind("<Button-4>", lambda e: self.tower.yview_scroll(-1, "units"))
@@ -331,78 +255,71 @@ class SimCastWindow:
         self._tower_drawn = None
         self._tower_session = None
 
-        # the booth: who's speaking, as lower-third name tags
-        bo = tk.Frame(self.body, bg=P["panel"])
+        # the booth: who said what
+        bo = ui.card(self.body)
         bo.grid(row=0, column=1, sticky="nsew")
         bo.rowconfigure(1, weight=1)
         bo.columnconfigure(0, weight=1)
-        bh = tk.Frame(bo, bg=P["panel"], padx=12, pady=10)
-        bh.grid(row=0, column=0, columnspan=2, sticky="ew")
-        self.tab(bh, "THE BOOTH").pack(side="left")
-        self.speaking = tk.Label(bh, text="", font=self.f["smallb"], fg=P["red"], bg=P["panel"])
-        self.speaking.pack(side="right")
-        self.text = tk.Text(bo, bg=P["panel"], fg=P["fg"], relief="flat", wrap="word", font=self.f["line"],
-                            padx=16, pady=6, highlightthickness=0, borderwidth=0, cursor="arrow",
-                            spacing1=0, spacing2=2, spacing3=0, tabs=(96,), state="disabled")
-        self.text.grid(row=1, column=0, sticky="nsew")
+        bh, self.speaking = section_title(bo, "Commentary")
+        self.speaking.configure(fg=P["rose"], font=self.f["smallb"])
+        bh.grid(row=0, column=0, columnspan=2, sticky="ew", padx=px(18), pady=(px(16), px(10)))
+        tk.Frame(bo, bg=P["line"], height=1).grid(row=0, column=0, columnspan=2, sticky="sew")
+        tab = px(84)
+        self.text = tk.Text(bo, bg=P["panel"], fg=P["fg2"], relief="flat", wrap="word", font=self.f["line"],
+                            padx=px(18), pady=px(12), highlightthickness=0, borderwidth=0, cursor="arrow",
+                            spacing1=0, spacing2=px(3), spacing3=0, tabs=(tab,), state="disabled")
+        self.text.grid(row=1, column=0, sticky="nsew", pady=(0, px(8)))
         sb = ttk.Scrollbar(bo, orient="vertical", command=self.text.yview)
-        sb.grid(row=1, column=1, sticky="ns")
-        self.text.configure(yscrollcommand=sb.set)
+        sb.grid(row=1, column=1, sticky="ns", padx=(0, px(6)), pady=(px(6), px(14)))
+        self.text.configure(yscrollcommand=ui.autohide(sb))
         for who, col in WHO_COLOUR.items():
-            self.text.tag_configure("who_" + who, background=col, foreground=WHO_INK[who], font=self.f["who"])
+            self.text.tag_configure("who_" + who, foreground=col, font=self.f["who"])
         self.text.tag_configure("e0", font=self.f["line"], foreground=P["mut"])
-        self.text.tag_configure("e1", font=self.f["line"])
-        self.text.tag_configure("e2", font=self.f["line2"])
-        self.text.tag_configure("e3", font=self.f["line3"], foreground=P["e3"])
-        self.text.tag_configure("para", lmargin1=0, lmargin2=96)
-        self.text.tag_configure("hint", foreground=P["mut"])
-        self.text.tag_configure("gap", font=(self.cond, 6))
+        self.text.tag_configure("e1", font=self.f["line"], foreground=P["fg2"])
+        self.text.tag_configure("e2", font=self.f["line2"], foreground=P["fg"])
+        self.text.tag_configure("e3", font=self.f["line3"], foreground=P["white"])
+        self.text.tag_configure("para", lmargin1=0, lmargin2=tab)
+        self.text.tag_configure("hint", foreground=P["dim"])
+        self.text.tag_configure("gap", font=(self.f["ui"][0], 5))
         self._text_insert([("The commentary appears here as it's spoken.", "hint")])
 
-        # the standby card (instead of the tower and booth when nothing's running)
-        self.hero = tk.Frame(r, bg=P["panel"])
-        self.hero.columnconfigure(1, weight=1)
-        self.checker = tk.Canvas(self.hero, height=20, bg=P["panel"], highlightthickness=0, bd=0)
-        self.checker.grid(row=0, column=0, columnspan=2, sticky="ew")
-        self.checker.bind("<Configure>", self._draw_checker)
-        inner = tk.Frame(self.hero, bg=P["panel"], padx=30, pady=24)
-        inner.grid(row=1, column=0, columnspan=2, sticky="nsew")
+        # the stand-by screen (instead of the tower and booth when no sim is running)
+        self.hero = ui.card(r, r=14)
+        self.hero.columnconfigure(0, weight=1)
+        self.hero.rowconfigure(0, weight=1)
+        inner = tk.Frame(self.hero, bg=P["panel"], padx=px(44), pady=px(36))
+        inner.grid(row=0, column=0, sticky="nsew")
         inner.columnconfigure(1, weight=1)
-        if self.img_hero:
-            tk.Label(inner, image=self.img_hero, bg=P["panel"]).grid(row=0, column=0, rowspan=4, padx=(0, 30),
-                                                                     sticky="n")
-        self.tab(inner, "STAND BY", fill=P["red"], ink="#ffffff").grid(row=0, column=1, sticky="w")
-        tk.Label(inner, text="WAITING FOR THE GREEN FLAG", font=self.f["h1"], fg=P["fg"], bg=P["panel"]).grid(
-            row=1, column=1, sticky="w", pady=(6, 0))
-        tk.Label(inner, fg=P["mut"], bg=P["panel"], wraplength=560, justify="left", font=self.f["ui"],
-                 text="Start a race or a rally stage in any supported sim and the booth goes on air by itself. "
-                      "The sims SimCast found on this PC are below. Or hear what it sounds like right now."
-                 ).grid(row=2, column=1, sticky="w", pady=(4, 16))
-        ttk.Button(inner, text="▶  START A DEMO RACE", style="Accent.TButton",
-                   command=self.toggle_demo).grid(row=3, column=1, sticky="nw")
-        self.tab(inner, "SIMS ON THIS PC").grid(row=4, column=0, columnspan=2, sticky="w", pady=(28, 8))
+        if self.img_hero_s:
+            tk.Label(inner, image=self.img_hero_s, bg=P["panel"]).grid(row=0, column=0, rowspan=4,
+                                                                       padx=(0, px(32)), sticky="nw")
+        Pill(inner, "STANDBY", fg=P["mut"], fill=P["panel2"]).grid(row=0, column=1, sticky="w")
+        tk.Label(inner, text="Waiting for a race", font=self.f["h1"], fg=P["fg"], bg=P["panel"]).grid(
+            row=1, column=1, sticky="w", pady=(px(10), 0))
+        tk.Label(inner, fg=P["mut"], bg=P["panel"], wraplength=px(560), justify="left", font=self.f["ui"],
+                 text="Start a race or a rally stage in any supported sim and SimCast picks it up by itself. "
+                      "The booth stays off air until you press Go on air."
+                 ).grid(row=2, column=1, sticky="w", pady=(px(6), px(18)))
+        acts = tk.Frame(inner, bg=P["panel"])
+        acts.grid(row=3, column=1, sticky="nw")
+        Btn(acts, text="Getting started", style="Accent.TButton", command=self.open_guide).pack(side="left")
+        Btn(acts, text="Settings", command=self.open_settings).pack(side="left", padx=(px(8), 0))
+        tk.Frame(inner, bg=P["line"], height=1).grid(row=4, column=0, columnspan=2, sticky="ew", pady=(px(32), px(22)))
+        sh, _ = section_title(inner, "Sims on this PC", "Ready means nothing to do")
+        sh.grid(row=5, column=0, columnspan=2, sticky="ew", pady=(0, px(10)))
         self.sims_box = tk.Frame(inner, bg=P["panel"])
-        self.sims_box.grid(row=5, column=0, columnspan=2, sticky="w")
+        self.sims_box.grid(row=6, column=0, columnspan=2, sticky="ew")
         self._sims_shown = None
 
-        foot = tk.Frame(r, bg=P["bg"], padx=16, pady=8)
+        foot = tk.Frame(r, bg=P["bg"], padx=G, pady=px(10))
         foot.grid(row=3, column=0, sticky="ew")
         foot.columnconfigure(0, weight=1)
-        self.foot = tk.Label(foot, text="", font=self.f["small"], fg=P["mut"], bg=P["bg"], anchor="w")
+        self.foot = tk.Label(foot, text="", font=self.f["small"], fg=P["dim"], bg=P["bg"], anchor="w")
         self.foot.grid(row=0, column=0, sticky="w")
         self.cap_var = tk.BooleanVar(value=bool(self.cast.cfg.get("captions")))
-        ttk.Checkbutton(foot, text="CAPTIONS WINDOW", style="Bar.TCheckbutton", variable=self.cap_var,
-                        command=lambda: self.toggle_captions(self.cap_var.get())).grid(row=0, column=1, sticky="e")
+        Switch(foot, "Captions window", self.cap_var, command=lambda: self.toggle_captions(self.cap_var.get()),
+               font_key="small", fg=P["mut"]).grid(row=0, column=1, sticky="e")
         self._idle_shown = None
-
-    def _draw_checker(self, e=None):
-        c = self.checker
-        c.delete("all")
-        w, sq = max(10, c.winfo_width()), 10
-        for k in range(0, w // sq + 1):
-            for row in (0, 1):
-                if (k + row) % 2 == 0:
-                    c.create_rectangle(k * sq, row * sq, k * sq + sq, row * sq + sq, fill=P["fg"], outline="")
 
     def _show_idle(self, idle):
         if idle == self._idle_shown:
@@ -410,14 +327,17 @@ class SimCastWindow:
         self._idle_shown = idle
         if idle:
             self.body.grid_remove()
-            self.hero.grid(row=2, column=0, sticky="nsew", padx=16, pady=(10, 8))
+            self.hero.grid(row=2, column=0, sticky="nsew", padx=px(20), pady=(px(14), px(4)))
         else:
             self.hero.grid_remove()
             self.body.grid()
 
+    TAGS = {"pit": ("PIT", "amber", "amber_tint"), "stop": ("STOP", "red", "red_tint"), "out": ("OUT", "mut", "panel2"),
+            "fin": ("FIN", "fg", "elev"), "fl": ("FL", "purple", "purple_tint")}
+
     def _draw_tower(self, rows=None, session=None, force=False):
-        """The tower as TV draws it: a position box, the name in capitals, the gap, and tags (PIT, FL, FIN, OUT).
-        The viewer's car is the yellow row, a car in a battle has an orange marker."""
+        """The running order: the position, the name, the gap, and tags (PIT, FL, FIN, OUT). Your car is the
+        tinted row with a red edge; a car in a battle has an amber dot."""
         if rows is None:
             rows, session = self.tower_rows, self._tower_session
         key = (tuple(rows), session, self.tower.winfo_width())
@@ -426,31 +346,38 @@ class SimCastWindow:
         self._tower_drawn = key
         c = self.tower
         c.delete("all")
-        W, h = max(260, c.winfo_width()), 28
+        W, h = max(px(260), c.winfo_width()), px(32)
         for i, (pos, name, gap, tags) in enumerate(rows):
             y = i * h
             me, out = "me" in tags, "out" in tags
-            c.create_rectangle(0, y, W, y + h - 2, outline="",
-                               fill=P["acc"] if me else (P["stripe"] if i % 2 else P["panel"]))
-            box = P["ink"] if me else (P["acc"] if pos == 1 else P["fg"])
-            c.create_polygon(slant(0, y + 2, 38, h - 6, 6), fill=box, outline="")
-            c.create_text(19, y + h / 2 - 1, text=str(pos), font=self.f["towerb"],
-                          fill=P["acc"] if me else P["ink"])
+            row_bg = P["panel"]
+            if me:
+                row_bg = P["acc_tint"]
+                c.create_image(0, y + px(1), anchor="nw", image=ui.rounded(W, h - px(2), px(7), row_bg, P["panel"],
+                                                                           P["acc_line"]))
+                c.create_rectangle(px(1), y + px(8), px(3), y + h - px(8), fill=P["acc"], outline="")
+            elif i:
+                c.create_line(px(8), y, W - px(8), y, fill=P["line"])
+            mid = y + h / 2
+            c.create_text(px(30), mid, anchor="e", text=str(pos), font=self.f["num"],
+                          fill=P["fg"] if (me or pos <= 3) else P["mut"])
             if "battle" in tags and not me:
-                c.create_rectangle(44, y + 5, 48, y + h - 7, fill=P["amber"], outline="")
-            ink = P["ink"] if me else (P["mut"] if out else P["fg"])
-            c.create_text(56, y + h / 2 - 1, anchor="w", text=name.upper(), fill=ink,
-                          font=self.f["towerb"] if (pos <= 3 or me) else self.f["tower"])
-            x = W - 74
-            for t, fill, fg in (("PIT", P["amber"], P["ink"]), ("STOP", P["red"], "#fff"), ("OUT", P["line"], P["mut"]),
-                                ("FIN", P["fg"], P["ink"]), ("FL", P["purple"], "#fff")):
-                if t.lower() in tags:
-                    tw = 9 * len(t) + 10
-                    c.create_rectangle(x - tw, y + 7, x, y + h - 9, fill=fill, outline="")
-                    c.create_text(x - tw / 2, y + h / 2 - 1, text=t, font=self.f["tag"], fill=fg)
-                    x -= tw + 4
-            c.create_text(W - 8, y + h / 2 - 1, anchor="e", text=gap, fill=ink,
-                          font=self.f["towerb"] if i == 0 or me else self.f["tower"])
+                c.create_oval(px(38), mid - px(3), px(44), mid + px(3), fill=P["amber"], outline="")
+            ink = P["dim"] if out else P["fg"]
+            c.create_text(px(50), mid, anchor="w", text=name, fill=ink,
+                          font=self.f["towerb"] if (pos == 1 or me) else self.f["tower"])
+            gx = W - px(12)
+            gid = c.create_text(gx, mid, anchor="e", text=gap, fill=P["fg"] if (i == 0 or me) else P["mut"],
+                                font=self.f["num"] if i == 0 or me else self.f["tower"])
+            bx = c.bbox(gid)
+            x = (bx[0] if bx and gap else gx) - px(8)
+            for t in ("pit", "stop", "out", "fin", "fl"):
+                if t in tags:
+                    label, fg, fill = self.TAGS[t]
+                    img = ui.pill_image(label, P[fg], P[fill], row_bg, "tag", 6, 2)
+                    c.create_image(x, mid, anchor="e", image=img)
+                    c.create_text(x - img.width() / 2, mid, text=label, font=self.f["tag"], fill=P[fg])
+                    x -= img.width() + px(4)
         c.configure(scrollregion=(0, 0, W, max(len(rows) * h, 1)))
 
     # ------------------------------------------------------------------ live updates
@@ -475,50 +402,59 @@ class SimCastWindow:
             self.foot.configure(text=f"Display error: {e}")
         self.root.after(self.POLL_MS, self.poll)
 
-    COMPACT_BELOW = 1060                           # window width (px) under which the header buttons go short
+    COMPACT_BELOW = 1060                           # window width (design px) under which the header goes short
 
     FLAG_CHIP = {"fcy": ("FULL COURSE YELLOW", "CAUTION"), "sc": ("SAFETY CAR", "CAUTION"), "vsc": ("VIRTUAL SAFETY CAR",
                                                                                                "CAUTION")}
 
-    def _render(self, S):
-        live, demo = bool(S["source"]) and not S["demo"], S["demo"]
+    def _set_tally(self, live, on_air):
+        pulse = live and int(time.time() * 2) % 3 != 0
+        state = (live, on_air, pulse)
+        if state == self._tally_state:
+            return
+        self._tally_state = state
+        c = self.tally
         if live:
-            fill, txt, ink = (P["red"] if int(time.time() * 2) % 3 else P["red_dk"]), "LIVE", "#ffffff"   # pulses
-        elif demo:
-            fill, txt, ink = P["amber"], "DEMO", P["ink"]
+            fill, dot, txt, ink = P["red_tint"], (P["acc"] if pulse else P["acc_line"]), "LIVE", P["rose"]
         else:
-            fill, txt, ink = P["panel2"], "STANDBY", P["mut"]
-        self.tally.itemconfigure(self.tally_box, fill=fill)
-        self.tally.itemconfigure(self.tally_txt, text=txt, fill=ink)
-        self.status.configure(text=(S["status"] or "").upper())
-        ses = ""
+            fill, dot, txt, ink = P["panel2"], P["dim"], "STANDBY", P["mut"]
+        tw = ui.font("micro").measure(txt) + px(34)
+        c.configure(width=tw)
+        img = ui.rounded(tw, px(24), px(12), fill, P["bg"], P["acc_line"] if live else P["line2"])
+        self._tally_img = img
+        c.itemconfigure(self.tally_box, image=img)
+        c.itemconfigure(self.tally_dot, fill=dot)
+        c.itemconfigure(self.tally_txt, text=txt, fill=ink)
+
+    def _render(self, S):
+        live = bool(S["source"])
+        self._set_tally(live, S["on_air"])
+        self.status.configure(text=S["status"] or "")
+        self.session.configure(text=S["track"] or ("" if live else "No session"))
+        lap = ""
         if S["track"]:
-            ses = S["track"].upper()
             if S["session"] == "race" and S["lap"]:
-                ses += f"    LAP {S['lap']}" + (f" / {S['laps']}" if S["laps"] else "")
+                lap = f"Lap {S['lap']}" + (f" of {S['laps']}" if S["laps"] else "")
             elif S["session"]:
-                ses += f"    {S['session'].upper()}"
-        self.session.configure(text=ses)
+                lap = S["session"].capitalize()
+        self.lap.configure(text=lap)
         nascar = bool(S.get("nascar"))
         if S["finished"]:
-            chip = ("CHECKERED FLAG" if nascar else "CHEQUERED FLAG", P["fg"], P["ink"])
+            self.flag.set("CHECKERED FLAG" if nascar else "CHEQUERED FLAG", P["fg"], P["elev"])
         elif S["flag"] in self.FLAG_CHIP:
-            chip = (self.FLAG_CHIP[S["flag"]][1 if nascar else 0], P["acc"], P["ink"])
+            self.flag.set(self.FLAG_CHIP[S["flag"]][1 if nascar else 0], P["amber"], P["amber_tint"])
         elif S["started"] and S["session"] == "race":
-            chip = ("GREEN FLAG", P["green"], P["ink"])
+            self.flag.set("GREEN FLAG", P["green"], P["green_tint"])
         else:
-            chip = ("", P["panel"], P["ink"])
-        self.flag.configure(text=chip[0], bg=chip[1], fg=chip[2])
-        compact = self.root.winfo_width() < self.COMPACT_BELOW      # a narrow window: shorter labels, so all fit
-        self.demo_btn.configure(text=("■  STOP" if compact else "■  STOP DEMO") if demo else
-                                ("▶  DEMO" if compact else "▶  DEMO RACE"))
-        self.nascar_btn.configure(text="NASCAR" if compact else ("NASCAR ON" if nascar else "NASCAR OFF"),
-                                  style="Nascar.TButton" if nascar else "TButton")
-        self.air_btn.configure(text="●  ON AIR" if S["on_air"] else "○  OFF AIR",
+            self.flag.set("")
+        compact = self.root.winfo_width() < px(self.COMPACT_BELOW)  # a narrow window: shorter labels, so all fit
+        self.nascar_btn.configure(text="NASCAR" if compact else ("NASCAR on" if nascar else "NASCAR off"),
+                                  kind="on" if nascar else "ghost")
+        self.air_btn.configure(text="●  On air" if S["on_air"] else "Go on air",
                                style="OnAir.TButton" if S["on_air"] else "OffAir.TButton")
-        self.guide_btn.configure(text="?" if compact else "GUIDE")
-        self.settings_btn.configure(text="⚙" if compact else "SETTINGS")
-        self._show_idle(not S["source"] and not demo)
+        self.guide_btn.configure(text="?" if compact else "Guide")
+        self.settings_btn.configure(text="⚙" if compact else "Settings")
+        self._show_idle(not live)
         self._render_sims(S.get("sims") or [])
 
         rows = []
@@ -530,7 +466,7 @@ class SimCastWindow:
             rows.append((s["pos"], s["call"], _gap_text(s, i, S["session"]), tags))
         self.tower_rows, self._tower_session = rows, S["session"]
         self._draw_tower(rows, S["session"])
-        self.tower_info.configure(text=f"{len(rows)} CARS" if rows else "")
+        self.tower_info.configure(text=f"{len(rows)} cars" if rows else "")
 
         new = [ln for ln in S["lines"] if ln["t"] > self.last_line_t]
         if new:
@@ -540,13 +476,14 @@ class SimCastWindow:
                 self.text.configure(state="disabled")
             parts = []
             for ln in new:
-                parts += [(f" {ln['name'].upper()} ", ("who_" + ln["who"], "para")), ("\t", "para"),
+                parts += [(ln["name"], ("who_" + ln["who"], "para")), ("\t", "para"),
                           (ln["text"] + "\n", ("e%d" % ln["energy"], "para")), ("\n", "gap")]
                 self.last_line_t = ln["t"]
             self._text_insert(parts)
             if self.captions is not None:
                 self.captions.show(new[-1])
-        self.speaking.configure(text="●  ON MIC" if S["speaking"] else "")
+        self.speaking.configure(text="●  Speaking" if S["speaking"] else ("" if S["on_air"] else "Off air"),
+                                fg=P["rose"] if S["speaking"] else P["dim"])
         if self.captions is not None and not S["speaking"]:
             self.captions.idle()
 
@@ -570,13 +507,6 @@ class SimCastWindow:
         sims_list(self.sims_box, sims, self.f)
 
     # ------------------------------------------------------------------ actions
-    def toggle_demo(self):
-        if self.cast.demo is not None:
-            self.cast.stop_demo()
-        else:
-            self.cast.start_demo()
-        self.last_line_t = 0.0 if not self.cast.lines else self.last_line_t
-
     def skip(self):
         self.cast.audio.interrupt(None)
 
@@ -651,19 +581,21 @@ class SimCastWindow:
         if self.update_bar is not None:
             self.update_bar.destroy()
         bg = P["panel"]
-        bar = self.update_bar = tk.Frame(self.hdr, bg=bg, highlightbackground=P["acc"], highlightthickness=1)
-        tk.Label(bar, text=f"SIMCAST {info['version']} IS AVAILABLE", bg=P["acc"], fg=P["ink"],
-                 font=self.f["btn"], padx=10).pack(side="left", padx=(0, 10), fill="y")
+        bar = self.update_bar = tk.Frame(self.hdr, bg=bg, highlightbackground=P["line2"], highlightthickness=1,
+                                         padx=px(12), pady=px(8))
+        ui.round_corners(bar, 10, bg, P["bg"], P["line2"])
+        Pill(bar, f"SimCast {info['version']} is available", fg=P["white"], fill=P["acc"], font_key="smallb",
+             padx=10, pady=4).pack(side="left", padx=(0, px(12)))
         self.update_msg = tk.Label(bar, text=f"You have {APP_VERSION}.", bg=bg, fg=P["mut"], font=self.f["small"])
         self.update_msg.pack(side="left")
-        ttk.Button(bar, text="Not now", style="Small.TButton", command=self._skip_update).pack(side="right", padx=(4, 10))
-        ttk.Button(bar, text="What's new", style="Small.TButton",
-                   command=lambda: _open_url(info["url"])).pack(side="right", padx=4)
+        Btn(bar, text="Not now", kind="ghost", small=True, command=self._skip_update).pack(side="right",
+                                                                                            padx=(px(4), 0))
+        Btn(bar, text="What's new", small=True, command=lambda: _open_url(info["url"])).pack(side="right", padx=px(4))
         can = update.can_install(info)
-        self.update_btn = ttk.Button(bar, text="Install update" if can else "Download", style="Accent.TButton",
-                                     command=self._install_update if can else (lambda: _open_url(info["url"])))
-        self.update_btn.pack(side="right", padx=4)
-        bar.grid(row=1, column=0, columnspan=6, sticky="ew", pady=(10, 0))
+        self.update_btn = Btn(bar, text="Install update" if can else "Download", style="Accent.TButton", small=True,
+                              command=self._install_update if can else (lambda: _open_url(info["url"])))
+        self.update_btn.pack(side="right", padx=px(4))
+        bar.grid(row=1, column=0, columnspan=6, sticky="ew", pady=(px(12), 0))
         self.cast.log(f"Update available: SimCast {info['version']} ({info['url']})")
 
     def _skip_update(self):
@@ -703,7 +635,7 @@ class SimCastWindow:
             self.update_msg.configure(text="Setup started: it closes SimCast and updates it. Your settings are kept.")
         elif isinstance(p, str):
             self.update_msg.configure(text="The update couldn't be downloaded. Use What's new to get it from GitHub.",
-                                      fg=P["red"])
+                                      fg=P["rose"])
             self.update_btn.configure(state="normal")
         else:
             got, total = p
@@ -752,6 +684,7 @@ class SimCastWindow:
         self.root.destroy()
 
 
+
 class Captions:
     """A small always-on-top window with the line being spoken: for a second screen, or a window capture in OBS."""
 
@@ -762,25 +695,30 @@ class Captions:
         w.title("SimCast captions")
         w.overrideredirect(True)
         w.attributes("-topmost", True)
-        w.configure(bg=P["bg"])
+        try:
+            w.attributes("-alpha", 0.96)
+        except Exception:
+            pass
+        w.configure(bg=P["bg"], highlightthickness=1, highlightbackground=P["line2"])
         pos = app.cast.cfg.get("captions_pos")
         sw, sh = w.winfo_screenwidth(), w.winfo_screenheight()
-        x, y = (pos if isinstance(pos, list) and len(pos) == 2 else (sw // 2 - 450, sh - 220))
-        self.width, self.home_y = 900, int(y)  # home_y: where the user put it; long lines may lift it
-        w.geometry(f"{self.width}x110+{int(x)}+{int(y)}")
-        inner = tk.Frame(w, bg=P["bg"], padx=14, pady=10)
-        inner.pack(side="top", fill="both", expand=True)
+        self.width = px(900)
+        x, y = (pos if isinstance(pos, list) and len(pos) == 2 else (sw // 2 - self.width // 2, sh - px(220)))
+        self.home_y = int(y)                       # where the user put it; long lines may lift it
+        w.geometry(f"{self.width}x{px(110)}+{int(x)}+{int(y)}")
+        self.bar = tk.Frame(w, bg=P["amber"], width=px(4))            # the speaker's colour down the left edge
+        self.bar.pack(side="left", fill="y")
+        inner = tk.Frame(w, bg=P["bg"], padx=px(18), pady=px(12))
+        inner.pack(side="left", fill="both", expand=True)
         top = tk.Frame(inner, bg=P["bg"])
         top.pack(fill="x")
-        self.who = tk.Label(top, text=" SIMCAST ", font=f["capwho"], fg=P["ink"], bg=P["acc"], padx=6)
+        self.who = tk.Label(top, text="SimCast", font=f["capwho"], fg=P["mut"], bg=P["bg"])
         self.who.pack(side="left")
-        tk.Label(top, text="drag to move · right-click to close", font=f["small"], fg="#3a3a36",
+        tk.Label(top, text="Drag to move  ·  right-click to close", font=f["small"], fg=P["dim"],
                  bg=P["bg"]).pack(side="right")
-        self.text = tk.Label(inner, text="", font=f["cap"], fg=P["fg"], bg=P["bg"], wraplength=860, justify="left",
-                             anchor="w")
-        self.text.pack(fill="both", expand=True, pady=(4, 0))
-        self.bar = tk.Frame(w, bg=P["acc"], height=4)                 # the rule under a lower third
-        self.bar.pack(side="bottom", fill="x", before=inner)
+        self.text = tk.Label(inner, text="", font=f["cap"], fg=P["fg"], bg=P["bg"], wraplength=self.width - px(60),
+                             justify="left", anchor="w")
+        self.text.pack(fill="both", expand=True, pady=(px(4), 0))
         self.hide_at = 0.0
         for wd in (w, inner, top, self.text, self.who):
             wd.bind("<ButtonPress-1>", self._grab)
@@ -789,9 +727,9 @@ class Captions:
             wd.bind("<Button-3>", lambda e: app.toggle_captions(False))
 
     def show(self, ln):
-        self.bar.configure(bg=WHO_COLOUR.get(ln["who"], P["acc"]))
-        self.who.configure(text=f" {ln['name'].upper()} ", bg=WHO_COLOUR.get(ln["who"], P["acc"]),
-                           fg=WHO_INK.get(ln["who"], P["ink"]))
+        col = WHO_COLOUR.get(ln["who"], P["amber"])
+        self.bar.configure(bg=col)
+        self.who.configure(text=ln["name"], fg=col)
         self.text.configure(text=ln["text"], fg=P["fg"])
         self._fit()
         self.hide_at = time.monotonic() + 2.0 + len(ln["text"].split()) * 0.38
@@ -801,7 +739,7 @@ class Captions:
         w = self.win
         try:
             w.update_idletasks()
-            h = max(110, w.winfo_reqheight())
+            h = max(px(110), w.winfo_reqheight())
             x, sh = w.winfo_x(), w.winfo_screenheight()
             y = min(self.home_y, max(0, sh - h))  # grow upwards rather than run off the bottom of the screen
             w.geometry(f"{self.width}x{h}+{x}+{y}")
@@ -810,7 +748,7 @@ class Captions:
 
     def idle(self):
         if self.hide_at and time.monotonic() > self.hide_at:
-            self.text.configure(fg="#55554f")
+            self.text.configure(fg=P["dim"])
             self.hide_at = 0.0
 
     def _grab(self, e):
@@ -842,16 +780,35 @@ class SettingsWindow:
         w.configure(bg=P["panel"])
         w.transient(app.root)
         w.resizable(False, False)
-        dark_titlebar(w)
-        self.nb = nb = ttk.Notebook(w)
-        nb.pack(fill="both", expand=True)
+        dark_titlebar(w, P["bg"])
+        w.columnconfigure(1, weight=1)
+        w.rowconfigure(0, weight=1)
+        side = tk.Frame(w, bg=P["bg"], padx=px(10), pady=px(18))
+        side.grid(row=0, column=0, rowspan=2, sticky="ns")
+        tk.Label(side, text="Settings", font=app.f["h2"], fg=P["fg"], bg=P["bg"], anchor="w").pack(
+            fill="x", padx=px(12), pady=(0, px(14)))
+        self.titles = []
+        main = tk.Frame(w, bg=P["panel"])
+        main.grid(row=0, column=1, sticky="nsew")
+        main.columnconfigure(0, weight=1)
+        main.rowconfigure(1, weight=1)
+        self.page_title = tk.Label(main, text="", font=app.f["h2"], fg=P["fg"], bg=P["panel"], anchor="w")
+        self.page_title.grid(row=0, column=0, sticky="ew", padx=px(28), pady=(px(22), 0))
+        self.nb = nb = ttk.Notebook(main, style="Side.TNotebook")
+        nb.grid(row=1, column=0, sticky="nsew")
         self.v = {}
         self.f = app.f
 
+        self.scrolls = []
+
         def page(title):
-            f = ttk.Frame(nb, style="Card.TFrame", padding=18)
+            sc = ui.Scrolled(nb, P["panel"], lambda c: ttk.Frame(c, style="Card.TFrame",
+                                                                 padding=(px(28), px(14), px(28), px(20))))
+            f = sc.inner
             f.columnconfigure(1, weight=1)
-            nb.add(f, text=f"  {title}  ")
+            nb.add(sc, text=title)
+            self.titles.append(title)
+            self.scrolls.append(sc)
             return f
 
         # ---------------------------------------------------------------- Commentary
@@ -859,15 +816,11 @@ class SettingsWindow:
         self._style_block(f, cfg)
         self.row(f, 6, "Your name", self.entry(f, "driver_name", cfg))
         self.note(f, 7, "As the booth should say it. Empty: the name your sim uses.")
-        self.row(f, 8, "Call me", self.radios(f, "driver_pronouns", PRONOUN_LABELS, cfg))
+        self.row(f, 8, "Call me", self.radios(f, "driver_pronouns", PRONOUN_LABELS, cfg), sticky="w")
         self.note(f, 9, "Other drivers are 'he' or 'she' when their first name makes it clear, 'they' when it "
                         "doesn't.")
         self.row(f, 10, "Pit lane", self.check(f, "pit_reporter", "A pit-lane reporter covers the stops", cfg))
-        laps = ttk.Frame(f, style="Card.TFrame")
-        self.entry(laps, "demo_laps", cfg, width=5).pack(side="left")
-        ttk.Label(laps, text="  laps", style="Card.TLabel", foreground=P["mut"]).pack(side="left")
-        self.row(f, 11, "Demo race", laps, sticky="w")
-        self.row(f, 12, "Mode", self.radios(f, "drive_mode", DRIVE_LABELS, cfg))
+        self.row(f, 12, "Mode", self.radios(f, "drive_mode", DRIVE_LABELS, cfg), sticky="w")
         self.note(f, 13, "Driving: the booth holds back while you brake into a corner, race a car within a second, "
                         "or go off, and stops a side conversation when someone gets alongside. What happened is "
                         "called on the next straight. Stream: the full show for viewers.")
@@ -885,20 +838,20 @@ class SettingsWindow:
         self.row(f, 10, "", self.check(f, "invent_sponsors", "Make up sponsors for anyone without any", cfg))
         self.row(f, 11, "Memory", self.check(f, "memory", "Remember races: results, rivalries and who called what",
                                              cfg),
-                 ttk.Button(f, text="Forget", style="Small.TButton", command=self._forget))
+                 Btn(f, text="Forget", style="Small.TButton", command=self._forget))
         self.note(f, 12, "So the booth can say 'these two made contact at Spa last time out'. Demo races aren't "
                          "remembered. Drivers are matched by name. With an AI key and 'Season storylines' on, the AI "
                          "reads the results after each race and writes the running stories (a streak, a rivalry, a "
                          "slump) for the booth to bring up next time.")
         rf = ttk.Frame(f, style="Card.TFrame")
         self.entry(rf, "roster_file", cfg, width=34).pack(side="left", fill="x", expand=True)
-        ttk.Button(rf, text="Browse", style="Small.TButton", command=self._browse_roster).pack(side="left", padx=(6, 0))
-        ttk.Button(rf, text="Make one", style="Small.TButton", command=self._make_roster).pack(side="left", padx=(6, 0))
+        Btn(rf, text="Browse", style="Small.TButton", command=self._browse_roster).pack(side="left", padx=(6, 0))
+        Btn(rf, text="Make one", style="Small.TButton", command=self._make_roster).pack(side="left", padx=(6, 0))
         self.row(f, 13, "League roster", rf)
         self.note(f, 14, "A spreadsheet (CSV) with Driver, Number, Team, Pronouns, Sponsors and Say as. It wins over "
                          "the guesses above and gives the booth 'the number 12 Porsche'. Make one starts it with the "
                          "drivers on track now.")
-        self.row(f, 15, "NASCAR mode", self.radios(f, "nascar", NASCAR_LABELS, cfg))
+        self.row(f, 15, "NASCAR mode", self.radios(f, "nascar", NASCAR_LABELS, cfg), sticky="w")
         self.row(f, 16, "   stages end on lap", self.entry(f, "nascar_stages", cfg, width=20), sticky="w")
         self.note(f, 17, "The NASCAR button in the main window switches it on or off for one race (until the track "
                          "changes), whatever this says. Stock cars and ovals get a NASCAR broadcast: green flag, cautions and restarts, stages and "
@@ -920,7 +873,7 @@ class SettingsWindow:
         r = 1
         for who, label in (("lead", "Lead commentator"), ("analyst", "Analyst"), ("pit", "Pit-lane reporter")):
             self.row(f, r, label, self.entry(f, f"{who}_name", cfg),
-                     ttk.Button(f, text="Test", style="Small.TButton", command=lambda w=who: self.test_voice(w)))
+                     Btn(f, text="Test", style="Small.TButton", command=lambda w=who: self.test_voice(w)))
             cb = ttk.Combobox(f, state="readonly", width=44, values=[n for n, _ in self.all_voices], height=18)
             cur = cfg.get(f"{who}_voice")
             cb.set(labels_of.get(cur) or VOICE_LABEL.get(cur) or
@@ -937,7 +890,7 @@ class SettingsWindow:
         if cur_out and cur_out not in outs:
             outs.append(cur_out)
         self.row(f, r, "Play on", self.combo(f, "audio_out", [""] + outs, {"": "Windows default", **{o: o for o in outs}}, cfg),
-                 ttk.Button(f, text="Test", style="Small.TButton", command=lambda: self.test_voice("lead")))
+                 Btn(f, text="Test", style="Small.TButton", command=lambda: self.test_voice("lead")))
         self.v["volume"] = tk.DoubleVar(value=float(cfg.get("volume", 0.9)))
         self.row(f, r + 1, "Volume", ttk.Scale(f, from_=0, to=1, variable=self.v["volume"]))
         self.v["speech_rate"] = tk.DoubleVar(value=float(cfg.get("speech_rate", 0)))
@@ -987,10 +940,10 @@ class SettingsWindow:
         self.row(f, r, "OpenAI speech", tts)
         imp = providers.import_simcoach_keys()
         if imp:
-            ttk.Button(f, text="Copy keys from SimCoach", style="Small.TButton",
+            Btn(f, text="Copy keys from SimCoach", style="Small.TButton",
                        command=lambda: self._import(imp)).grid(row=r + 1, column=1, sticky="w", pady=(6, 0))
         st = cast.state()
-        ttk.Label(f, style="Card.TLabel", foreground=P["green"] if st["ai"] else P["mut"], wraplength=500,
+        ttk.Label(f, style="Card.TLabel", foreground=P["green"] if st["ai"] else P["mut"], wraplength=px(520),
                   text=(f"Now using: {st['ai']} for reactions" if st["ai"] else "No AI key yet: the booth uses its own lines.") +
                        (f"\nConversations: {st['ai_convo']}" if st.get("ai_convo") else "") +
                        (f"\nLast problem: {st['ai_error']}" if st.get("ai_error") else "")
@@ -1007,8 +960,8 @@ class SettingsWindow:
                             "Turn each one on or off under Stream and Booth." +
                             (f" Now: {st['ai_assist']}." if st.get("ai_assist") else ""))
         keys_fr = ttk.Frame(f, style="Card.TFrame")
-        keys_msg = ttk.Label(f, text="", style="Card.TLabel", foreground=P["mut"], wraplength=500, justify="left")
-        ttk.Button(keys_fr, text="Test keys", style="Small.TButton",
+        keys_msg = ttk.Label(f, text="", style="Card.TLabel", foreground=P["mut"], wraplength=px(520), justify="left")
+        Btn(keys_fr, text="Test keys", style="Small.TButton",
                    command=lambda: self._test_keys(keys_msg)).pack(side="left")
         self.row(f, r + 7, "Check", keys_fr, sticky="w")
         keys_msg.grid(row=r + 8, column=0, columnspan=3, sticky="w")
@@ -1023,12 +976,12 @@ class SettingsWindow:
         self.row(f, 4, "Forza port", self.entry(f, "forza_port", cfg, width=8), sticky="w")
         box = ttk.Frame(f, style="Card.TFrame")
         box.grid(row=5, column=0, columnspan=3, sticky="w", pady=(8, 4))
-        sims_list(box, cast.state().get("sims") or [], self.f, wrap=480)
+        sims_list(box, cast.state().get("sims") or [], self.f, wrap=300)
 
         def rescan():
             cast.scan_sims(setup=False)
-            sims_list(box, cast.state().get("sims") or [], self.f, wrap=480)
-        ttk.Button(f, text="Scan again", style="Small.TButton", command=rescan).grid(row=6, column=0, sticky="w",
+            sims_list(box, cast.state().get("sims") or [], self.f, wrap=300)
+        Btn(f, text="Scan again", style="Small.TButton", command=rescan).grid(row=6, column=0, sticky="w",
                                                                                    pady=(4, 8))
         self.note(f, 7, "Whole field: Le Mans Ultimate, rFactor 2, iRacing, Automobilista 2, Project CARS 2 and 3, "
                         "RaceRoom, F1 25, ACC, Assetto Corsa (with the CrewChiefEx app). Your car only: AC EVO, "
@@ -1049,7 +1002,7 @@ class SettingsWindow:
         self.entry(port, "obs_port", cfg, width=8).pack(side="left")
         url = f"http://127.0.0.1:{cfg.get('obs_port') or 8686}/"
         ttk.Label(port, text="   " + url, style="Card.TLabel").pack(side="left")
-        ttk.Button(port, text="Copy", style="Small.TButton",
+        Btn(port, text="Copy", style="Small.TButton",
                    command=lambda: (self.win.clipboard_clear(), self.win.clipboard_append(url))).pack(side="left", padx=8)
         self.row(f, 1, "Port", port, sticky="w")
         self.note(f, 2, "In OBS: Sources > + > Browser, paste the address, width 1600, height 300. The background is "
@@ -1065,7 +1018,7 @@ class SettingsWindow:
                         "wrong'). Abuse, spam, links and attempts to make the booth say something are ignored, and "
                         "chat is never read out word for word.")
         self.row(f, 8, "Recap", self.check(f, "recap", "Write a recap after each race", cfg),
-                 ttk.Button(f, text="Open folder", style="Small.TButton",
+                 Btn(f, text="Open folder", style="Small.TButton",
                             command=lambda: (os.makedirs(os.path.join(APP_DIR, "Recaps"), exist_ok=True),
                                              _open_path(os.path.join(APP_DIR, "Recaps")))))
         off = ttk.Frame(f, style="Card.TFrame")
@@ -1091,28 +1044,49 @@ class SettingsWindow:
                         "SimCast works on its own: SimCoach doesn't need to be installed.", span=3)
         b = ttk.Frame(f, style="Card.TFrame")
         b.grid(row=2, column=0, columnspan=3, sticky="w", pady=(10, 0))
-        ttk.Button(b, text="Guide", style="Small.TButton", command=app.open_guide).pack(side="left", padx=(0, 6))
-        ttk.Button(b, text="Licences", style="Small.TButton",
+        Btn(b, text="Guide", style="Small.TButton", command=app.open_guide).pack(side="left", padx=(0, 6))
+        Btn(b, text="Licences", style="Small.TButton",
                    command=lambda: app.open_guide("About and licences")).pack(side="left", padx=6)
-        ttk.Button(b, text="Open log folder", style="Small.TButton",
+        Btn(b, text="Open log folder", style="Small.TButton",
                    command=lambda: _open_path(APP_DIR)).pack(side="left", padx=6)
         self.row(f, 3, "Updates", self.check(f, "check_updates", "Check for a new version when SimCast starts", cfg),
-                 ttk.Button(f, text="Check now", style="Small.TButton",
+                 Btn(f, text="Check now", style="Small.TButton",
                             command=lambda: app.check_for_updates(manual=True)))
         ttk.Label(f, textvariable=app.update_status, style="Card.TLabel", foreground=P["mut"],
-                  wraplength=480).grid(row=4, column=1, columnspan=2, sticky="w")
+                  wraplength=px(500)).grid(row=4, column=1, columnspan=2, sticky="w")
         self.note(f, 5, "A new version shows a bar at the top of the window. Install update downloads its setup "
                         "wizard from GitHub, checks it against the published checksum and runs it; nothing is "
                         "installed until you click.", span=3)
 
-        bb = ttk.Frame(w, style="Card.TFrame", padding=(18, 0, 18, 16))
-        bb.pack(fill="x")
-        ttk.Button(bb, text="Save", style="Accent.TButton", command=self.save).pack(side="right")
-        ttk.Button(bb, text="Cancel", command=w.destroy).pack(side="right", padx=8)
+        tk.Frame(main, bg=P["line"], height=1).grid(row=2, column=0, sticky="ew")
+        bb = tk.Frame(main, bg=P["panel"], padx=px(28), pady=px(14))
+        bb.grid(row=3, column=0, sticky="ew")
+        Btn(bb, text="Save changes", style="Accent.TButton", command=self.save).pack(side="right")
+        Btn(bb, text="Cancel", command=w.destroy).pack(side="right", padx=px(8))
+        self.nav = ui.NavList(side, self.titles, nb.select, bg=P["bg"], width=0)
+        self.nav.pack(fill="x")
+        nb.bind("<<NotebookTabChanged>>", lambda e: self._tab_changed())
+        self._tab_changed()
         w.update_idletasks()
-        x = app.root.winfo_rootx() + (app.root.winfo_width() - w.winfo_reqwidth()) // 2
-        y = app.root.winfo_rooty() + 50
-        w.geometry(f"+{max(0, x)}+{max(0, y)}")
+        inner_w = max(sc.inner.winfo_reqwidth() for sc in self.scrolls) + px(14)
+        inner_h = max(sc.inner.winfo_reqheight() for sc in self.scrolls)
+        for sc in self.scrolls:
+            sc.canvas.configure(width=inner_w, height=px(200))
+        w.update_idletasks()
+        chrome = w.winfo_reqheight() - px(200)
+        W = side.winfo_reqwidth() + inner_w + px(20)
+        H = min(chrome + inner_h, w.winfo_screenheight() - px(120), chrome + px(640))
+        x = app.root.winfo_rootx() + (app.root.winfo_width() - W) // 2
+        y = max(0, min(app.root.winfo_rooty() + px(40), w.winfo_screenheight() - H - px(60)))
+        w.geometry(f"{W}x{H}+{max(0, x)}+{y}")
+
+    def _tab_changed(self):
+        try:
+            i = self.nb.index(self.nb.select())
+        except Exception:
+            return
+        self.nav.select(i)
+        self.page_title.configure(text=self.titles[i])
 
     # ---------------------------------------------------------------- the style presets
     def _style_block(self, f, cfg):
@@ -1122,27 +1096,24 @@ class SettingsWindow:
         self._style_parent = f
         cur = style_of(cfg)
         self.style_var = tk.StringVar(value=cur)
-        fr = ttk.Frame(box, style="Card.TFrame")
-        for k, lab in STYLE_LABELS.items():
-            ttk.Radiobutton(fr, text=lab, value=k, variable=self.style_var,
-                            command=lambda: self._apply_style()).pack(side="left", padx=(0, 14))
-        self.row(box, 0, "Style", fr)
+        fr = Segmented(box, self.style_var, STYLE_LABELS, command=lambda: self._apply_style())
+        self.row(box, 0, "Style", fr, sticky="w")
         self.style_note = ttk.Label(box, text=STYLE_NOTES[cur], style="Card.TLabel", foreground=P["mut"],
-                                    font=self.f["small"], wraplength=520, justify="left")
+                                    font=self.f["small"], wraplength=px(540), justify="left")
         self.style_note.grid(row=1, column=1, columnspan=2, sticky="w", pady=(0, 6))
-        self.fine_btn = ttk.Button(box, text="Fine-tune  ▸", style="Small.TButton", command=self._toggle_fine)
+        self.fine_btn = Btn(box, text="Fine-tune  ▸", kind="ghost", small=True, command=self._toggle_fine)
         self.fine_btn.grid(row=2, column=1, sticky="w", pady=(0, 6))
         d = self.fine = ttk.Frame(box, style="Card.TFrame")
         d.columnconfigure(1, weight=1)
         self._fine_cols = d
-        self.row(d, 0, "How chatty", self.radios(d, "chatter", CHATTER_LABELS, cfg))
-        self.row(d, 1, "Follow", self.radios(d, "focus", FOCUS_LABELS, cfg))
-        self.row(d, 2, "Personality", self.radios(d, "booth_tone", TONE_LABELS, cfg))
+        self.row(d, 0, "How chatty", self.radios(d, "chatter", CHATTER_LABELS, cfg), sticky="w")
+        self.row(d, 1, "Follow", self.radios(d, "focus", FOCUS_LABELS, cfg), sticky="w")
+        self.row(d, 2, "Personality", self.radios(d, "booth_tone", TONE_LABELS, cfg), sticky="w")
         self.note(d, 3, "Professional: a TV booth. Loose: more banter, ribbing and big reactions. Unhinged: wild "
                         "overreactions, rants, feuds and conspiracy theories, always set off by the race or by what "
                         "was just said.")
         self.row(d, 4, "Language", self.check(d, "swearing", "Let them swear when a moment earns it", cfg))
-        self.row(d, 5, "Random chat", self.radios(d, "banter", BANTER_LABELS, cfg))
+        self.row(d, 5, "Random chat", self.radios(d, "banter", BANTER_LABELS, cfg), sticky="w")
         self.note(d, 6, "How often the booth wanders into side conversations in the quiet spells. They always start "
                         "from something on track and come back to the race.")
         self._applying = False
@@ -1254,28 +1225,27 @@ class SettingsWindow:
         def clear():
             var.set("")
             shown.configure(text=hotkeys.describe(""))
-        btn = ttk.Button(fr, text="Set", style="Small.TButton", command=learn)
+        btn = Btn(fr, text="Set", style="Small.TButton", command=learn)
         btn.pack(side="left", padx=(6, 0))
-        ttk.Button(fr, text="Clear", style="Small.TButton", command=clear).pack(side="left", padx=(6, 0))
+        Btn(fr, text="Clear", style="Small.TButton", command=clear).pack(side="left", padx=(6, 0))
         return fr
 
     def row(self, f, r, label, widget, extra=None, sticky="ew"):
-        ttk.Label(f, text=label, style="Card.TLabel", foreground=P["mut"]).grid(row=r, column=0, sticky="w",
-                                                                               padx=(0, 14), pady=4)
-        widget.grid(row=r, column=1, sticky=sticky, pady=4)
+        ttk.Label(f, text=label.strip(), style="Card.TLabel", foreground=P["mut"] if not label.startswith(" ")
+                  else P["dim"]).grid(row=r, column=0, sticky="w", padx=(px(16) if label.startswith(" ") else 0,
+                                                                         px(20)), pady=px(5))
+        widget.grid(row=r, column=1, sticky=sticky, pady=px(5))
         if extra is not None:
-            extra.grid(row=r, column=2, sticky="w", padx=(8, 0), pady=4)
+            extra.grid(row=r, column=2, sticky="w", padx=(px(8), 0), pady=px(5))
 
     def note(self, f, r, text, span=2):
-        ttk.Label(f, text=text, style="Card.TLabel", foreground=P["mut"], font=self.f["small"], wraplength=520,
-                  justify="left").grid(row=r, column=0 if span == 3 else 1, columnspan=span, sticky="w", pady=(0, 6))
+        ttk.Label(f, text=text, style="Card.TLabel", foreground=P["dim"], font=self.f["small"],
+                  wraplength=px(540), justify="left").grid(row=r, column=0 if span == 3 else 1, columnspan=span,
+                                                           sticky="w", pady=(0, px(8)))
 
     def radios(self, f, key, labels, cfg):
-        fr = ttk.Frame(f, style="Card.TFrame")
         var = self.v[key] = tk.StringVar(value=cfg.get(key))
-        for k, lab in labels.items():
-            ttk.Radiobutton(fr, text=lab, value=k, variable=var).pack(side="left", padx=(0, 14))
-        return fr
+        return Segmented(f, var, labels)
 
     def entry(self, f, key, cfg, show=None, width=30):
         var = self.v[key] = tk.StringVar(value="" if show else str(cfg.get(key) or ""))
@@ -1284,7 +1254,7 @@ class SettingsWindow:
     def check(self, f, key, text, cfg, on=True, off=False):
         var = tk.BooleanVar(value=cfg.get(key) == on)
         self.v[key] = ("check", var, on, off)
-        return ttk.Checkbutton(f, text=text, variable=var)
+        return Switch(f, text, var)
 
     def combo(self, f, key, values, labels, cfg):
         var = tk.StringVar(value=labels.get(cfg.get(key), cfg.get(key) or ""))
@@ -1392,41 +1362,38 @@ class GuideWindow:
         self.win = w = tk.Toplevel(app.root)
         w.title("SimCast guide")
         w.configure(bg=P["bg"])
-        w.geometry("980x640")
-        w.minsize(720, 460)
+        w.geometry(f"{px(1040)}x{px(680)}")
+        w.minsize(px(760), px(480))
         dark_titlebar(w)
         w.columnconfigure(1, weight=1)
         w.rowconfigure(0, weight=1)
         self.topics = list(GUIDE) + [("About and licences", None)]
-        side = tk.Frame(w, bg=P["panel"], padx=8, pady=10)
+        side = tk.Frame(w, bg=P["bg"], padx=px(10), pady=px(18))
         side.grid(row=0, column=0, sticky="ns")
-        self.buttons = []
-        for i, (title, _) in enumerate(self.topics):
-            b = tk.Label(side, text=title, anchor="w", bg=P["panel"], fg=P["mut"], font=app.f["ui"], padx=12,
-                         pady=7, cursor="hand2", width=32)
-            b.pack(fill="x")
-            b.bind("<Button-1>", lambda e, i=i: self.show(i))
-            self.buttons.append(b)
-        body = tk.Frame(w, bg=P["panel"])
-        body.grid(row=0, column=1, sticky="nsew", padx=(10, 16), pady=16)
+        tk.Label(side, text="Guide", font=app.f["h2"], fg=P["fg"], bg=P["bg"], anchor="w").pack(
+            fill="x", padx=px(12), pady=(0, px(14)))
+        self.nav = ui.NavList(side, [t for t, _ in self.topics], self.show, bg=P["bg"], width=0)
+        self.nav.pack(fill="x")
+        self.buttons = [lab for _, _, lab in self.nav.rows]
+        body = ui.card(w, r=12)
+        body.grid(row=0, column=1, sticky="nsew", padx=(px(6), px(18)), pady=px(18))
         body.rowconfigure(0, weight=1)
         body.columnconfigure(0, weight=1)
-        self.text = tk.Text(body, bg=P["panel"], fg=P["fg"], relief="flat", wrap="word", font=app.f["line"],
-                            padx=22, pady=16, highlightthickness=0, borderwidth=0, spacing1=2, spacing3=6,
-                            cursor="arrow")
-        self.text.grid(row=0, column=0, sticky="nsew")
+        self.text = tk.Text(body, bg=P["panel"], fg=P["fg2"], relief="flat", wrap="word", font=app.f["line"],
+                            padx=px(32), pady=px(24), highlightthickness=0, borderwidth=0, spacing1=px(2),
+                            spacing2=px(3), spacing3=px(6), cursor="arrow")
+        self.text.grid(row=0, column=0, sticky="nsew", pady=px(2))
         sb = ttk.Scrollbar(body, orient="vertical", command=self.text.yview)
-        sb.grid(row=0, column=1, sticky="ns")
-        self.text.configure(yscrollcommand=sb.set)
-        self.text.tag_configure("h", font=app.f["gh"], foreground=P["acc"], spacing1=14, spacing3=6)
-        self.text.tag_configure("b", lmargin1=8, lmargin2=26)
-        self.text.tag_configure("mono", font=("Consolas", 9), foreground=P["mut"])
+        sb.grid(row=0, column=1, sticky="ns", padx=(0, px(6)), pady=px(12))
+        self.text.configure(yscrollcommand=ui.autohide(sb))
+        self.text.tag_configure("h", font=app.f["h2"], foreground=P["fg"], spacing1=px(18), spacing3=px(8))
+        self.text.tag_configure("b", lmargin1=px(6), lmargin2=px(24))
+        self.text.tag_configure("mono", font=app.f["mono"], foreground=P["mut"])
         names = [t for t, _ in self.topics]
         self.show(names.index(topic) if topic in names else 0)
 
     def show(self, i):
-        for k, b in enumerate(self.buttons):
-            b.configure(bg=P["acc"] if k == i else P["panel"], fg=P["ink"] if k == i else P["mut"])
+        self.nav.select(i)
         title, body = self.topics[i]
         t = self.text
         t.configure(state="normal")
@@ -1438,7 +1405,7 @@ class GuideWindow:
                 if line.startswith("## "):
                     t.insert("end", line[3:] + "\n", "h")
                 elif line.startswith("- "):
-                    t.insert("end", "•  " + line[2:] + "\n", "b")
+                    t.insert("end", "•   " + line[2:] + "\n", "b")
                 elif line.strip():
                     t.insert("end", line + "\n")
         t.configure(state="disabled")
@@ -1460,22 +1427,27 @@ class GuideWindow:
                         "SimCast installation.\n")
 
 
-def sims_list(box, sims, f, wrap=620):
-    """The installed sims as a scoreboard: a READY chip when it's ready, SET UP when there's something to do."""
+def sims_list(box, sims, f, wrap=None):
+    """The installed sims, one row each: the name, what it shares or still needs, and READY or SET UP."""
     for w in box.winfo_children():
         w.destroy()
-    bg = P["panel"]
+    bg = ui.bg_of(box)
+    wrap = px(wrap or 520)
     if not sims:
-        tk.Label(box, text="None found yet. SimCast still goes on air as soon as a supported sim is running.",
+        tk.Label(box, text="None found yet. SimCast still picks up a supported sim as soon as it's running.",
                  bg=bg, fg=P["mut"], font=f["ui"]).grid(row=0, column=0, sticky="w")
         return
+    box.columnconfigure(1, weight=1)
     for i, s in enumerate(sims):
-        tk.Label(box, text="READY" if s["ok"] else "SET UP", width=7, font=f["smallb"], fg=P["ink"],
-                 bg=P["green"] if s["ok"] else P["amber"]).grid(row=i, column=0, sticky="nw", pady=3, padx=(0, 10))
-        tk.Label(box, text=s["name"].upper(), font=f["btn"], fg=P["fg"], bg=bg, width=28, anchor="w").grid(
-            row=i, column=1, sticky="nw", pady=2)
+        if i:
+            tk.Frame(box, bg=P["line"], height=1).grid(row=2 * i - 1, column=0, columnspan=3, sticky="ew")
+        tk.Label(box, text=s["name"], font=f["uib"], fg=P["fg"], bg=bg, anchor="w", width=30).grid(
+            row=2 * i, column=0, sticky="nw", pady=px(9), padx=(0, px(16)))
         tk.Label(box, text=s["status"], font=f["ui"], fg=P["mut"], bg=bg, wraplength=wrap, justify="left",
-                 anchor="w").grid(row=i, column=2, sticky="nw", pady=3)
+                 anchor="w").grid(row=2 * i, column=1, sticky="nw", pady=px(9))
+        Pill(box, "READY" if s["ok"] else "SET UP", fg=P["green"] if s["ok"] else P["amber"],
+             fill=P["green_tint"] if s["ok"] else P["amber_tint"]).grid(row=2 * i, column=2, sticky="ne",
+                                                                        pady=px(9), padx=(px(16), 0))
 
 
 def _open_url(url):

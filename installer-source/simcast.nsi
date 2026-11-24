@@ -180,8 +180,8 @@ Section "-finish"
     StrCpy $FinishText "SimCast is installed, but some downloads didn't finish. SimCast finishes them the first \
 time it starts (keep the internet on). Details: install.log in the SimCast folder."
   ${Else}
-    StrCpy $FinishText "SimCast is ready. It finds the sims on this PC and sets them up.$\r$\n$\r$\nStart it \
-and click Demo race to hear the booth, or just start a race: SimCast goes on air by itself."
+    StrCpy $FinishText "SimCast is ready. It finds the sims on this PC and sets them up.$\r$\n$\r$\nStart a \
+race, then press On air in SimCast when you want the booth to talk."
   ${EndIf}
   ${If} $SimCoachResult == "ok"
     StrCpy $FinishText "$FinishText$\r$\n$\r$\nSimCoach is installed too (Start menu). Run them together and the \
