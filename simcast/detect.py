@@ -3,6 +3,7 @@
   Steam      every Steam library (Steam's registry entry, the default folders, libraryfolders.vdf), by app id
              (steamapps/appmanifest_<id>.acf) or install folder (steamapps/common/<folder>)
   iRacing    its own installer's folder
+  (Forza on the Microsoft Store/Game Pass isn't found this way, but SimCast still covers it when it runs)
   EA app     F1 25 and EA SPORTS WRC also show up through their settings folders in Documents\\My Games
 
 Each found sim gets a status line for the window: ready, or the one thing still to do.
@@ -45,6 +46,11 @@ def catalogue():
         Sim("lmu", "Le Mans Ultimate", (2399420,), ("Le Mans Ultimate",)),
         Sim("rf2", "rFactor 2", (365960,), ("rFactor 2",)),
         Sim("ams2", "Automobilista 2", (1066890,), ("Automobilista 2",)),
+        Sim("pc2", "Project CARS 2", (378860,), ("Project CARS 2",)),
+        Sim("pc3", "Project CARS 3", (958400,), ("Project CARS 3",)),
+        Sim("forza", "Forza Motorsport", (2440510,), ("Forza Motorsport",), coverage="own"),
+        Sim("fh5", "Forza Horizon 5", (1551360,), ("ForzaHorizon5", "Forza Horizon 5"), coverage="own"),
+        Sim("fh4", "Forza Horizon 4", (1293830,), ("ForzaHorizon4", "Forza Horizon 4"), coverage="own"),
         Sim("r3e", "RaceRoom", (211500,), ("raceroom racing experience",)),
         Sim("iracing", "iRacing", (266410,), ("iRacing",), docs=("iRacing",),
             other_paths=(os.path.join(pf86, "iRacing"), os.path.join(pf, "iRacing"))),
@@ -169,6 +175,11 @@ def _status(s, docs):
     if s.key == "dr2":
         return ("Ready: rally stages", True) if gamesetup.dr2_on(docs) else \
             ("SimCast switches on UDP telemetry at start; restart the game once after.", False)
+    if s.key in ("pc2", "pc3"):
+        return "Set Shared Memory to \"Project CARS 2\" once in the game's options.", True
+    if s.key in ("forza", "fh5", "fh4"):
+        return ("Your car only. Switch on Data Out once in the game's HUD and Gameplay settings: IP 127.0.0.1, "
+                "port 5300" + (", format Car Dash." if s.key == "forza" else "; circuit races.")), True
     if s.coverage == "own":
         return "Ready: your car (AC EVO doesn't share the other cars)", True
     if s.coverage == "rally":

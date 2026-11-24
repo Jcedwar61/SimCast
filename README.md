@@ -24,6 +24,21 @@ each other: while SimCoach's coach or crew speaks, the booth drops under them an
 * **Linux / Steam Deck:** [install-simcast-wine.sh](install-simcast-wine.sh) installs SimCast into the sim's
   own Proton prefix (see below).
 
+### What's new in 1.16
+* **Forza Motorsport and Forza Horizon:** SimCast now calls your races in Forza Motorsport (2023), Forza Motorsport 7,
+  Forza Horizon 5 and Forza Horizon 4, Steam or Microsoft Store/Game Pass. Switch on the game's **Data Out** once
+  (IP 127.0.0.1, port 5300; Forza Motorsport: format *Car Dash*) and the booth follows your race: the start, places
+  gained and lost, your laps and personal bests, trips off the road and the finish. Forza shares only your car, and
+  no track names or lap lengths, so SimCast learns the lap on your first one and spots the end of the race itself.
+  Forza Horizon is covered in circuit races, not free roam. The port can be changed in *Settings → Sims* and shared
+  with SimHub.
+* **Project CARS 2 and Project CARS 3:** the whole field, like Automobilista 2 (they share the same data). Set
+  *Shared Memory* to "Project CARS 2" once in the game.
+* SimCast finds all five on your PC, and when one is running but sends nothing, the window says which game setting
+  to switch on instead of just "Waiting for a sim".
+* **Fixed:** a sim whose lap counter moves on before its lap distance (or the other way round) could make the next
+  lap look like a big moment, *"Big moment! That's cost ten seconds"*, when nothing had happened.
+
 ### What's new in 1.15
 * **The track's real name, never the mod's:** on a stream, the booth now says "Daytona International Speedway", not
   the mod's folder (`rt_daytona`) or its tags. In Assetto Corsa, SimCast reads the name the track gives itself (its
@@ -209,11 +224,12 @@ moment gets bigger; when something big happens, the lead cuts in, the way it doe
 ### Every sim SimCast supports
 | Sim | Coverage |
 | --- | --- |
-| Le Mans Ultimate, rFactor 2, iRacing, Automobilista 2, RaceRoom | the whole field |
+| Le Mans Ultimate, rFactor 2, iRacing, Automobilista 2, Project CARS 2 and 3, RaceRoom | the whole field |
 | F1 25 | the whole field, plus the game's own collisions, penalties and safety car |
 | ACC | the whole field, through ACC's broadcasting API (SimCast switches it on), plus ACC's accident events |
 | Assetto Corsa | the whole field with the CrewChiefEx app, else your car |
 | AC EVO | your car (it doesn't share the others) |
+| Forza Motorsport, Forza Motorsport 7, Forza Horizon 5 and 4 | your car, through the game's Data Out (Forza Horizon: circuit races) |
 | EA SPORTS WRC, DiRT Rally 2.0, AC Rally | rally stages: splits against your best run on that stage, moments, damage, the stage time and new bests |
 
 iRacing also gives the booth the temperatures, sky, track wetness, car numbers, teams, tyres and incident points;
@@ -223,8 +239,8 @@ SimCast **finds the sims installed on your PC** (every Steam library, iRacing, E
 its start screen, each marked ready or with the one thing still to do. It picks the coverage by itself. *Your car only* means TV-style coverage of your session: places gained
 and lost, the gap to the car ahead closing, pressure from behind, trips off the track, your laps and the finish.
 For the sims you have installed, SimCast switches on what they need (EA WRC, DiRT Rally 2.0 and F1 25 telemetry,
-ACC's broadcasting port, Assetto Corsa's CrewChiefEx app), backing up what it changes. The one setting it can't
-make (Automobilista 2's shared memory) is in the built-in guide.
+ACC's broadcasting port, Assetto Corsa's CrewChiefEx app), backing up what it changes. The settings it can't
+make (the shared memory setting in Automobilista 2 and Project CARS, Forza's Data Out) are in the built-in guide.
 
 ### Voices (free, like SimCoach's)
 * **Microsoft neural voices**: natural and quick; the default.
@@ -284,7 +300,7 @@ Windows (`--silent` skips it). Under Wine the Kokoro voices are off (NumPy can c
 ## For developers
 ```
 sim_cast.py                  entry point (--demo, --console, --test, --no-voice, --setup)
-simcast/sims.py              the sim readers (adapted from SimCoach) with the whole field (Frame.field)
+simcast/sims.py              the sim readers (adapted from SimCoach) with the whole field (Frame.field); Forza's Data Out
 simcast/acc_broadcast.py     ACC's broadcasting API client
 simcast/race.py              the race model: timing loops, gaps, overtakes, battles, pit stops, incidents
 simcast/solo.py              one-car coverage and rally stages (best runs in %APPDATA%\SimCast\stages.json)

@@ -21,9 +21,10 @@ _update.check_latest_release = lambda current, timeout=8.0: None    # the start-
 SHOTS = os.environ.get("SIMCAST_SHOTS")
 from simcast import detect  # noqa: E402
 _fake = detect.catalogue()
-for _s, _st, _ok in ((_fake[1], "Ready: whole field (broadcasting on)", True), (_fake[4], "Ready: whole field", True),
-                     (_fake[0], "Switch on the CrewChiefEx app in Content Manager (Settings > Python apps) for the whole grid.", False),
-                     (_fake[10], "Ready: rally stages", True)):
+_by = {s.key: s for s in _fake}
+for _s, _st, _ok in ((_by["acc"], "Ready: whole field (broadcasting on)", True), (_by["lmu"], "Ready: whole field", True),
+                     (_by["ac"], "Switch on the CrewChiefEx app in Content Manager (Settings > Python apps) for the whole grid.", False),
+                     (_by["wrc"], "Ready: rally stages", True)):
     _s.found, _s.status, _s.ok, _s.where = True, _st, _ok, "Steam"
 detect.scan = lambda *a, **k: _fake                  # a PC with four sims installed
 cfg = dict(DEFAULTS, tts="off", driver_name="Sam Carter", game_setup=False, guide_seen=True)

@@ -1,12 +1,13 @@
 """SimCast's sim readers: how SimCast reads every supported sim's live data (shared memory, the iRacing SDK,
 UDP telemetry), including every car in the session (Frame.field) for the whole-field commentary.
 
-Assetto Corsa, ACC, AC EVO, AC Rally, Le Mans Ultimate, rFactor 2, Automobilista 2, RaceRoom, iRacing, F1 25,
-EA SPORTS WRC and DiRT Rally 2.0. Adapted from SimCoach's readers (same author, same PolyForm Noncommercial licence); SimCast doesn't
+Assetto Corsa, ACC, AC EVO, AC Rally, Le Mans Ultimate, rFactor 2, Automobilista 2, Project CARS 2 and 3, RaceRoom,
+iRacing, F1 25, EA SPORTS WRC, DiRT Rally 2.0, and Forza Motorsport and Forza Horizon (your car). Adapted from SimCoach's readers (same author, same PolyForm Noncommercial licence); SimCast doesn't
 need SimCoach to be installed.
 """
 from __future__ import annotations
 
+import dataclasses
 import json
 import math
 import os
@@ -1209,12 +1210,18 @@ class RF2Reader(_RF2Family):
 
 
 
+PCARS_GAMES = (("ams2", "AMS2"), ("pcars3", "Project CARS 3"), ("pcars2", "Project CARS 2"))
+
+
 class AMS2Reader(Reader):
-    """In AMS2: Options > System > Shared Memory = 'Project CARS 2'."""
+    """Automobilista 2, Project CARS 2 and Project CARS 3: the same 'Project CARS 2' shared memory.
+    In the game: Shared Memory = 'Project CARS 2' (AMS2: Options > System; Project CARS 2 and 3: the Gameplay or
+    System options)."""
     name = "AMS2"
     CAP_BLOCKS = (("pcars2", "m", None),)
 
     def __init__(self):
+        self.game = "AMS2"
         self.m = None
         self._torn = 0
         self._wcal, self._wcal_car = _WheelCal(), None
@@ -1227,9 +1234,11 @@ class AMS2Reader(Reader):
             self.m = None
 
     def connected(self):
-        if not running("ams2"):
+        game = next((g for exe, g in PCARS_GAMES if running(exe)), None)
+        if game is None:
             self.close()
             return False
+        self.game = game
         if self.m is None:
             self.m = SharedMem.open("$pcars2$")
         return self.m is not None
@@ -1276,7 +1285,7 @@ class AMS2Reader(Reader):
             self._wcal_car = car
             self._wcal.reset()
         wk = self._wcal.update(spd, thr, brk, _U_4f(b, 7040))
-        fr = Frame("AMS2", f"{track} {var}".strip(), car, _U_I(b, pb + 88)[0],
+        fr = Frame(self.game, f"{track} {var}".strip(), car, _U_I(b, pb + 88)[0],
                    (_f(b, pb + 80) / tl) % 1.0 if tl > 0 else 0.0, spd, thr, brk,
                    _f(b, 6872), _i(b, 6876), _f(b, 6852), max(0.0, _f(b, 6724)), max(0.0, _f(b, 6720)),
                    _U_I(b, 6808)[0] != 0, False, _f(b, 6840) * _f(b, 6844),
@@ -2388,6 +2397,114 @@ class DR2Reader(_UDPReader):
                      gear, v[37] * 10, v[1], last, bool(v[47]), False, v[45], L, None, v[63] * 10, wk, None, restart)
 
 
+FORZA_PORT = 5300
+_S_FORZA_SLED = struct.Struct("<iIfff")       # IsRaceOn, TimestampMS, EngineMaxRpm, EngineIdleRpm, CurrentEngineRpm
+_S_FORZA_DASH = struct.Struct("<3f3f4f7fH6B3b")   # the 'Dash' block: 79 bytes
+FORZA_SIZES = {311: ("Forza Motorsport 7", 232), 324: ("Forza Horizon", 244), 331: ("Forza Motorsport", 232)}
+
+
+class ForzaReader(_UDPReader):
+    """Forza Motorsport (2023), Forza Motorsport 7, Forza Horizon 5 and 4: the games' 'Data Out' UDP stream.
+    In the game: Settings > Gameplay & HUD > Data Out = On, IP 127.0.0.1, port 5300 (Forza Motorsport: packet
+    format 'Car Dash'). Forza shares only the car being driven: its place, lap, lap times and the car itself, so the
+    booth covers your race (SoloTracker).
+    - The packet has no lap length: it's learnt from the distance driven on the first full lap, and until then the
+      lap fraction is held at the start of the lap.
+    - The packet has no 'race over' either. A race is over when, within half a minute of completing a lap, the race
+      clock stops while the car still moves (the cool-down lap) or the game leaves the race for ten seconds (the
+      results screen). The race clock going on again undoes it (that was a pause)."""
+    name = "Forza"
+    port = FORZA_PORT
+    procs = ("forza",)
+
+    def __init__(self, port=None):
+        self.lap_len = None
+        self._lap_no = None
+        self._lap_start_d = 0.0
+        self._race_t = None
+        self._race_t_since = 0.0
+        self._lap_at = None                           # when the last lap was completed
+        self._off_since = None
+        self._last = None
+        self._finished = None                         # the last frame of a finished race, kept on show
+        self._restart = False
+        super().__init__(port)
+
+    @staticmethod
+    def _game(size):
+        if size == 324:
+            return "Forza Horizon 4" if running("forzahorizon4") else "Forza Horizon 5"
+        return FORZA_SIZES[size][0]
+
+    def _finish(self):
+        f = self._last
+        if f is not None and f.session == "race" and f.laps_done >= 1:
+            self._finished = dataclasses.replace(f, race_over=True, speed=0.0, throttle=0.0, brake=0.0)
+
+    def _shown(self):
+        """The finished race's last frame, a fresh copy each time (the trackers write into the frames they get)."""
+        f = self._finished
+        if f is None:
+            return None
+        return dataclasses.replace(f, field=None, sim_events=None, restart=False)
+
+    def _just_lapped(self, now):
+        return self._lap_at is not None and now - self._lap_at < 30.0
+
+    def parse(self, d, now=None):
+        n = len(d)
+        if n not in FORZA_SIZES:
+            return None
+        now = time.monotonic() if now is None else now
+        on, _ts, rpm_max, _idle, rpm = _S_FORZA_SLED.unpack_from(d, 0)
+        (_x, _y, _z, spd, _pw, _tq, t_fl, t_fr, t_rl, t_rr, _boost, _fuel, dist, _best, last, cur, race_t,
+         lap_no, pos, acc, brk, _clutch, _hb, gear, steer, _line, _ai) = _S_FORZA_DASH.unpack_from(d, FORZA_SIZES[n][1])
+        if not on:                                    # menus, a pause, the results screen
+            if self._off_since is None:
+                self._off_since = now
+            if self._finished is None and self._just_lapped(now) and now - self._off_since >= 10.0:
+                self._finish()
+            return self._shown()
+        self._off_since = None
+        if not (0 <= spd < 200 and 0 <= lap_no < 1000 and 0 <= race_t < 86400 and 0 <= cur < 86400):
+            return None
+        if n == 324 and pos == 0:                     # Forza Horizon's free roam: no race to call
+            return None
+        if self._race_t is not None and race_t < self._race_t - 2.0 and race_t < 10.0:    # a new race, a restart
+            self._restart = True
+            self._lap_no, self._lap_start_d, self._finished, self._lap_at = None, 0.0, None, None
+        if self._race_t is None or race_t != self._race_t:
+            if self._finished is not None and race_t > self._race_t + 0.5:     # it was a pause after all
+                self._finished = None
+            self._race_t, self._race_t_since = race_t, now
+        elif self._finished is None and spd > 3.0 and self._just_lapped(now) and now - self._race_t_since >= 2.0:
+            self._finish()                                                      # the clock stopped at the line
+        if self._finished is not None:
+            return self._shown()
+        if self._lap_no is None:
+            self._lap_no, self._lap_start_d = lap_no, (dist if lap_no else 0.0)
+        elif lap_no > self._lap_no:
+            run = dist - self._lap_start_d
+            if lap_no == self._lap_no + 1 and 500.0 < run < 30000.0 and last > 10.0:
+                self.lap_len = run
+            self._lap_no, self._lap_start_d, self._lap_at = lap_no, dist, now
+        elif lap_no < self._lap_no:
+            self._lap_no, self._lap_start_d = lap_no, dist
+        L = self.lap_len
+        pct = max(0.0, min(0.98, (dist - self._lap_start_d) / L)) if L else 0.0
+        f = Frame(self._game(n), "", "", lap_no, pct, spd * 3.6, acc / 255.0, brk / 255.0, steer / 127.0,
+                  -1 if gear == 0 else (0 if gear > 10 else gear), rpm, cur, last if last > 10.0 else 0.0,
+                  False, False, track_len=L, max_rpm=rpm_max, restart=self._restart)
+        self._restart = False
+        temps = [(t - 32.0) / 1.8 for t in (t_fl, t_fr, t_rl, t_rr)]
+        if all(0 < t < 250 for t in temps):
+            f.tyre_temps = temps
+        f.position = pos
+        f.session = "race" if pos > 0 else "practice"
+        self._last = f
+        return f
+
+
 def available_readers(cfg=None, log=print):
     cfg = cfg or {}
     out = []
@@ -2399,7 +2516,8 @@ def available_readers(cfg=None, log=print):
     dr2_fb = int(cfg.get("dr2_port", 20779))
     makers = [ACReader, ACEvoReader, LMUReader, RF2Reader, AMS2Reader, R3EReader, IRacingReader,
               lambda: EAWRCReader(), lambda: F1Reader(f1, 20778 if f1 != 20778 else None),
-              lambda: DR2Reader(20777, dr2_fb if dr2_fb != 20777 else None)]
+              lambda: DR2Reader(20777, dr2_fb if dr2_fb != 20777 else None),
+              lambda: ForzaReader(int(cfg.get("forza_port", FORZA_PORT)))]
     for mk in makers:
         try:
             out.append(mk())
@@ -2672,4 +2790,19 @@ def unsupported_sim():
     for exe, name, msg in UNSUPPORTED_SIMS:
         if running(exe):
             return name, msg
+    return None
+
+
+def waiting_hint(cfg=None):
+    """What to tell the player when a supported sim is running but nothing arrives from it (a one-time game
+    setting that isn't on yet), else None."""
+    cfg = cfg or {}
+    if running("forza"):
+        port = int(cfg.get("forza_port", FORZA_PORT))
+        if running("forzahorizon"):
+            return f"Forza Horizon: start a race, with Data Out on (127.0.0.1, port {port})"
+        return f"Forza: switch on Data Out (127.0.0.1, port {port}, format Car Dash) and start a session"
+    for exe, game in PCARS_GAMES:
+        if running(exe):
+            return f"{game}: set Shared Memory to \"Project CARS 2\" in the game's options"
     return None
