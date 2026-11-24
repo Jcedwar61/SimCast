@@ -24,6 +24,18 @@ each other: while SimCoach's coach or crew speaks, the booth drops under them an
 * **Linux / Steam Deck:** [install-simcast-wine.sh](install-simcast-wine.sh) installs SimCast into the sim's
   own Proton prefix (see below).
 
+### What's new in 1.17
+* **A new look.** SimCast's window has been redesigned to feel like a modern, polished app: a calm near-black
+  interface with smooth rounded buttons and cards, one brand red for what's live or yours, and colour only where it
+  means something (each commentator has their own). The timing list shows your car as a tinted row, the commentary
+  reads like a clean transcript with the speakers in colour, and the window is sharp on high-DPI screens.
+* **Settings, redone:** a sidebar instead of tabs, switches instead of tick boxes, one-click choices for style,
+  pronouns, mode and NASCAR. Every page scrolls, so Save is always on screen (the AI page used to run off the bottom).
+  The Guide gets the same sidebar and is easier to read.
+* **SimCast always opens off air.** The booth stays quiet until you press **Go on air** at the top of the window
+  (or your hotkey), every time you start SimCast.
+* **Demo mode is gone.** The Demo race button and setting have been removed: SimCast is for your real races.
+
 ### What's new in 1.16
 * **Forza Motorsport and Forza Horizon:** SimCast now calls your races in Forza Motorsport (2023), Forza Motorsport 7,
   Forza Horizon 5 and Forza Horizon 4, Steam or Microsoft Store/Game Pass. Switch on the game's **Data Out** once
@@ -299,7 +311,7 @@ Windows (`--silent` skips it). Under Wine the Kokoro voices are off (NumPy can c
 
 ## For developers
 ```
-sim_cast.py                  entry point (--demo, --console, --test, --no-voice, --setup)
+sim_cast.py                  entry point (--console, --test, --no-voice, --setup)
 simcast/sims.py              the sim readers (adapted from SimCoach) with the whole field (Frame.field); Forza's Data Out
 simcast/acc_broadcast.py     ACC's broadcasting API client
 simcast/race.py              the race model: timing loops, gaps, overtakes, battles, pit stops, incidents
@@ -319,7 +331,7 @@ simcast/gamesetup.py         EA WRC, DiRT Rally 2.0, F1 25, ACC and Assetto Cors
 simcast/gui.py, guide.py     the window, settings, captions window, the guide
 simcast/update.py            the update check and the checksum-verified installer download
 simcast/link.py              the SimCoach link (the booth drops under the coach)
-simcast/demo.py              a fictional 12-car race for the demo and the tests
+simcast/demo.py              a fictional 12-car race for the tests
 simcast/licenses/            SimCast's MIT licence and third-party notices
 tools/launcher/              SimCast.exe (Go): build_launcher.sh
 installer-source/            SimCast-Setup.exe (NSIS, 64-bit): tools/installer/build_installer.sh

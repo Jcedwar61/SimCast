@@ -1,5 +1,5 @@
 """SimCast's window, for real (needs a display: tools/run_tests.sh --gui runs it under xvfb-run): a demo race
-fills the timing tower and the booth, Settings opens and saves, the captions window follows the booth, and the
+(the built-in test race; there's no demo in the window) fills the timing tower and the booth, Settings opens and saves, the captions window follows the booth, and the
 off-air card comes back when the demo stops. SIMCAST_SHOTS=folder saves screenshots."""
 import os
 import re
@@ -56,24 +56,29 @@ def pump(secs):
 win.loop.start()
 root.after(50, win.poll)
 pump(1.5)
-check(win.hero.winfo_ismapped() and not win.body.winfo_ismapped(), "off air: the waiting card shows")
-names = [w.cget("text") for w in win.sims_box.winfo_children()]
-check("ASSETTO CORSA COMPETIZIONE" in names and "EA SPORTS WRC" in names and "SET UP" in names,
+check(win.hero.winfo_ismapped() and not win.body.winfo_ismapped(), "no sim: the waiting card shows")
+check(not cast.director.on_air and win.air_btn.cget("text") == "Go on air", "SimCast opens off air")
+names = [w.cget("text") for w in win.sims_box.winfo_children() if isinstance(w, tk.Label)]
+check("Assetto Corsa Competizione" in names and "EA SPORTS WRC" in names and "SET UP" in names,
       "off air: the installed sims are listed, with what's still to do")
 shot("simcast-offair.png")
 
-win.toggle_demo()
-pump(40)
+cast.start_demo()
+pump(3)
+check(not cast.lines, "off air: a race starts, the booth stays quiet")
+win.toggle_air()
+check(cast.director.on_air, "the on air button puts the booth on")
+pump(37)
 rows = win.tower_rows
 check(len(rows) == 12 and len(win.tower.find_all()) > 12 * 3, f"demo: the timing tower lists and draws the field ({len(rows)})")
 check(win.body.winfo_ismapped() and not win.hero.winfo_ismapped(), "demo: tower and booth replace the card")
 booth = win.text.get("1.0", "end")
-check("BEN" in booth and re.search(r"away|lights out|green flag", booth, re.I),
+check("Ben" in booth and re.search(r"away|lights out|green flag", booth, re.I),
       "demo: the booth's lines appear, with who said them")
 me = [r for r in rows if "me" in r[3]]
 check(len(me) == 1 and "Carter" in me[0][1], "demo: your car is highlighted")
-check("RIDGEWAY PARK" in win.session.cget("text") and "LAP" in win.session.cget("text"), "demo: track and lap")
-check(win.flag.cget("text") == "GREEN FLAG" and win.tally.itemcget(win.tally_txt, "text") == "DEMO",
+check("Ridgeway Park" in win.session.cget("text") and "Lap" in win.lap.cget("text"), "demo: track and lap")
+check(win.flag.cget("text") == "GREEN FLAG" and win.tally.itemcget(win.tally_txt, "text") == "LIVE",
       "demo: the flag chip and the tally light")
 def header_fits():
     btns = [w for w in win.hdr.winfo_children() if isinstance(w, tk.Frame)][-1].winfo_children()
@@ -171,7 +176,7 @@ win.check_for_updates()
 pump(1.5)
 bar = win.update_bar
 texts = [w.cget("text") for w in bar.winfo_children()] if bar is not None else []
-check(bar is not None and bar.winfo_ismapped() and "SIMCAST 9.0 IS AVAILABLE" in texts and "What's new" in texts,
+check(bar is not None and bar.winfo_ismapped() and "SimCast 9.0 is available" in texts and "What's new" in texts,
       f"updates: the bar offers the new version ({texts})")
 check(win.update_btn.cget("text") == "Download", "updates: a copy that wasn't installed by the wizard gets a link")
 shot("simcast-update.png")
@@ -230,7 +235,7 @@ check(win.captions is None, "captions window closes")
 win.toggle_air()
 check(not cast.director.on_air, "off air button")
 win.toggle_air()
-win.toggle_demo()
+cast.stop_demo()
 pump(1.5)
 check(win.hero.winfo_ismapped(), "demo stopped: the waiting card is back")
 win.close()
