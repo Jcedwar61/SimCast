@@ -23,7 +23,7 @@ from . import nascar, persona, providers, sims
 from .assist import ASSIST_CHOICES, assist_label
 
 APP_NAME = "SimCast"
-APP_VERSION = "1.17"
+APP_VERSION = "1.18"
 APP_DIR = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), "SimCast")
 CONFIG_PATH = os.path.join(APP_DIR, "config.json")
 LOG_PATH = os.path.join(APP_DIR, "simcast.log")

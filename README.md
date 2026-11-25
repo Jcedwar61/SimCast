@@ -24,6 +24,17 @@ each other: while SimCoach's coach or crew speaks, the booth drops under them an
 * **Linux / Steam Deck:** [install-simcast-wine.sh](install-simcast-wine.sh) installs SimCast into the sim's
   own Proton prefix (see below).
 
+### What's new in 1.18
+* **Real races from Historic Roster.** When Historic Roster (a race launcher for Assetto Corsa that recreates real
+  races: real grids, real cars, real tracks) sets up a race, the booth knows the real one behind it. The real event
+  becomes the race's name (unless you've typed one), the opening takes you back to the real day and says whose seat
+  you're in, and the AI booth talks about the real grid, the real pole and the race-day weather.
+* **No spoilers.** The real result stays out of the commentary until your race is over; then the wrap-up compares the
+  two ("a different story to 2006, when Schumacher won it"). *Settings → Booth → Real result* chooses after the
+  finish, any time or never; *Real races* switches it off.
+* **On the start screen:** the race Historic Roster has set up, before Assetto Corsa is even running.
+* Works with any Historic Roster race, whatever SimCast calls the track on air. Nothing changes for other races.
+
 ### What's new in 1.17
 * **A new look.** SimCast's window has been redesigned to feel like a modern, polished app: a calm near-black
   interface with smooth rounded buttons and cards, one brand red for what's live or yours, and colour only where it
