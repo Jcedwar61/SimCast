@@ -24,6 +24,14 @@ each other: while SimCoach's coach or crew speaks, the booth drops under them an
 * **Linux / Steam Deck:** [install-simcast-wine.sh](install-simcast-wine.sh) installs SimCast into the sim's
   own Proton prefix (see below).
 
+### What's new in 1.18
+* **The track's real name, always.** The booth no longer says a mod's name for a track. Modding teams' tags
+  (any capital-letter tag like NRT or LGMR, as well as RT, ACU and the rest), versions, and words like beta, WIP,
+  fixed or "by ..." are taken out, wherever they sit in the name. Folder-style names (rt_daytona_2023,
+  brands_hatch) are said as the track's name (Daytona, Brands Hatch), in every sim, including ACC, AMS2 and the
+  Project CARS games. Past races in the booth's memory are put right too, so "last time out at ..." names the real
+  track.
+
 ### What's new in 1.17
 * **A new look.** SimCast's window has been redesigned to feel like a modern, polished app: a calm near-black
   interface with smooth rounded buttons and cards, one brand red for what's live or yours, and colour only where it

@@ -2660,22 +2660,94 @@ _RE_MOD_TAIL = re.compile(rf"\s*(?:[-|/:]\s*|\bby\s+)(?:{_MOD_TEAMS})(?:\s+\S+)?
 _RE_MOD_HEAD = re.compile(rf"^\s*(?:{_MOD_TEAMS})\s*(?:[-|:]|\s(?=[A-Z]))\s*", re.I)  # 'RT - Daytona', 'ACU Bathurst'
 
 
+# Words that only ever mark a mod's release, never a track's name.
+_MOD_WORDS = (r"beta|alpha|wip|fixed|fix|final|release|preview|public|csp|mods?|modded|conversion|converted|ported|"
+              r"remaster(?:ed)?|update[ds]?|reboot(?: team)?|team|edit(?:ed)?|patch(?:ed)?|rev(?:ision)? ?\d+|build ?\d+|"
+              r"extended physics|by")
+_RE_MOD_WORD = re.compile(rf"\b(?:{_MOD_WORDS})\b|\bv?\d+\.\d", re.I)
+_RE_MOD_TAIL_WORD = re.compile(r"\s+(?:beta|alpha|wip|fixed|final|release|preview|csp|mod|modded|conversion|"
+                               r"converted|remastered|updated?)$", re.I)
+_RE_GROUP = re.compile(r"\s*[(\[{]([^)\]}]*)[)\]}]")
+_RE_DASH_TAIL = re.compile(r"\s+[-|/:–—]\s+([^-|/:–—]+)$")
+_RE_CAPS_TAIL = re.compile(r"\s+([A-Z][A-Z0-9]{1,5})$")
+# Capital-letter names that are a track's own (or its layout's), not a modding team's.
+_KEEP_CAPS = frozenset(("GP", "ISC", "IMS", "VIR", "COTA", "NOLA", "PIR", "NJMP", "WWT", "MSR", "CTMP", "SPM", "MIS",
+                        "USA", "UK", "F1", "F2", "F3", "II", "III", "IV", "NC", "OK", "BTCC", "DTM", "WEC", "IMSA",
+                        "IRL", "NHRA", "MX", "RX", "WRC", "ISM", "AMP", "ACP", "VLN", "NLS", "GT", "TT", "SF", "HQ",
+                        "NOS", "CW", "CCW"))
+_TEAM_SET = frozenset(("rt", "acu", "legion", "vrc", "urd", "rss", "acf", "srp", "tsrf", "lilski", "rtm", "acsr",
+                       "rsr", "f1rc", "asr", "pyyer", "simtraxx", "ignite", "terrasan", "csp", "nrt", "lgmr", "rrm",
+                       "pk", "ddm", "aa", "wsc", "gpl", "rsc", "srpr", "ks"))
+
+
+def _is_mod_tag(text):
+    """True for what a mod adds to a track's name: 'NRT', 'LGMR', 'Reboot Team', 'beta', 'by Pyyer', 'v2.1'."""
+    t = " ".join(str(text or "").split())
+    if not t:
+        return True
+    if _RE_MOD_WORD.search(t) or re.fullmatch(rf"(?:{_MOD_TEAMS})", t, re.I):
+        return True
+    words = t.split()
+    return all(re.fullmatch(r"[A-Z][A-Z0-9&]{1,5}", w) and w not in _KEEP_CAPS for w in words)
+
+
 def clean_track_name(name):
     """A track's name with the mod's tags taken out, so a stream hears 'Daytona International Speedway' and not
-    'Daytona International Speedway [RT] v1.2': bracketed tags, versions, and a modding team's name at either end."""
+    'Daytona International Speedway [RT] v1.2': bracketed tags, versions, release words and a modding team's name
+    at either end."""
     s = " ".join(str(name or "").split())
     if not s:
         return ""
     s = _RE_MOD_BRACKETS.sub(" ", s)
     s = _RE_MOD_PARENS.sub("", s)
+    s = _RE_GROUP.sub(lambda m: "" if _is_mod_tag(m.group(1)) else m.group(0), s)   # '(NRT)', '(beta)'
     s = _RE_MOD_VERSION.sub("", s)
-    for _ in range(2):
+    s = re.sub(r"\s+v\d+[a-z]?$", "", s, flags=re.I)                                   # ' V2'
+    for _ in range(3):
         s = _RE_MOD_TAIL.sub("", s)
         s = _RE_MOD_HEAD.sub("", s)
-    s = re.sub(r"\s*[-|:/_]+\s*$", "", s)
-    s = re.sub(r"^\s*[-|:/_]+\s*", "", s)
-    s = " ".join(s.split())
+        s = _RE_DASH_TAIL.sub(lambda m: "" if _is_mod_tag(m.group(1)) else m.group(0), s)   # ' - LGMR'
+        s = _RE_MOD_TAIL_WORD.sub("", s)
+        s = _RE_CAPS_TAIL.sub(lambda m: "" if m.group(1).lower() in _TEAM_SET else m.group(0), s)   # ' RT'
+        s = re.sub(r"^([A-Z][A-Z0-9]{1,5})\s+(?=\S)", lambda m: "" if m.group(1).lower() in _TEAM_SET else m.group(0), s)
+        s = re.sub(r"\s*[-|:/_]+\s*$", "", s)
+        s = re.sub(r"^\s*[-|:/_]+\s*", "", s)
+        s = " ".join(s.split())
     return s if re.search(r"[A-Za-z]", s) else ""
+
+
+# ACC's track ids, as the circuits are called on air.
+ACC_TRACKS = {"monza": "Monza", "zolder": "Zolder", "brands_hatch": "Brands Hatch", "silverstone": "Silverstone",
+              "paul_ricard": "Paul Ricard", "misano": "Misano", "spa": "Spa-Francorchamps", "nurburgring": "the Nürburgring",
+              "barcelona": "Barcelona", "hungaroring": "the Hungaroring", "zandvoort": "Zandvoort",
+              "kyalami": "Kyalami", "mount_panorama": "Mount Panorama", "suzuka": "Suzuka", "laguna_seca": "Laguna Seca",
+              "imola": "Imola", "oulton_park": "Oulton Park", "donington": "Donington Park", "snetterton": "Snetterton",
+              "cota": "the Circuit of the Americas", "indianapolis": "Indianapolis", "watkins_glen": "Watkins Glen",
+              "valencia": "Valencia", "red_bull_ring": "the Red Bull Ring", "nurburgring_24h": "the Nürburgring Nordschleife"}
+
+
+def track_name(raw):
+    """The name the booth says for a track, whatever the sim handed over: a mod's tags, versions and folder-style
+    ids ('rt_daytona_2023', 'brands_hatch') never reach the air. Every frame's track goes through here."""
+    s = " ".join(str(raw or "").split())
+    if not s:
+        return ""
+    base, lay = s, ""
+    m = re.fullmatch(r"(.*\S)\s+\(([^()]*)\)", s)              # 'Daytona International Speedway (Oval)'
+    if m and not _is_mod_tag(m.group(2)):
+        base, lay = m.group(1), m.group(2)
+    if s.lower() in ACC_TRACKS:
+        return ACC_TRACKS[s.lower()]
+    out = clean_track_name(base)
+    if "_" in out or (out and " " not in out and out == out.lower()):
+        out = clean_track_name(nice_name(out.replace("-", "_")))
+    out = out or nice_name(base) or base
+    out = re.sub(r"\b(\w+)(?: \1\b)+", r"\1", out, flags=re.I)        # AMS2: 'Interlagos Interlagos GP'
+    if lay:
+        lay = clean_track_name(nice_name(lay) if "_" in lay else lay)
+        if lay and _plain_name(lay) not in _plain_name(out):
+            out = f"{out} ({lay})"
+    return out
 
 
 _AC_TRACKS = {}
@@ -2761,6 +2833,8 @@ def nice_name(raw):
         words = words[1:]
     if len(words) > 1 and words[-1].lower() in _MOD_PREFIXES and words[-1].lower() != "ks":   # 'daytona_rt'
         words = words[:-1]
+    words = [w for w in words if not (re.fullmatch(r"v\d+[a-z]?|beta|alpha|wip|fixed|final|csp|mod|modded", w, re.I)
+                                      or (len(words) > 1 and w.lower() in _TEAM_SET and w.lower() != "ks"))] or words
     out = []
     n_words = len(words)
     for w in words:

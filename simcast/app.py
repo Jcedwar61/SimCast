@@ -22,7 +22,7 @@ from . import nascar, persona, providers, sims
 from .assist import ASSIST_CHOICES, assist_label
 
 APP_NAME = "SimCast"
-APP_VERSION = "1.17"
+APP_VERSION = "1.18"
 APP_DIR = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), "SimCast")
 CONFIG_PATH = os.path.join(APP_DIR, "config.json")
 LOG_PATH = os.path.join(APP_DIR, "simcast.log")
@@ -349,6 +349,10 @@ class SimCast:
     def feed(self, frame, now):
         if frame is None:
             return
+        raw = frame.track
+        if raw != getattr(self, "_track_raw", None):     # the track's real name on air, never a mod's tag or folder
+            self._track_raw, self._track_said = raw, sims.track_name(raw) or raw
+        frame.track = self._track_said
         with self.lock:
             self._pick_mode(frame)
         self.last_frame_t = now

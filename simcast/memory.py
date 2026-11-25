@@ -51,12 +51,24 @@ class Memory:
                         self.data[k] = d[k]
                 if isinstance(d.get("calls"), dict):
                     self.data["calls"] = d["calls"]
+                self._clean_tracks()
                 if isinstance(d.get("storylines"), list):
                     self.data["storylines"] = [str(x) for x in d["storylines"] if isinstance(x, str)][:8]
         except FileNotFoundError:
             pass
         except Exception as e:
             self.log(f"Memory unreadable ({e}); starting a fresh one.")
+
+    def _clean_tracks(self):
+        """Races remembered before SimCast said a track's real name kept the mod's ('rt_daytona', 'Daytona [RT]'):
+        the booth brings past races up, so those are put right as they're read."""
+        try:
+            from .sims import track_name
+        except Exception:
+            return
+        for rec in list(self.data["races"]) + list(self.data["incidents"]):
+            if isinstance(rec, dict) and rec.get("track"):
+                rec["track"] = track_name(rec["track"]) or rec["track"]
 
     def save(self):
         try:

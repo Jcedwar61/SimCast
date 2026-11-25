@@ -1592,6 +1592,35 @@ check(sc.ac_track_name("rt_daytona", "oval", dirs=[_acdir]) == "Daytona Internat
       sc.ac_track_name("acu_bathurst", "", dirs=[_acdir]) == "Mount Panorama" and
       sc.ac_track_name("nope", "", dirs=[_acdir]) == "" and sc.ac_track_name("..", "", dirs=[_acdir]) == "",
       "Assetto Corsa: the track's own name from its ui_track.json (layout's first), mod tags taken out")
+_said = {"rt_daytona_2023": "Daytona", "daytona_2023_pk": "Daytona", "Rt Daytona": "Daytona",
+         "Charlotte Motor Speedway - LGMR v2": "Charlotte Motor Speedway", "NRT Daytona": "Daytona",
+         "Daytona International Speedway (NRT)": "Daytona International Speedway",
+         "Daytona International Speedway RT": "Daytona International Speedway",
+         "Bristol Motor Speedway (Reboot Team)": "Bristol Motor Speedway", "Watkins Glen beta": "Watkins Glen",
+         "Talladega V2": "Talladega", "Martinsville - Fixed": "Martinsville", "Kansas Speedway - AA": "Kansas Speedway",
+         "Phoenix Raceway 2022 [WIP]": "Phoenix Raceway 2022", "Road America (RT) (Oval)": "Road America (Oval)",
+         "Iowa Speedway (Oval_rt)": "Iowa Speedway (Oval)", "brands_hatch": "Brands Hatch", "spa": "Spa-Francorchamps",
+         "Interlagos Interlagos_GP": "Interlagos GP",
+         # a track's own capitals, layouts and words stay
+         "NOLA Motorsports Park": "NOLA Motorsports Park", "VIR": "VIR", "Silverstone (GP)": "Silverstone (GP)",
+         "COTA - GP": "COTA - GP", "Daytona International Speedway (Oval)": "Daytona International Speedway (Oval)",
+         "Nordschleife - Endurance": "Nordschleife - Endurance", "Monza 1966": "Monza 1966", "Mid-Ohio": "Mid-Ohio"}
+_bad = {k: sc.track_name(k) for k, v in _said.items() if sc.track_name(k) != v}
+check(not _bad, f"the booth says the track's real name, never the mod's ({_bad})")
+check(all(sc.track_name(sc.track_name(k)) == sc.track_name(k) for k in _said), "track names: cleaning twice changes nothing")
+_tc = SimCast(dict(DEFAULTS), audio=SimAudio(), log=lambda m: None, booth=False, save=False)
+_tf = sc.Frame("AC", "rt_daytona_2023", "Gen6 Cup Chevrolet", 0, 0.1, 0.0, 0, 0, 0, 1, 900, 0, 0, False, False,
+               session="race", position=4, cars=20, race_laps=50)
+_tc.feed(_tf, 1.0)
+check(_tf.track == "Daytona" and _tc.tracker.track in (None, "Daytona"), "every frame's track is said by its real name")
+_mp = os.path.join(tempfile.mkdtemp(prefix="simcast-mem-"), "memory.json")
+with open(_mp, "w", encoding="utf-8") as _fh:
+    json.dump({"races": [{"track": "Daytona International Speedway [RT] v1.3", "results": []}],
+               "incidents": [{"kind": "contact", "names": ["A", "B"], "track": "rt_daytona", "race": 0}]}, _fh)
+from simcast.memory import Memory as _Mem
+_m = _Mem(_mp, log=lambda m: None)
+check(_m.data["races"][0]["track"] == "Daytona International Speedway" and _m.data["incidents"][0]["track"] == "Daytona",
+      "the booth's memory of past races says the track's real name, not the mod's")
 acast = SimCast(dict(DEFAULTS), audio=SimAudio(), log=lambda m: None, booth=False, save=False)
 acf = sc.Frame("AC", "Martinsville (Oval)", "Gen6 Cup Chevrolet", 0, 0.1, 0.0, 0, 0, 0, 1, 900, 0, 0, False, False,
                session="race", position=4, cars=20, race_laps=50)
