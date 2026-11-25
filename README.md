@@ -24,6 +24,12 @@ each other: while SimCoach's coach or crew speaks, the booth drops under them an
 * **Linux / Steam Deck:** [install-simcast-wine.sh](install-simcast-wine.sh) installs SimCast into the sim's
   own Proton prefix (see below).
 
+### What's new in 1.19
+* **AI booth fix for OpenAI.** With an OpenAI key and the model on *Automatic*, the booth's conversations picked a
+  "pro" model that OpenAI only offers through a different API, so every one failed ("This is not a chat model" in
+  the log) and the booth fell back to stock lines. SimCast now skips those models; conversations use the newest
+  full-size chat model instead.
+
 ### What's new in 1.18
 * **Real races from Historic Roster.** When Historic Roster (a race launcher for Assetto Corsa that recreates real
   races: real grids, real cars, real tracks) sets up a race, the booth knows the real one behind it. The real event
