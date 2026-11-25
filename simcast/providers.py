@@ -351,6 +351,9 @@ PREFERRED = {
 TTS_FALLBACK = "gpt-4o-mini-tts"
 _NOT_CHAT = ("tts", "audio", "realtime", "transcribe", "whisper", "image", "dall-e", "embedding", "moderation",
              "search", "computer-use", "codex", "instruct", "davinci", "babbage", "sora")
+# OpenAI's -pro models (gpt-5.5-pro, gpt-5.4-pro-2026-03-05, ...) answer only on the Responses API: chat completions
+# gets "404 This is not a chat model". Left in, the conversation ranking (which favours "pro") picked one every time.
+_OPENAI_NOT_CHAT = re.compile(r"-pro(?:-\d{4}-\d{2}-\d{2})?$")
 _DETECTED: dict = {}          # (provider, key fingerprint) -> {"chat": [...], "tts": [...], "t": time}
 _DETECT_LOCK = threading.Lock()
 _DETECTING: set = set()
@@ -368,7 +371,8 @@ def _usable_chat(provider, ids_created):
     fam = {"openai": "gpt-", "gemini": "gemini-", "deepseek": "deepseek-"}.get(provider, "")
     others = sorted(((c or 0, i) for i, c in ids_created
                      if i.startswith(fam) and i not in pref and not any(x in i for x in _NOT_CHAT)
-                     and not any(i.startswith(r) for r in RETIRED_OPENAI_MODELS)), reverse=True)
+                     and not any(i.startswith(r) for r in RETIRED_OPENAI_MODELS)
+                     and not (provider == "openai" and _OPENAI_NOT_CHAT.search(i))), reverse=True)
     return pref + [i for _, i in others]
 
 

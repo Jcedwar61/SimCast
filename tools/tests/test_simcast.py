@@ -1053,6 +1053,12 @@ check(oc in providers.OPENAI_MODELS and "mini" not in oc and "reasoner" not in o
       f"models: OpenAI talks with a full-size model ({oc})")
 check(providers.rank_for(["x-mini", "o3", "gpt-7", "gpt-6.5"], "convo")[:2] == ["gpt-7", "gpt-6.5"],
       "models: a newer model the list doesn't know yet is used for conversations")
+uc = providers._usable_chat("openai", [("gpt-6-luna", 1), ("gpt-6.2-sol", 3), ("gpt-5.5-pro", 4),
+                                       ("gpt-5.5-pro-2026-04-23", 5), ("gpt-5.4-pro", 2)])
+check(not any("pro" in m for m in uc) and providers.rank_for(uc, "convo")[0] == "gpt-6.2-sol",
+      f"models: OpenAI's -pro models (Responses API only, 404 on chat) are never picked ({uc})")
+check("deepseek-v4-pro" in providers._usable_chat("deepseek", [("deepseek-v4-pro", 1)]),
+      "models: other providers' pro models still count")
 check(providers.ai_model(dict(DEFAULTS, ai_provider="deepseek", deepseek_model="deepseek-reasoner",
                               _purpose="convo")) == "deepseek-reasoner", "models: one picked by hand always wins")
 seen = []
