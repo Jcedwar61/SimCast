@@ -282,6 +282,13 @@ one key, it moves to another provider if one is down. The AI only gets the race 
 earlier races and strict rules: no invented facts, drivers by name, no repeats. *Settings → AI* shows a rough cost
 for the race so far.
 
+### Real races from Historic Roster
+When Historic Roster (a race launcher for Assetto Corsa) sets up a recreation of a real race, the booth knows the
+real one behind it: the event (as the race name, unless you've typed one), the date, the real grid and pole, the
+race-day weather and whose seat you took. The AI booth talks about the real day, and once your race is over the
+wrap-up compares it with what really happened (*Settings → Booth → Real result*: after the finish, any time or
+never). The start screen shows the race Historic Roster has set up. Nothing changes for other races.
+
 ### Built-in guide
 The **Guide** button opens a guide to everything: getting started, setting up each sim, voices and sound, AI,
 every setting, streaming, Linux and troubleshooting. It opens by itself the first time.
@@ -329,6 +336,7 @@ simcast/audio.py             voices (Microsoft, Kokoro, Google, OpenAI, ElevenLa
 simcast/detect.py            the supported sims installed on this PC (Steam libraries, iRacing, EA app)
 simcast/gamesetup.py         EA WRC, DiRT Rally 2.0, F1 25, ACC and Assetto Corsa set up for SimCast
 simcast/gui.py, guide.py     the window, settings, captions window, the guide
+simcast/history.py           the real race behind a Historic Roster race (%APPDATA%\SimCast\race_context.json)
 simcast/update.py            the update check and the checksum-verified installer download
 simcast/link.py              the SimCoach link (the booth drops under the coach)
 simcast/demo.py              a fictional 12-car race for the tests

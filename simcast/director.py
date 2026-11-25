@@ -413,7 +413,8 @@ class Director:
         if e.priority >= REACT_MIN and e.kind not in ("start", "caution", "green"):
             self._ask_reaction(e, lines[-1], now)
         if e.kind == "intro" and self.booth is not None:
-            self._ask(ai_mod.intro_task(self.writer.lead_name, self.writer.analyst_name), e.priority - 5, now)
+            self._ask(ai_mod.intro_task(self.writer.lead_name, self.writer.analyst_name,
+                                        history=self.writer.history() is not None), e.priority - 5, now)
 
     # -------------------------------------------------------------- AI
     def _brief(self):
@@ -500,7 +501,9 @@ class Director:
         if self.wrapped or self.winner_t is None or now - self.winner_t < 25 or idle < 3:
             return
         if self._wrap_asked is None and self.booth is not None and \
-                self._ask(ai_mod.wrap_task(self.writer.lead_name, self.writer.analyst_name), 40, now):
+                self._ask(ai_mod.wrap_task(self.writer.lead_name, self.writer.analyst_name,
+                                           history=self.writer.history() is not None,
+                                           spoil=self.writer.real_result_ok()), 40, now):
             self._wrap_asked = now
             return
         if self._wrap_asked is not None and now - self._wrap_asked < 10:

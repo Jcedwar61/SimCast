@@ -116,6 +116,8 @@ class Frame:
     field: Optional[list] = None          # every car in the session: see field_entry()
     sim_events: Optional[list] = None     # race events the sim itself reports (F1: overtakes, fastest lap, ...)
     track_type: Optional[str] = None      # iRacing: 'road course', 'short oval', 'super speedway', 'dirt oval', ...
+    track_folder: str = ""                # Assetto Corsa: the track's folder and layout as the game has them
+    track_layout: str = ""                # (track is the name said on air): Historic Roster matches on these
 
 
 def field_entry(cid, name, car, position, laps, pct, in_pit=False, last=None, best=None, status=None, pits=None,
@@ -289,6 +291,7 @@ class ACReader(Reader):
         if not track:
             return None
         game = self._cur_game or self._game() or "AC"
+        raw_track, raw_layout = track, layout
         if game == "AC":                     # AC gives the mod folders ('rt_daytona'): the track's own name instead
             ui_name = ac_track_name(track, layout)
             track, layout, car_name = (ui_name or nice_name(track)), nice_name(layout), nice_name(car_name) or car_name
@@ -327,6 +330,8 @@ class ACReader(Reader):
                    in_pit, tyres_out > 2, fuel, spline if 500 < spline < 40000 else None,
                    temps if any(t > 1 for t in temps) else None, float(max_rpm),
                    wheel_kmh, press if any(x > 5 for x in press) else None)
+        if game == "AC":
+            fr.track_folder, fr.track_layout = raw_track, raw_layout or ""
         if game != "AC Rally":
             fr.session = {0: "practice", 1: "qualifying", 2: "race", 3: "practice", 4: "practice", 7: "practice",
                           8: "qualifying"}.get(_i(g, 8))

@@ -14,6 +14,7 @@ from .link import DUCK_LEVELS, SimCoachLink
 from .demo import DemoRace
 from .director import Director
 from .memory import Memory
+from .history import RaceContext, context_path
 from .race import RaceTracker
 from .nascar import NascarTracker
 from .solo import RallyTracker, SoloTracker, StageStore
@@ -58,6 +59,7 @@ DEFAULTS = {
     "nascar": "auto", "nascar_stages": "", "nascar_voices": True,
     "booth_tone": "broadcast", "swearing": False, "banter": "normal", "driver_pronouns": "auto",
     "ai_convo": "auto", "drive_mode": "stream", "race_sponsor": "", "race_name": "",
+    "history": True, "history_spoilers": "after",
     "memory": True, "roster_file": "", "obs_captions": False, "obs_port": 8686, "twitch_channel": "",
     "twitch_chat": True, "twitch_only_booth": False, "twitch_moderate": True,
     "ai_assist": "auto", "recap_ai": True, "season_stories": True,
@@ -84,7 +86,8 @@ CHOICES = {"tts": ("on", "off"), "chatter": ("quiet", "normal", "chatty"),
            "simcoach_duck": tuple(DUCK_LEVELS), "booth_tone": persona.TONES, "banter": persona.BANTER,
            "driver_pronouns": persona.PRONOUN_CHOICES, "ai_convo": providers.CONVO_CHOICES,
            "ai_assist": ASSIST_CHOICES,
-           "drive_mode": ("stream", "driver"), "nascar": nascar.CHOICES}
+           "drive_mode": ("stream", "driver"), "nascar": nascar.CHOICES,
+           "history_spoilers": ("after", "always", "never")}
 SECRET_KEYS = ("openai_api_key", "gemini_api_key", "deepseek_api_key", "elevenlabs_api_key")
 ROLE_LABEL = {"lead": "lead", "analyst": "analyst", "pit": "pit lane"}
 
@@ -195,6 +198,7 @@ class SimCast:
         self.director.set_memory(self.memory)
         from .recap import Recap
         self.director.recap = Recap(os.path.join(APP_DIR, "Recaps"), log=log) if save else None
+        self._ready_race = (-1e9, None, None)       # (checked at, file mtime, event name): Historic Roster's race
         self.status = "Waiting for a sim..."
         self.source = None
         self.demo = None
@@ -208,6 +212,10 @@ class SimCast:
     def config(self):
         cfg = dict(self.cfg)
         cfg["_nascar"] = self.__dict__.get("mode") in ("nascar", "nascar_solo")
+        # The real race Historic Roster set up (history.py): the race's name when none is typed. Kept out of
+        # "race_name" so the Settings window never shows or saves it.
+        hist = getattr(self.__dict__.get("tracker"), "history", None)
+        cfg["_real_race"] = hist.name if hist is not None and cfg.get("history", True) else ""
         if cfg["_nascar"] and cfg.get("nascar_voices", True):
             for who, vid in NASCAR_VOICES.items():          # American voices, where the default is still chosen
                 if cfg.get(f"{who}_voice") == DEFAULTS[f"{who}_voice"]:
@@ -539,6 +547,25 @@ class SimCast:
         with self.lock:
             return self._state()
 
+    def _real_race_ready(self):
+        """The race Historic Roster has set up for Assetto Corsa (its event name), when the file is fresh. Read at
+        most every few seconds, and again only when the file changes."""
+        checked, mtime, name = self._ready_race
+        now = time.monotonic()
+        if now - checked < 3.0:
+            return name
+        try:
+            m = os.path.getmtime(context_path())
+        except OSError:
+            m = None
+        if m is None:
+            name = None
+        elif m != mtime or name is None:
+            ctx = RaceContext.read()
+            name = ctx.name if ctx and ctx.name else None
+        self._ready_race = (now, m, name)
+        return name
+
     def _state(self):
         tr = self.tracker
         cfg = self.config()
@@ -557,7 +584,9 @@ class SimCast:
         public["keys"]["elevenlabs_api_key"] = bool(str(cfg.get("elevenlabs_api_key") or "").strip())
         return {
             "app": APP_NAME, "version": APP_VERSION, "status": self.status, "source": self.source, "mode": self.mode,
-            "session": tr.session, "track": tr.track, "lap": lap, "laps": tr.race_laps or None,
+            "session": tr.session, "track": tr.track, "real_race": cfg.get("_real_race") or None,
+            "real_race_ready": self._real_race_ready() if cfg.get("history", True) and not self.source else None,
+            "lap": lap, "laps": tr.race_laps or None,
             "time_left": tr.time_left, "flag": tr.flag, "started": tr.started, "finished": tr.finished,
             "standings": standings, "lines": list(self.lines)[-40:], "on_air": self.director.on_air,
             "speaking": self.audio.speaking(time.monotonic()),

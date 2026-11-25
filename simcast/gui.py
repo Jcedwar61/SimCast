@@ -27,6 +27,7 @@ WHO_COLOUR = {"lead": P["amber"], "analyst": P["blue"], "pit": P["rose"]}     # 
 WHO_TINT = {"lead": P["amber_tint"], "analyst": P["blue_tint"], "pit": P["red_tint"]}
 CHATTER_LABELS = {"quiet": "Quiet", "normal": "Normal", "chatty": "Chatty"}
 FOCUS_LABELS = {"field": "Whole field", "balanced": "Balanced", "me": "Mostly me"}
+SPOILER_LABELS = {"after": "After the finish", "always": "Any time", "never": "Never"}
 STYLE_LABELS = {"tv": "TV broadcast", "late": "Late-night stream", "pub": "Mates down the pub", "custom": "Custom"}
 STYLE_NOTES = {
     "tv": "A proper television booth: warm, clean, the whole race with your story in it.",
@@ -310,6 +311,12 @@ class SimCastWindow:
         self.sims_box = tk.Frame(inner, bg=P["panel"])
         self.sims_box.grid(row=6, column=0, columnspan=2, sticky="ew")
         self._sims_shown = None
+        # The race Historic Roster has set up in Assetto Corsa: the booth will know the real one behind it.
+        self.real_race = tk.Label(inner, text="", fg=P["green"], bg=P["panel"], font=self.f["ui"], anchor="w",
+                                  wraplength=px(620), justify="left")
+        self.real_race.grid(row=7, column=0, columnspan=2, sticky="w", pady=(px(16), 0))
+        self.real_race.grid_remove()
+        self._real_race_shown = None
 
         foot = tk.Frame(r, bg=P["bg"], padx=G, pady=px(10))
         foot.grid(row=3, column=0, sticky="ew")
@@ -430,7 +437,7 @@ class SimCastWindow:
         live = bool(S["source"])
         self._set_tally(live, S["on_air"])
         self.status.configure(text=S["status"] or "")
-        self.session.configure(text=S["track"] or ("" if live else "No session"))
+        self.session.configure(text=S.get("real_race") or S["track"] or ("" if live else "No session"))
         lap = ""
         if S["track"]:
             if S["session"] == "race" and S["lap"]:
@@ -456,6 +463,7 @@ class SimCastWindow:
         self.settings_btn.configure(text="⚙" if compact else "Settings")
         self._show_idle(not live)
         self._render_sims(S.get("sims") or [])
+        self._render_real_race(S.get("real_race_ready"))
 
         rows = []
         for i, s in enumerate(S["standings"]):
@@ -498,6 +506,17 @@ class SimCastWindow:
         if S["errors"]:
             bits.append(S["errors"][-1])
         self.foot.configure(text="   ·   ".join(bits))
+
+    def _render_real_race(self, name):
+        if name == self._real_race_shown:
+            return
+        self._real_race_shown = name
+        if name:
+            self.real_race.configure(text=f"✓  Historic Roster has set up the {name} in Assetto Corsa. "
+                                          "The booth knows the real race behind it.")
+            self.real_race.grid()
+        else:
+            self.real_race.grid_remove()
 
     def _render_sims(self, sims):
         key = tuple((s["name"], s["status"], s["ok"]) for s in sims)
@@ -862,6 +881,12 @@ class SettingsWindow:
         self.row(f, 19, "Season storylines", self.check(f, "season_stories", "The AI writes the season's running "
                                                                              "stories into the memory after each race",
                                                         cfg))
+        self.row(f, 20, "Real races", self.check(f, "history", "Talk about the real race when Historic Roster "
+                                                              "starts one", cfg))
+        self.row(f, 21, "Real result", self.radios(f, "history_spoilers", SPOILER_LABELS, cfg), sticky="w")
+        self.note(f, 22, "Historic Roster recreates real races in Assetto Corsa. The booth then knows the real one: "
+                         "the event (as the race name unless you've typed one), the date, the real grid and pole, "
+                         "and whose seat you took. Real result: when they may say who really won.")
 
         # ---------------------------------------------------------------- Voices
         f = page("Voices")

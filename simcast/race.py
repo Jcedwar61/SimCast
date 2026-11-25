@@ -12,6 +12,7 @@ import statistics
 from dataclasses import dataclass, field
 from typing import Optional
 
+from .history import RaceContext
 from .lanes import ALONGSIDE_LAT, ALONGSIDE_LONG, LaneMap, lane_word
 
 N_LOOPS = 40                 # timing loops per lap; gaps are measured where both cars crossed the same loop
@@ -126,8 +127,11 @@ class RaceTracker:
     """Feed it frames with update(frame, now); it returns the new Events. Read the state through cars,
     order (ids, leader first), standings(), battles and the session attributes."""
 
-    def __init__(self, log=print):
+    def __init__(self, log=print, history_loader=None):
         self.log = log
+        # The real race behind this one (Historic Roster), see history.py: called as
+        # loader(game, track, log, folder=..., layout=...) -> RaceContext or None.
+        self.history_loader = history_loader or RaceContext.load
         self.reset()
 
     # ------------------------------------------------------------------ state
@@ -164,6 +168,8 @@ class RaceTracker:
         self.alongside: list = []                        # groups of cars side by side right now, low to high
         self._sbs: dict = {}                             # frozenset of car ids -> {"since", "told"}
         self._sbs_last = -1e9
+        self.history: Optional[RaceContext] = None      # the real race (Historic Roster), looked up once per session
+        self._history_checked = False
 
     def update(self, f, now) -> list:
         """One frame in, new events out. Frames without a field (sims or sessions SimCoach can't see the whole
@@ -175,6 +181,15 @@ class RaceTracker:
             self.log(f"New session: {session} at {f.track}")
             self.reset(session, f.track)
         self.session, self.track, self.game = session, f.track, f.game
+        if not self._history_checked:
+            self._history_checked = True
+            try:
+                self.history = self.history_loader(self.game, self.track, self.log,
+                                                   folder=getattr(f, "track_folder", "") or "",
+                                                   layout=getattr(f, "track_layout", "") or "")
+            except Exception as e:                       # a bad file must never stop the commentary
+                self.log(f"Historic Roster race context: {e}")
+                self.history = None
         if now - self._last_update < UPDATE_EVERY:
             return []
         dt = now - self._last_update if self._last_update > 0 else UPDATE_EVERY

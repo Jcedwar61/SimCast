@@ -11,6 +11,7 @@ import threading
 import time
 
 from . import persona
+from .history import spoilers_allowed
 from .writer import ANALYST, LEAD, PIT, Line, lap_time_words, place
 
 MIN_INTERVAL = 5.0          # seconds between requests
@@ -59,9 +60,10 @@ Never say: "good, clean, hard racing", "lovely racing", "this is worth watching"
 Hard rules:
 - Only state facts that are in the RACE DATA. Never invent contact, damage, penalties, team radio, weather, tyre \
 compounds, fuel numbers (CONDITIONS, tyres, incident points and penalties are fine when the data gives them), \
-what a team has decided, lap times, gaps or history beyond HISTORY. Opinions and \
+what a team has decided, lap times, gaps or history beyond HISTORY and REAL RACE. Opinions and \
 predictions are \
 welcome; invented facts are not. If you don't know, talk about what the data does show.
+- REAL RACE, when the data has it, is the real event this race recreates: say it in the past tense as what happened on the real day, never as what is happening in this race, and never mention a real result it holds back.
 - Call drivers by the name given in square brackets.
 - Pronouns: use the one given in brackets after each name in STANDINGS ("he", "she" or "they"); for a driver \
 marked "they", or anyone not listed, use their name or "they", never a guess.
@@ -130,6 +132,8 @@ def race_brief(tr, writer, events, transcript, max_cars=14):
     """The race as text for the model: session, standings with gaps and lap times, battles, recent events and
     what the booth has just said."""
     lines = []
+    hist = writer.history() if hasattr(writer, "history") else None
+    spoil = hist is not None and spoilers_allowed(writer.cfg, tr.finished)
     ld = tr.leader()
     if tr.session == "race":
         lap = f"lap {min(ld.laps + 1, tr.race_laps) if tr.race_laps else ld.laps + 1}" if ld else ""
@@ -176,6 +180,9 @@ def race_brief(tr, writer, events, transcript, max_cars=14):
             notes.append("fastest lap")
         if s["grid"]:
             notes.append(f"started P{s['grid']}")
+        real = hist.entry(tr.car(s["id"])) if hist else None
+        if real:
+            notes.append(_real_note(real, spoil))
         car = tr.car(s["id"])
         if car is not None:
             if car.tyre:
@@ -232,6 +239,8 @@ def race_brief(tr, writer, events, transcript, max_cars=14):
                         f"{int(bt['last_close'] - bt['since'])}s")
     if bats:
         lines.append("BATTLES: " + "; ".join(bats))
+    if hist:
+        lines += history_brief(hist, spoil)
     stops = [(t, cid) for cid, t in getattr(writer, "lane_times", {}).items() if tr.car(cid)]
     if stops:
         stops.sort()
@@ -277,6 +286,48 @@ def race_brief(tr, writer, events, transcript, max_cars=14):
         lines += [f"{writer.lead_name if w == LEAD else writer.analyst_name if w == ANALYST else writer.pit_name}: {t}"
                   for w, t in transcript[-12:]]
     return "\n".join(lines)
+
+
+def _real_note(real, spoil):
+    """One car's real race, for its standings row: 'real race: started P10, retired (Engine)'."""
+    txt = f"real race: started P{real.grid}" if real.grid else "real race: grid unknown"
+    if spoil:
+        txt += f", {real.result_words()}"
+    if real.stand_in_for:
+        txt += f"; a stand-in car for the real {real.stand_in_for}"
+    return txt
+
+
+def history_brief(h, spoil):
+    """The REAL RACE block: what really happened at the event this race recreates (Historic Roster)."""
+    out = [f"REAL RACE (this race recreates a real one; history, to be said in the past tense): {h.event_line()}."]
+    if h.conditions:
+        out.append(f"Real race day: {h.conditions}.")
+    seat = h.player_seat()
+    if seat and not h.watch:
+        res = f", {seat.result_words()} that day" if spoil else ""
+        out.append(f"The viewer's driver is in {seat.driver}'s real seat ({seat.team or 'their team'}), "
+                   f"from P{seat.grid or '?'} on the real grid{res}.")
+    pole = h.pole()
+    if pole:
+        out.append(f"Real pole: {pole.driver}{f' ({pole.team})' if pole.team else ''}.")
+    if spoil:
+        pod = h.podium()
+        if pod:
+            out.append("Real result: " + ", ".join(
+                f"P{c.pos} {c.driver}{f' ({c.team})' if c.team else ''}{f' from P{c.grid}' if c.grid else ''}"
+                for c in pod) + ".")
+        dnf = h.retirements()
+        if dnf:
+            out.append("Retired in the real race: " + "; ".join(
+                f"{c.driver}{f' ({c.status})' if c.status else ''}" for c in dnf[:8]) + ".")
+    else:
+        out.append("The real result is held back: don't say or hint who won or retired in the real race.")
+    absent = [c.driver for c in h.not_racing]
+    if absent:
+        out.append(f"In the real race but not on this grid: {', '.join(absent[:8])}"
+                   f"{f' and {len(absent) - 8} more' if len(absent) > 8 else ''}.")
+    return out
 
 
 def describe(e, writer):
@@ -680,16 +731,20 @@ def continue_task(writer, exchange=1):
             f"2 to 4 lines, whoever didn't speak last goes first."), ANALYST if writer.floor_who == LEAD else LEAD
 
 
-def wrap_task(lead_name="Ben", analyst_name="Kate"):
+def wrap_task(lead_name="Ben", analyst_name="Kate", history=False, spoil=False):
+    real = (" Bring in REAL RACE once: how this result compares with the real one (the real winner, and someone who "
+            "beat or fell short of their real result)." if history and spoil else "")
     return (f"The race is over. Give a closing exchange (4 lines, alternating) between {lead_name} (LEAD) and "
             f"{analyst_name} (ANALYST): the winner, the podium, the viewer's driver's result compared to their grid "
-            "slot, and one standout moment from RECENT EVENTS. Then sign off to each other and to the viewers.")
+            f"slot, and one standout moment from RECENT EVENTS.{real} Then sign off to each other and to the viewers.")
 
 
-def intro_task(lead_name="Ben", analyst_name="Kate"):
+def intro_task(lead_name="Ben", analyst_name="Kate", history=False):
+    real = (" This race recreates the real event in REAL RACE: the analyst brings in one fact from the real day "
+            "(the real grid, the real pole, the conditions)." if history else "")
     return (f"We're coming on air. Give the opening (3 lines, alternating): {lead_name} (LEAD) welcomes viewers to "
             f"the circuit and sets the scene, {analyst_name} (ANALYST) answers with what to watch, including the "
-            f"viewer's driver, and {lead_name} hands over to the start.")
+            f"viewer's driver, and {lead_name} hands over to the start.{real}")
 
 
 __all__ = ["AIBooth", "race_brief", "describe", "parse_lines", "react_task", "filler_task", "wrap_task",

@@ -263,8 +263,10 @@ def parse_driver_sponsors(text: str):
 
 
 def race_name(cfg) -> str:
-    """The race's name as the user typed it ('2026 Las Vegas Grand Prix'), '' if none."""
-    return " ".join(str((cfg or {}).get("race_name") or "").split())
+    """The race's name as the user typed it ('2026 Las Vegas Grand Prix'), else the real event Historic Roster set
+    up (SimCast.config() adds it as '_real_race'), '' if none."""
+    cfg = cfg or {}
+    return " ".join(str(cfg.get("race_name") or "").split()) or " ".join(str(cfg.get("_real_race") or "").split())
 
 
 def the_race(cfg) -> str:

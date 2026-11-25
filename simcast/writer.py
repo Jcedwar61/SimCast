@@ -15,6 +15,7 @@ from dataclasses import dataclass
 
 from . import persona
 from .banter import BanterMixin
+from .history import spoilers_allowed
 from .race import CAUTION_FLAGS, call_name
 
 LEAD, ANALYST, PIT = "lead", "analyst", "pit"
@@ -211,6 +212,54 @@ class Writer(BanterMixin):
 
     def pit_voice(self):
         return PIT if self.cfg.get("pit_reporter", True) else LEAD
+
+    # ------------------------------------------------------------------ the real race (Historic Roster)
+    def history(self):
+        """The real race behind this one (Historic Roster, history.py), when there is one and it's switched on.
+        Its event name is the race's name already (persona.race_name); this is for the rest of it."""
+        return getattr(self.tr, "history", None) if self.cfg.get("history", True) else None
+
+    def real_result_ok(self):
+        """May the real result be said now (Settings > Booth > Real result)?"""
+        return self.history() is not None and spoilers_allowed(self.cfg, self.tr.finished)
+
+    def _history_intro(self, now):
+        """After the welcome: the real day, and whose seat the viewer has taken."""
+        h = self.history()
+        if h is None:
+            return []
+        out = []
+        when = h.date_words()
+        if when:
+            out.append(Line(LEAD, self.pick("hist_intro", [
+                f"We're going back to {when}, with the grid as it was that day.",
+                f"This is {when} all over again: the real grid, the real cars.",
+            ]), 1))
+        seat, me = h.player_seat(), self.tr.player()
+        if seat and me and seat.grid and not h.watch:
+            out.append(Line(ANALYST, f"And {self.n(me.id, now)} is in {seat.driver}'s seat today, "
+                                     f"{place(seat.grid)} on the real grid.", 1))
+        return out
+
+    def _history_wrap(self, now):
+        """After the result: how it went on the real day (only when the real result may be said)."""
+        h = self.history()
+        if h is None or not self.real_result_ok():
+            return []
+        rw = h.winner()
+        if rw is None:
+            return []
+        won = self.tr.car(self.tr.winner)
+        year = h.year or "the real race"
+        if won is not None and h.entry(won) is rw:
+            return [Line(ANALYST, self.pick("hist_wrap_same", [
+                f"And that's just how it went in {year}: {rw.driver} won it for real too.",
+                f"History repeats itself. {rw.driver} won this one in {year} as well.",
+            ]), 1)]
+        return [Line(ANALYST, self.pick("hist_wrap_diff", [
+            f"In {year}, this one went to {rw.driver}. Not today.",
+            f"A different story to {year}, when {rw.driver} won it.",
+        ]), 1)]
 
     def n(self, cid, now=None, full=False):
         """A driver's name as said on air (and marks them as mentioned)."""
@@ -588,6 +637,7 @@ class Writer(BanterMixin):
             f"Good afternoon, and welcome to {track}. {num_words(len(tr.cars)).capitalize()} cars, {self._race_length()}, and it's almost time to go.",
             f"Welcome to {track}. The grid is formed, {num_words(len(tr.cars))} cars, {self._race_length()} ahead of us.",
         ]), 1)]
+        out += self._history_intro(now)
         bits = []
         if pole:
             bits.append(f"Thanks {self.lead_name}. {self.n(pole.id, now, full=True)} starts from pole")
@@ -2878,6 +2928,7 @@ class Writer(BanterMixin):
         of = f" of {event}" if event else ""
         out = [Line(LEAD, f"So, that's the result{of} here at {tr.track or 'the circuit'}: victory for {self.n(w.id, now, full=True)}{pod}.", 1)]
         out += calls
+        out += self._history_wrap(now)
         me = tr.player()
         if me and me.finished:
             out.append(Line(ANALYST, f"And {place(tr.pos_of(me.id))} for {self.n(me.id, now)}. Thanks for watching, everybody.", 1))
