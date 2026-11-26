@@ -1,9 +1,10 @@
 # Publishes a SimCast release from main: tag vX.Y (APP_VERSION in simcast/app.py), with SimCast-Setup.exe and
 # SimCast-SimHub.zip (the SimHub plugin and dashboard, built by simhub-plugin.yml) attached and the README's
-# "What's new in X.Y" section as the notes. Run it by hand (Actions > Release > Run workflow) after
-# the release commit is on main. It refuses to run if that version is already released, or if the committed
-# installer doesn't carry main's files. Installed copies' update check and SimCoach's setup wizard both look for an
-# asset named exactly SimCast-Setup.exe, and check the download against the SHA-256 GitHub shows for it.
+# "What's new" sections since the last release as the notes (tools/release_notes.sh). Run it by hand
+# (Actions > Release > Run workflow) after the release commit is on main. It refuses to run if that version is
+# already released, or if the committed installer doesn't carry main's files. Installed copies' update check and
+# SimCoach's setup wizard both look for an asset named exactly SimCast-Setup.exe, and check the download against
+# the SHA-256 GitHub shows for it.
 name: Release
 
 on:
@@ -30,14 +31,17 @@ jobs:
           ref: main
       - name: Version and notes
         id: v
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           VER="$(sed -n 's/^APP_VERSION = "\(.*\)"$/\1/p' simcast/app.py)"
           [ -n "$VER" ] || { echo "APP_VERSION not found"; exit 1; }
           if git ls-remote --exit-code --tags origin "refs/tags/v$VER" >/dev/null; then
             echo "v$VER is already tagged: set the next version in simcast/app.py first."; exit 1
           fi
-          awk -v h="### What's new in $VER" '$0==h{on=1;next} on&&/^### /{exit} on{print}' README.md | tr -d '\r' > notes.md
-          [ -s notes.md ] || { echo "README.md has no \"What's new in $VER\" section"; exit 1; }
+          # every version since the last release, so one that never got a release of its own isn't left out
+          PREV="$(gh release view --json tagName -q .tagName 2>/dev/null | sed 's/^v//' || true)"
+          tools/release_notes.sh "$VER" $PREV > notes.md
           echo "ver=$VER" >> "$GITHUB_OUTPUT"
       - name: Check the installer carries these files
         run: |

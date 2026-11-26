@@ -1,0 +1,46 @@
+# Rewrites a published release's notes from README.md's "What's new" sections (tools/release_notes.sh): the
+# release's own version and any versions since the release before it that never got one of their own. Run it by
+# hand (Actions > Release notes > Run workflow) after correcting the README on main. The release's files are left
+# as they are.
+name: Release notes
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "The release to rewrite, e.g. v1.20"
+        required: true
+      since:
+        description: "Include versions after this one, e.g. 1.18 (empty: the release before it)"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+jobs:
+  notes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+      - name: Rewrite the notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+          SINCE: ${{ inputs.since }}
+        run: |
+          [[ "$TAG" =~ ^v[0-9]+(\.[0-9]+)*$ ]] || { echo "Not a release tag: $TAG"; exit 1; }
+          gh release view "$TAG" --json tagName >/dev/null || { echo "No release $TAG"; exit 1; }
+          if [ -z "$SINCE" ]; then
+            # the release published just before this one
+            SINCE="$(gh release list --limit 100 --json tagName,publishedAt \
+              -q "sort_by(.publishedAt) | map(.tagName) | (index(\"$TAG\")) as \$i | if \$i > 0 then .[\$i - 1] else \"\" end" \
+              | sed 's/^v//')"
+          fi
+          [ -z "$SINCE" ] || [[ "$SINCE" =~ ^[0-9]+(\.[0-9]+)*$ ]] || { echo "Not a version: $SINCE"; exit 1; }
+          echo "Notes for $TAG${SINCE:+, everything since $SINCE}:"
+          tools/release_notes.sh "${TAG#v}" $SINCE | tee notes.md
+          gh release edit "$TAG" --notes-file notes.md

@@ -23,6 +23,7 @@ run "demo race (--test)" bash -c "APPDATA=\$(mktemp -d) '$PY' '$REPO/sim_cast.py
 run "test_simcast" "$PY" test_simcast.py
 run "test_history" "$PY" test_history.py
 run "test_simhub" "$PY" test_simhub.py
+run "release notes" bash -c "v=\$(sed -n 's/^APP_VERSION = \"\(.*\)\"\$/\1/p' '$REPO/simcast/app.py'); '$REPO/tools/release_notes.sh' \"\$v\" | grep -q ."
 if [ "$GUI" = 1 ]; then
   if command -v xvfb-run >/dev/null && [ -z "${DISPLAY:-}" ]; then run "gui_test_simcast" xvfb-run -a -s "-screen 0 1400x950x24" "$PY" gui_test_simcast.py
   else run "gui_test_simcast" "$PY" gui_test_simcast.py; fi
