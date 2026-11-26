@@ -24,6 +24,19 @@ each other: while SimCoach's coach or crew speaks, the booth drops under them an
 * **Linux / Steam Deck:** [install-simcast-wine.sh](install-simcast-wine.sh) installs SimCast into the sim's
   own Proton prefix (see below).
 
+### What's new in 1.20
+* **SimCast on your SimHub dashboards.** The new **SimCast Booth** dashboard puts the booth on any SimHub screen
+  (a phone or tablet, a USB display, a second monitor or an overlay): ON AIR or OFF AIR, who's talking and what
+  they're saying as they say it, the lap and the flag, the booth's running order with your car and the battles marked,
+  your place and the gaps either side, and your hotkeys. A *Transcript* screen has the conversation so far and a
+  *Controls* screen the buttons.
+* **The booth's buttons in SimHub:** the SimCast plugin for SimHub adds skip the line, booth on/off air, talk about
+  me, Driving/Stream and NASCAR as SimHub actions, for any button SimHub knows, and every value as a property for your
+  own dashboards (`[SimCastPlugin.Line.Text]`).
+* Get **SimCast-SimHub.zip** from this release, close SimHub and run *Install-SimCastForSimHub.ps1* from it. In
+  SimCast, *Settings → Stream → SimHub* is on by default and says when SimHub is reading the booth. Only programs on
+  this PC can reach it.
+
 ### What's new in 1.19
 * **AI booth fix for OpenAI.** With an OpenAI key and the model on *Automatic*, the booth's conversations picked a
   "pro" model that OpenAI only offers through a different API, so every one failed ("This is not a chat model" in
