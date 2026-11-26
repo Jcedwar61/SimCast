@@ -1,5 +1,6 @@
-# Publishes a SimCast release from main: tag vX.Y (APP_VERSION in simcast/app.py), with SimCast-Setup.exe attached
-# and the README's "What's new in X.Y" section as the notes. Run it by hand (Actions > Release > Run workflow) after
+# Publishes a SimCast release from main: tag vX.Y (APP_VERSION in simcast/app.py), with SimCast-Setup.exe and
+# SimCast-SimHub.zip (the SimHub plugin and dashboard, built by simhub-plugin.yml) attached and the README's
+# "What's new in X.Y" section as the notes. Run it by hand (Actions > Release > Run workflow) after
 # the release commit is on main. It refuses to run if that version is already released, or if the committed
 # installer doesn't carry main's files. Installed copies' update check and SimCoach's setup wizard both look for an
 # asset named exactly SimCast-Setup.exe, and check the download against the SHA-256 GitHub shows for it.
@@ -16,7 +17,11 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  simhub:
+    uses: ./.github/workflows/simhub-plugin.yml
+
   release:
+    needs: simhub
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -42,10 +47,13 @@ jobs:
             cmp -s "$f" "check/$f" || { echo "The installer doesn't carry this $f: rebuild it (tools/installer/build_installer.sh)."; exit 1; }
           done
           cmp -s installer-source/install.ps1 check/install.ps1 || { echo "The installer's install.ps1 is out of date: rebuild it."; exit 1; }
+      - uses: actions/download-artifact@v4
+        with:
+          name: SimCast-SimHub
       - name: Publish
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           VER="${{ steps.v.outputs.ver }}"
-          gh release create "v$VER" SimCast-Setup.exe \
+          gh release create "v$VER" SimCast-Setup.exe SimCast-SimHub.zip \
             --target "$(git rev-parse HEAD)" --title "SimCast v$VER" --notes-file notes.md --latest

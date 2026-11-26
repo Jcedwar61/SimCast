@@ -1,0 +1,86 @@
+# Builds the SimCast plugin for SimHub (simhub/plugin) and packages SimCast-SimHub.zip: SimCastPlugin.dll, the
+# SimCast Booth dashboard and Install-SimCastForSimHub.ps1. Runs on pull requests that touch them, by hand, and from
+# the Release workflow, which attaches the zip to the release. There's no SimHub on the runner, so the plugin builds
+# against the reference stubs in simhub/plugin/refs; a build on a PC with SimHub uses SimHub's own assemblies.
+name: SimHub plugin
+
+on:
+  pull_request:
+    paths: ["simhub/**", "simcast/simhub.py", "simcast/hotkeys.py", "tools/simhub/**", ".github/workflows/simhub-plugin.yml"]
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: powershell
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: The plugin's keys and the dashboard match simcast/simhub.py
+        run: |
+          python tools/simhub/build_simhub.py --check
+          if ($LASTEXITCODE) { exit 1 }
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+      - name: Build SimCastPlugin.dll
+        run: |
+          dotnet build simhub/plugin/SimCastPlugin/SimCastPlugin.csproj -c Release -p:UseSimHubStubs=true -nologo
+          if ($LASTEXITCODE) { exit 1 }
+      - name: The DLL is a SimHub plugin
+        run: |
+          $dll = (Resolve-Path simhub/plugin/SimCastPlugin/bin/Release/SimCastPlugin.dll).Path
+          $refs = Join-Path $PWD 'simhub/plugin/SimCastPlugin/bin/Release'
+          [AppDomain]::CurrentDomain.add_ReflectionOnlyAssemblyResolve({
+            param($s, $e)
+            $n = (New-Object Reflection.AssemblyName($e.Name)).Name
+            $p = Get-ChildItem -Recurse -Filter "$n.dll" simhub/plugin -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($p) { return [Reflection.Assembly]::ReflectionOnlyLoadFrom($p.FullName) }
+            return [Reflection.Assembly]::ReflectionOnlyLoad($e.Name)
+          })
+          $asm = [Reflection.Assembly]::ReflectionOnlyLoadFrom($dll)
+          "References: " + (($asm.GetReferencedAssemblies() | ForEach-Object { $_.Name }) -join ', ')
+          $t = $asm.GetType('SimCastForSimHub.SimCastPlugin', $true)
+          $ifs = $t.GetInterfaces() | ForEach-Object { $_.FullName }
+          "Implements: " + ($ifs -join ', ')
+          if ($ifs -notcontains 'SimHub.Plugins.IPlugin' -or $ifs -notcontains 'SimHub.Plugins.IDataPlugin') { exit 1 }
+          $names = $asm.GetReferencedAssemblies() | ForEach-Object { $_.Name }
+          foreach ($n in 'SimHub.Plugins', 'GameReaderCommon') { if ($names -notcontains $n) { "No reference to $n"; exit 1 } }
+      - name: Install-SimCastForSimHub.ps1 parses in Windows PowerShell 5.1
+        run: |
+          $tokens = $null; $errs = $null
+          [void][System.Management.Automation.Language.Parser]::ParseFile("$PWD\simhub\Install-SimCastForSimHub.ps1", [ref]$tokens, [ref]$errs)
+          if ($errs) { $errs | ForEach-Object { Write-Host $_ }; exit 1 }
+      - name: Package SimCast-SimHub.zip
+        run: |
+          $out = New-Item -ItemType Directory -Force -Path pkg
+          Copy-Item simhub/plugin/SimCastPlugin/bin/Release/SimCastPlugin.dll $out
+          Copy-Item -Recurse "simhub/dashboard/SimCast Booth" $out
+          Copy-Item simhub/Install-SimCastForSimHub.ps1 $out
+          Copy-Item simhub/README.txt $out
+          Compress-Archive -Path pkg/* -DestinationPath SimCast-SimHub.zip -Force
+          Get-ChildItem -Recurse pkg | ForEach-Object { $_.FullName.Substring($out.FullName.Length) }
+      - name: Install into a stand-in SimHub folder
+        env:
+          SIMCAST_NO_PAUSE: "1"
+        run: |
+          $fake = New-Item -ItemType Directory -Force -Path "$env:RUNNER_TEMP\SimHub"
+          Set-Content "$fake\SimHubWPF.exe" 'stand-in'
+          powershell -NoProfile -ExecutionPolicy Bypass -File pkg\Install-SimCastForSimHub.ps1 -SimHubDir $fake.FullName
+          if ($LASTEXITCODE) { exit 1 }
+          if (-not (Test-Path "$fake\SimCastPlugin.dll")) { 'The plugin was not copied'; exit 1 }
+          if (-not (Test-Path "$fake\DashTemplates\SimCast Booth\SimCast Booth.djson")) { 'The dashboard was not copied'; exit 1 }
+          'Installed into the stand-in SimHub folder'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SimCast-SimHub
+          path: SimCast-SimHub.zip

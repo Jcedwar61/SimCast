@@ -24,6 +24,19 @@ each other: while SimCoach's coach or crew speaks, the booth drops under them an
 * **Linux / Steam Deck:** [install-simcast-wine.sh](install-simcast-wine.sh) installs SimCast into the sim's
   own Proton prefix (see below).
 
+### What's new in 1.20
+* **SimCast on your SimHub dashboards.** The new **SimCast Booth** dashboard puts the booth on any SimHub screen
+  (a phone or tablet, a USB display, a second monitor or an overlay): ON AIR or OFF AIR, who's talking and what
+  they're saying as they say it, the lap and the flag, the booth's running order with your car and the battles marked,
+  your place and the gaps either side, and your hotkeys. A *Transcript* screen has the conversation so far and a
+  *Controls* screen the buttons.
+* **The booth's buttons in SimHub:** the SimCast plugin for SimHub adds skip the line, booth on/off air, talk about
+  me, Driving/Stream and NASCAR as SimHub actions, for any button SimHub knows, and every value as a property for your
+  own dashboards (`[SimCastPlugin.Line.Text]`).
+* Get **SimCast-SimHub.zip** from this release, close SimHub and run *Install-SimCastForSimHub.ps1* from it. In
+  SimCast, *Settings → Stream → SimHub* is on by default and says when SimHub is reading the booth. Only programs on
+  this PC can reach it.
+
 ### What's new in 1.19
 * **AI booth fix for OpenAI.** With an OpenAI key and the model on *Automatic*, the booth's conversations picked a
   "pro" model that OpenAI only offers through a different API, so every one failed ("This is not a chat model" in
@@ -321,6 +334,25 @@ every setting, streaming, Linux and troubleshooting. It opens by itself the firs
 * Add the *Play on* device to OBS to put the booth on stream; *Driving* mode keeps it out of your way when you're
   the one racing.
 
+### SimHub dashboard
+<p align="center"><img src="simhub/dashboard/preview.png" width="720" alt="The SimCast Booth dashboard in SimHub"></p>
+
+The **SimCast Booth** dashboard puts the booth on any SimHub screen (a phone or tablet, a USB display, a second
+monitor or an overlay): ON AIR or OFF AIR, who's talking and what they're saying as they say it, the lap and the
+flag, the booth's running order with your car and the battles marked, your place and the gaps either side, and your
+hotkeys. A *Transcript* screen has the conversation so far and a *Controls* screen the buttons; when SimCast isn't
+running, the dashboard says so.
+
+The **SimCast plugin for SimHub** gives SimHub the booth's buttons as actions (*SimCastPlugin.SkipLine*,
+*ToggleOnAir*, *TalkAboutMe*, *ToggleDriveMode*, *ToggleNascar*) to bind to any wheel or button-box button in
+*Controls and events*, and every value as a property (`[SimCastPlugin.Line.Text]`, `[SimCastPlugin.OnAir]`...) for
+your own dashboards.
+
+Download **SimCast-SimHub.zip** from the [latest release](https://github.com/Jcedwar61/SimCast/releases/latest),
+close SimHub and run *Install-SimCastForSimHub.ps1* from it; then start SimHub, enable the SimCast plugin when it asks
+and open *Dash Studio → SimCast Booth*. *Settings → Stream → SimHub* in SimCast is on by default (port 8687, this PC
+only). [simhub/README.txt](simhub/README.txt) has the details.
+
 ### Linux and Steam Deck
 Sims share their live data inside their own Wine prefix, so SimCast must run in the same prefix as the game:
 ```
@@ -348,6 +380,7 @@ simcast/cockpit.py           driving mode: quiet while the driver is busy
 simcast/hotkeys.py           keyboard and wheel-button hotkeys
 simcast/memory.py, roster.py  the booth's memory across races; the league roster (CSV)
 simcast/stream.py, recap.py  OBS captions page, Twitch chat; the post-race recap
+simcast/simhub.py            the SimHub link: the booth's values for the SimHub plugin, and its buttons
 simcast/eleven.py, usage.py  ElevenLabs voices; the cost estimate
 simcast/audio.py             voices (Microsoft, Kokoro, Google, OpenAI, ElevenLabs), fallback, playback, interruptions
 simcast/detect.py            the supported sims installed on this PC (Steam libraries, iRacing, EA app)
@@ -360,6 +393,9 @@ simcast/demo.py              a fictional 12-car race for the tests
 simcast/licenses/            SimCast's MIT licence and third-party notices
 tools/launcher/              SimCast.exe (Go): build_launcher.sh
 installer-source/            SimCast-Setup.exe (NSIS, 64-bit): tools/installer/build_installer.sh
+simhub/plugin/               the SimCast plugin for SimHub (C#, .NET Framework 4.8): dotnet build -c Release
+simhub/dashboard/            the SimCast Booth dashboard: tools/simhub/build_simhub.py writes it (and the plugin's
+                             property list) from simcast/simhub.py; --preview draws it
 ```
 Tests: `tools/run_tests.sh` (add `--gui` for the real window under Xvfb);
 `tools/installer/wine_check.sh` installs, runs and uninstalls SimCast under Wine.
@@ -370,5 +406,6 @@ and prints the folder for PATH.
 
 Releasing: set `APP_VERSION` in `simcast/app.py`, add a "What's new" section here, run the tests, build the
 launcher and the installer, merge to main, then publish a GitHub release tagged `vX.Y` on main with
-**SimCast-Setup.exe** attached under exactly that name: installed copies' update check and SimCoach's setup wizard
+**SimCast-Setup.exe** attached under exactly that name (the Release workflow also builds and attaches
+**SimCast-SimHub.zip**): installed copies' update check and SimCoach's setup wizard
 both look for it, and both check the download against the SHA-256 GitHub shows for the asset.

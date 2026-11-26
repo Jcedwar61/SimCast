@@ -1,0 +1,42 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- The SimCast plugin for SimHub: SimCastPlugin.dll, copied into SimHub's folder.
+       dotnet build -c Release                          (any OS with the .NET SDK)
+       dotnet build -c Release -p:SimHubDir="C:\Program Files (x86)\SimHub\"
+                                                        (against an installed SimHub instead of the stubs)
+       Without SimHub on the machine it builds against the reference stubs in ..\refs. -->
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <OutputType>Library</OutputType>
+    <AssemblyName>SimCastPlugin</AssemblyName>
+    <RootNamespace>SimCastForSimHub</RootNamespace>
+    <LangVersion>7.3</LangVersion>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <Version>1.0.0</Version>
+    <Product>SimCast plugin for SimHub</Product>
+    <Copyright>Copyright (c) 2026 Jcedwar61. PolyForm Noncommercial License 1.0.0</Copyright>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
+    <IsPackable>false</IsPackable>
+    <SimHubDir Condition="'$(SimHubDir)' == ''">C:\Program Files (x86)\SimHub\</SimHubDir>
+    <UseSimHubStubs Condition="'$(UseSimHubStubs)' == '' And !Exists('$(SimHubDir)SimHub.Plugins.dll')">true</UseSimHubStubs>
+    <UseSimHubStubs Condition="'$(UseSimHubStubs)' == ''">false</UseSimHubStubs>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
+    <Reference Include="System.Web.Extensions" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(UseSimHubStubs)' != 'true'">
+    <Reference Include="SimHub.Plugins">
+      <HintPath>$(SimHubDir)SimHub.Plugins.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="GameReaderCommon">
+      <HintPath>$(SimHubDir)GameReaderCommon.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+  <ItemGroup Condition="'$(UseSimHubStubs)' == 'true'">
+    <ProjectReference Include="..\refs\SimHub.Plugins\SimHub.Plugins.csproj" Private="false" />
+    <ProjectReference Include="..\refs\GameReaderCommon\GameReaderCommon.csproj" Private="false" />
+  </ItemGroup>
+</Project>

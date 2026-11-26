@@ -1,0 +1,5098 @@
+{
+  "Variables": {
+    "DashboardVariables": []
+  },
+  "Version": 2,
+  "Id": "e9804e90-0872-5aa8-9e93-3d8e0119ef95",
+  "BaseHeight": 540,
+  "BaseWidth": 960,
+  "BackgroundColor": "#FF0B0C0F",
+  "Screens": [
+    {
+      "Name": "Booth",
+      "InGameScreen": true,
+      "IdleScreen": true,
+      "PitScreen": false,
+      "ScreenId": "a5eeb4c8-cb44-57e3-a91b-6305cb062ced",
+      "AllowOverlays": true,
+      "IsForegroundLayer": false,
+      "IsOverlayLayer": false,
+      "OverlayTriggerExpression": {
+        "Expression": ""
+      },
+      "ScreenEnabledExpression": {
+        "Expression": ""
+      },
+      "OverlayMaxDuration": 0,
+      "OverlayMinDuration": 0,
+      "IsBackgroundLayer": false,
+      "BackgroundColor": "#FF0B0C0F",
+      "Items": [
+        {
+          "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.Layer, SimHub.Plugins",
+          "Top": 0.0,
+          "Left": 0.0,
+          "Height": 108.0,
+          "Width": 960.0,
+          "BackgroundColor": "#00000000",
+          "Childrens": [
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.RectangleItem, SimHub.Plugins",
+              "IsRectangleItem": true,
+              "BackgroundColor": "#FF131519",
+              "Height": 52.0,
+              "Left": 0.0,
+              "Top": 0.0,
+              "Visible": true,
+              "Width": 960.0,
+              "Name": "Booth header bg"
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.RectangleItem, SimHub.Plugins",
+              "IsRectangleItem": true,
+              "BackgroundColor": "#FF22262C",
+              "Height": 32.0,
+              "Left": 16.0,
+              "Top": 10.0,
+              "Visible": true,
+              "Width": 118.0,
+              "Name": "Booth tally",
+              "Bindings": {
+                "BackgroundColor": {
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.AirColor]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "BackgroundColor"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Bold",
+              "FontSize": 17.0,
+              "Text": "OFF AIR",
+              "TextColor": "#FFECEEF1",
+              "HorizontalAlignment": 1,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 32.0,
+              "Left": 16.0,
+              "Top": 10.0,
+              "Visible": true,
+              "Width": 118.0,
+              "Name": "Booth tally text",
+              "Bindings": {
+                "Text": {
+                  "FormatString": "",
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.AirText]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Text"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.RectangleItem, SimHub.Plugins",
+              "IsRectangleItem": true,
+              "BackgroundColor": "#FFE5484D",
+              "Height": 8.0,
+              "Left": 144.0,
+              "Top": 22.0,
+              "Visible": true,
+              "Width": 8.0,
+              "Name": "Booth speaking dot",
+              "Bindings": {
+                "Visible": {
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Speaking]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Visible"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "SemiBold",
+              "FontSize": 14.0,
+              "Text": "SIMCAST",
+              "TextColor": "#FF8B939E",
+              "HorizontalAlignment": 0,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 32.0,
+              "Left": 160.0,
+              "Top": 10.0,
+              "Visible": true,
+              "Width": 96.0,
+              "Name": "Booth brand"
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "SemiBold",
+              "FontSize": 13.0,
+              "Text": "Stream",
+              "TextColor": "#FFECEEF1",
+              "HorizontalAlignment": 1,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#FF22262C",
+              "Height": 26.0,
+              "Left": 260.0,
+              "Top": 13.0,
+              "Visible": true,
+              "Width": 96.0,
+              "Name": "Booth drive mode",
+              "Bindings": {
+                "Text": {
+                  "FormatString": "",
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.DriveMode]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Text"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "SemiBold",
+              "FontSize": 13.0,
+              "Text": "Whole field",
+              "TextColor": "#FFECEEF1",
+              "HorizontalAlignment": 1,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#FF22262C",
+              "Height": 26.0,
+              "Left": 364.0,
+              "Top": 13.0,
+              "Visible": true,
+              "Width": 150.0,
+              "Name": "Booth coverage",
+              "Bindings": {
+                "Text": {
+                  "FormatString": "",
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Coverage]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Text"
+                },
+                "Visible": {
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Live]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Visible"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Bold",
+              "FontSize": 13.0,
+              "Text": "NASCAR",
+              "TextColor": "#FF0B0C0F",
+              "HorizontalAlignment": 1,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#FFF5A524",
+              "Height": 26.0,
+              "Left": 522.0,
+              "Top": 13.0,
+              "Visible": true,
+              "Width": 84.0,
+              "Name": "Booth nascar",
+              "Bindings": {
+                "Visible": {
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Nascar]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Visible"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Normal",
+              "FontSize": 13.0,
+              "Text": "Stock lines",
+              "TextColor": "#FF8B939E",
+              "HorizontalAlignment": 2,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 32.0,
+              "Left": 616.0,
+              "Top": 10.0,
+              "Visible": true,
+              "Width": 328.0,
+              "Name": "Booth ai",
+              "Bindings": {
+                "Text": {
+                  "FormatString": "",
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.AI]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Text"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Bold",
+              "FontSize": 19.0,
+              "Text": "",
+              "TextColor": "#FFECEEF1",
+              "HorizontalAlignment": 0,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 26.0,
+              "Left": 16.0,
+              "Top": 58.0,
+              "Visible": true,
+              "Width": 440.0,
+              "Name": "Booth title",
+              "Bindings": {
+                "Text": {
+                  "FormatString": "",
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Title]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Text"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Normal",
+              "FontSize": 13.0,
+              "Text": "",
+              "TextColor": "#FF8B939E",
+              "HorizontalAlignment": 0,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 20.0,
+              "Left": 16.0,
+              "Top": 84.0,
+              "Visible": true,
+              "Width": 440.0,
+              "Name": "Booth subtitle",
+              "Bindings": {
+                "Text": {
+                  "FormatString": "",
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Subtitle]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Text"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Bold",
+              "FontSize": 22.0,
+              "Text": "",
+              "TextColor": "#FFECEEF1",
+              "HorizontalAlignment": 1,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 42.0,
+              "Left": 460.0,
+              "Top": 60.0,
+              "Visible": true,
+              "Width": 210.0,
+              "Name": "Booth lap",
+              "Bindings": {
+                "Text": {
+                  "FormatString": "",
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.LapText]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Text"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Bold",
+              "FontSize": 15.0,
+              "Text": "",
+              "TextColor": "#FF0B0C0F",
+              "HorizontalAlignment": 1,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 34.0,
+              "Left": 680.0,
+              "Top": 64.0,
+              "Visible": true,
+              "Width": 264.0,
+              "Name": "Booth flag",
+              "Bindings": {
+                "Text": {
+                  "FormatString": "",
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.FlagText]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Text"
+                },
+                "BackgroundColor": {
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.FlagColor]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "BackgroundColor"
+                }
+              }
+            }
+          ],
+          "Group": false,
+          "Visible": true,
+          "Name": "Booth header"
+        },
+        {
+          "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.Layer, SimHub.Plugins",
+          "Top": 0.0,
+          "Left": 0.0,
+          "Height": 540.0,
+          "Width": 960.0,
+          "BackgroundColor": "#00000000",
+          "Childrens": [
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.RectangleItem, SimHub.Plugins",
+              "IsRectangleItem": true,
+              "BackgroundColor": "#FF131519",
+              "Height": 270.0,
+              "Left": 16.0,
+              "Top": 112.0,
+              "Visible": true,
+              "Width": 604.0,
+              "Name": "Line panel"
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.RectangleItem, SimHub.Plugins",
+              "IsRectangleItem": true,
+              "BackgroundColor": "#FFF5A524",
+              "Height": 270.0,
+              "Left": 16.0,
+              "Top": 112.0,
+              "Visible": true,
+              "Width": 6.0,
+              "Name": "Line bar",
+              "Bindings": {
+                "BackgroundColor": {
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Line.Color]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "BackgroundColor"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Bold",
+              "FontSize": 16.0,
+              "Text": "",
+              "TextColor": "#FFF5A524",
+              "HorizontalAlignment": 0,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 30.0,
+              "Left": 38.0,
+              "Top": 120.0,
+              "Visible": true,
+              "Width": 380.0,
+              "Name": "Line speaker",
+              "Bindings": {
+                "Text": {
+                  "FormatString": "",
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Line.Speaker]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Text"
+                },
+                "TextColor": {
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Line.Color]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "TextColor"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Bold",
+              "FontSize": 12.0,
+              "Text": "SPEAKING",
+              "TextColor": "#FFE5484D",
+              "HorizontalAlignment": 2,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 30.0,
+              "Left": 480.0,
+              "Top": 120.0,
+              "Visible": true,
+              "Width": 126.0,
+              "Name": "Line live",
+              "Bindings": {
+                "Visible": {
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Speaking]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Visible"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Normal",
+              "FontSize": 25.0,
+              "Text": "",
+              "TextColor": "#FFECEEF1",
+              "HorizontalAlignment": 0,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 50.0,
+              "Left": 38.0,
+              "Top": 156.0,
+              "Visible": true,
+              "Width": 574.0,
+              "Name": "Line row 1",
+              "Bindings": {
+                "Text": {
+                  "FormatString": "",
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Line.Row1]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Text"
+                },
+                "TextColor": {
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Line.TextColor]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "TextColor"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Normal",
+              "FontSize": 25.0,
+              "Text": "",
+              "TextColor": "#FFECEEF1",
+              "HorizontalAlignment": 0,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 50.0,
+              "Left": 38.0,
+              "Top": 208.0,
+              "Visible": true,
+              "Width": 574.0,
+              "Name": "Line row 2",
+              "Bindings": {
+                "Text": {
+                  "FormatString": "",
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Line.Row2]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Text"
+                },
+                "TextColor": {
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Line.TextColor]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "TextColor"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Normal",
+              "FontSize": 25.0,
+              "Text": "",
+              "TextColor": "#FFECEEF1",
+              "HorizontalAlignment": 0,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 50.0,
+              "Left": 38.0,
+              "Top": 260.0,
+              "Visible": true,
+              "Width": 574.0,
+              "Name": "Line row 3",
+              "Bindings": {
+                "Text": {
+                  "FormatString": "",
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Line.Row3]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Text"
+                },
+                "TextColor": {
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Line.TextColor]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "TextColor"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Normal",
+              "FontSize": 25.0,
+              "Text": "",
+              "TextColor": "#FFECEEF1",
+              "HorizontalAlignment": 0,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 50.0,
+              "Left": 38.0,
+              "Top": 312.0,
+              "Visible": true,
+              "Width": 574.0,
+              "Name": "Line row 4",
+              "Bindings": {
+                "Text": {
+                  "FormatString": "",
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Line.Row4]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Text"
+                },
+                "TextColor": {
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Line.TextColor]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "TextColor"
+                }
+              }
+            }
+          ],
+          "Group": false,
+          "Visible": true,
+          "Name": "Now speaking"
+        },
+        {
+          "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.Layer, SimHub.Plugins",
+          "Top": 0.0,
+          "Left": 0.0,
+          "Height": 540.0,
+          "Width": 960.0,
+          "BackgroundColor": "#00000000",
+          "Childrens": [
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.RectangleItem, SimHub.Plugins",
+              "IsRectangleItem": true,
+              "BackgroundColor": "#FF131519",
+              "Height": 84.0,
+              "Left": 16.0,
+              "Top": 390.0,
+              "Visible": true,
+              "Width": 604.0,
+              "Name": "History panel"
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Bold",
+              "FontSize": 12.0,
+              "Text": "",
+              "TextColor": "#FF8B939E",
+              "HorizontalAlignment": 0,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 32.0,
+              "Left": 30.0,
+              "Top": 398.0,
+              "Visible": true,
+              "Width": 92.0,
+              "Name": "History 1 speaker",
+              "Bindings": {
+                "Text": {
+                  "FormatString": "",
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.History1.Speaker]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Text"
+                },
+                "TextColor": {
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.History1.Color]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "TextColor"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Normal",
+              "FontSize": 13.0,
+              "Text": "",
+              "TextColor": "#FF8B939E",
+              "HorizontalAlignment": 0,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 32.0,
+              "Left": 124.0,
+              "Top": 398.0,
+              "Visible": true,
+              "Width": 490.0,
+              "Name": "History 1 text",
+              "Bindings": {
+                "Text": {
+                  "FormatString": "",
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.History1.Text]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Text"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Bold",
+              "FontSize": 12.0,
+              "Text": "",
+              "TextColor": "#FF8B939E",
+              "HorizontalAlignment": 0,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 32.0,
+              "Left": 30.0,
+              "Top": 434.0,
+              "Visible": true,
+              "Width": 92.0,
+              "Name": "History 2 speaker",
+              "Bindings": {
+                "Text": {
+                  "FormatString": "",
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.History2.Speaker]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Text"
+                },
+                "TextColor": {
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.History2.Color]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "TextColor"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Normal",
+              "FontSize": 13.0,
+              "Text": "",
+              "TextColor": "#FF8B939E",
+              "HorizontalAlignment": 0,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 32.0,
+              "Left": 124.0,
+              "Top": 434.0,
+              "Visible": true,
+              "Width": 490.0,
+              "Name": "History 2 text",
+              "Bindings": {
+                "Text": {
+                  "FormatString": "",
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.History2.Text]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Text"
+                }
+              }
+            }
+          ],
+          "Group": false,
+          "Visible": true,
+          "Name": "Earlier"
+        },
+        {
+          "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.Layer, SimHub.Plugins",
+          "Top": 0.0,
+          "Left": 0.0,
+          "Height": 540.0,
+          "Width": 960.0,
+          "BackgroundColor": "#00000000",
+          "Childrens": [
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.RectangleItem, SimHub.Plugins",
+              "IsRectangleItem": true,
+              "BackgroundColor": "#FF131519",
+              "Height": 362.0,
+              "Left": 632.0,
+              "Top": 112.0,
+              "Visible": true,
+              "Width": 312.0,
+              "Name": "Tower panel"
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Bold",
+              "FontSize": 12.0,
+              "Text": "RUNNING ORDER",
+              "TextColor": "#FF8B939E",
+              "HorizontalAlignment": 0,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 26.0,
+              "Left": 646.0,
+              "Top": 116.0,
+              "Visible": true,
+              "Width": 200.0,
+              "Name": "Tower title"
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Normal",
+              "FontSize": 12.0,
+              "Text": "",
+              "TextColor": "#FF8B939E",
+              "HorizontalAlignment": 2,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 26.0,
+              "Left": 846.0,
+              "Top": 116.0,
+              "Visible": true,
+              "Width": 86.0,
+              "Name": "Tower count",
+              "Bindings": {
+                "Text": {
+                  "FormatString": "",
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Field.Count]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Text"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.RectangleItem, SimHub.Plugins",
+              "IsRectangleItem": true,
+              "BackgroundColor": "#FF1A1D22",
+              "Height": 30.0,
+              "Left": 640.0,
+              "Top": 144.0,
+              "Visible": true,
+              "Width": 296.0,
+              "Name": "Tower 1 row",
+              "Bindings": {
+                "BackgroundColor": {
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Tower01.RowColor]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "BackgroundColor"
+                },
+                "Visible": {
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Tower01.Show]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Visible"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.RectangleItem, SimHub.Plugins",
+              "IsRectangleItem": true,
+              "BackgroundColor": "#FFF5A524",
+              "Height": 30.0,
+              "Left": 640.0,
+              "Top": 144.0,
+              "Visible": true,
+              "Width": 3.0,
+              "Name": "Tower 1 battle",
+              "Bindings": {
+                "Visible": {
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Tower01.Battle]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Visible"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Bold",
+              "FontSize": 14.0,
+              "Text": "",
+              "TextColor": "#FFECEEF1",
+              "HorizontalAlignment": 1,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 30.0,
+              "Left": 646.0,
+              "Top": 144.0,
+              "Visible": true,
+              "Width": 34.0,
+              "Name": "Tower 1 pos",
+              "Bindings": {
+                "Text": {
+                  "FormatString": "",
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Tower01.Pos]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Text"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "SemiBold",
+              "FontSize": 14.0,
+              "Text": "",
+              "TextColor": "#FFECEEF1",
+              "HorizontalAlignment": 0,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 30.0,
+              "Left": 686.0,
+              "Top": 144.0,
+              "Visible": true,
+              "Width": 160.0,
+              "Name": "Tower 1 name",
+              "Bindings": {
+                "Text": {
+                  "FormatString": "",
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Tower01.Name]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Text"
+                },
+                "TextColor": {
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Tower01.NameColor]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "TextColor"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.RectangleItem, SimHub.Plugins",
+              "IsRectangleItem": true,
+              "BackgroundColor": "#FFB38CFF",
+              "Height": 8.0,
+              "Left": 848.0,
+              "Top": 155.0,
+              "Visible": true,
+              "Width": 8.0,
+              "Name": "Tower 1 fastest",
+              "Bindings": {
+                "Visible": {
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Tower01.Fastest]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Visible"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Normal",
+              "FontSize": 13.0,
+              "Text": "",
+              "TextColor": "#FF8B939E",
+              "HorizontalAlignment": 2,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 30.0,
+              "Left": 858.0,
+              "Top": 144.0,
+              "Visible": true,
+              "Width": 72.0,
+              "Name": "Tower 1 gap",
+              "Bindings": {
+                "Text": {
+                  "FormatString": "",
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Tower01.Gap]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Text"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.RectangleItem, SimHub.Plugins",
+              "IsRectangleItem": true,
+              "BackgroundColor": "#FF1A1D22",
+              "Height": 30.0,
+              "Left": 640.0,
+              "Top": 177.0,
+              "Visible": true,
+              "Width": 296.0,
+              "Name": "Tower 2 row",
+              "Bindings": {
+                "BackgroundColor": {
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Tower02.RowColor]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "BackgroundColor"
+                },
+                "Visible": {
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Tower02.Show]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Visible"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.RectangleItem, SimHub.Plugins",
+              "IsRectangleItem": true,
+              "BackgroundColor": "#FFF5A524",
+              "Height": 30.0,
+              "Left": 640.0,
+              "Top": 177.0,
+              "Visible": true,
+              "Width": 3.0,
+              "Name": "Tower 2 battle",
+              "Bindings": {
+                "Visible": {
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Tower02.Battle]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Visible"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Bold",
+              "FontSize": 14.0,
+              "Text": "",
+              "TextColor": "#FFECEEF1",
+              "HorizontalAlignment": 1,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 30.0,
+              "Left": 646.0,
+              "Top": 177.0,
+              "Visible": true,
+              "Width": 34.0,
+              "Name": "Tower 2 pos",
+              "Bindings": {
+                "Text": {
+                  "FormatString": "",
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Tower02.Pos]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Text"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "SemiBold",
+              "FontSize": 14.0,
+              "Text": "",
+              "TextColor": "#FFECEEF1",
+              "HorizontalAlignment": 0,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 30.0,
+              "Left": 686.0,
+              "Top": 177.0,
+              "Visible": true,
+              "Width": 160.0,
+              "Name": "Tower 2 name",
+              "Bindings": {
+                "Text": {
+                  "FormatString": "",
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Tower02.Name]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Text"
+                },
+                "TextColor": {
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Tower02.NameColor]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "TextColor"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.RectangleItem, SimHub.Plugins",
+              "IsRectangleItem": true,
+              "BackgroundColor": "#FFB38CFF",
+              "Height": 8.0,
+              "Left": 848.0,
+              "Top": 188.0,
+              "Visible": true,
+              "Width": 8.0,
+              "Name": "Tower 2 fastest",
+              "Bindings": {
+                "Visible": {
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Tower02.Fastest]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Visible"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Normal",
+              "FontSize": 13.0,
+              "Text": "",
+              "TextColor": "#FF8B939E",
+              "HorizontalAlignment": 2,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 30.0,
+              "Left": 858.0,
+              "Top": 177.0,
+              "Visible": true,
+              "Width": 72.0,
+              "Name": "Tower 2 gap",
+              "Bindings": {
+                "Text": {
+                  "FormatString": "",
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Tower02.Gap]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Text"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.RectangleItem, SimHub.Plugins",
+              "IsRectangleItem": true,
+              "BackgroundColor": "#FF1A1D22",
+              "Height": 30.0,
+              "Left": 640.0,
+              "Top": 210.0,
+              "Visible": true,
+              "Width": 296.0,
+              "Name": "Tower 3 row",
+              "Bindings": {
+                "BackgroundColor": {
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Tower03.RowColor]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "BackgroundColor"
+                },
+                "Visible": {
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Tower03.Show]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Visible"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.RectangleItem, SimHub.Plugins",
+              "IsRectangleItem": true,
+              "BackgroundColor": "#FFF5A524",
+              "Height": 30.0,
+              "Left": 640.0,
+              "Top": 210.0,
+              "Visible": true,
+              "Width": 3.0,
+              "Name": "Tower 3 battle",
+              "Bindings": {
+                "Visible": {
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Tower03.Battle]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Visible"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Bold",
+              "FontSize": 14.0,
+              "Text": "",
+              "TextColor": "#FFECEEF1",
+              "HorizontalAlignment": 1,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 30.0,
+              "Left": 646.0,
+              "Top": 210.0,
+              "Visible": true,
+              "Width": 34.0,
+              "Name": "Tower 3 pos",
+              "Bindings": {
+                "Text": {
+                  "FormatString": "",
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Tower03.Pos]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Text"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "SemiBold",
+              "FontSize": 14.0,
+              "Text": "",
+              "TextColor": "#FFECEEF1",
+              "HorizontalAlignment": 0,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 30.0,
+              "Left": 686.0,
+              "Top": 210.0,
+              "Visible": true,
+              "Width": 160.0,
+              "Name": "Tower 3 name",
+              "Bindings": {
+                "Text": {
+                  "FormatString": "",
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Tower03.Name]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Text"
+                },
+                "TextColor": {
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Tower03.NameColor]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "TextColor"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.RectangleItem, SimHub.Plugins",
+              "IsRectangleItem": true,
+              "BackgroundColor": "#FFB38CFF",
+              "Height": 8.0,
+              "Left": 848.0,
+              "Top": 221.0,
+              "Visible": true,
+              "Width": 8.0,
+              "Name": "Tower 3 fastest",
+              "Bindings": {
+                "Visible": {
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Tower03.Fastest]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Visible"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Normal",
+              "FontSize": 13.0,
+              "Text": "",
+              "TextColor": "#FF8B939E",
+              "HorizontalAlignment": 2,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 30.0,
+              "Left": 858.0,
+              "Top": 210.0,
+              "Visible": true,
+              "Width": 72.0,
+              "Name": "Tower 3 gap",
+              "Bindings": {
+                "Text": {
+                  "FormatString": "",
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Tower03.Gap]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Text"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.RectangleItem, SimHub.Plugins",
+              "IsRectangleItem": true,
+              "BackgroundColor": "#FF1A1D22",
+              "Height": 30.0,
+              "Left": 640.0,
+              "Top": 243.0,
+              "Visible": true,
+              "Width": 296.0,
+              "Name": "Tower 4 row",
+              "Bindings": {
+                "BackgroundColor": {
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Tower04.RowColor]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "BackgroundColor"
+                },
+                "Visible": {
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Tower04.Show]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Visible"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.RectangleItem, SimHub.Plugins",
+              "IsRectangleItem": true,
+              "BackgroundColor": "#FFF5A524",
+              "Height": 30.0,
+              "Left": 640.0,
+              "Top": 243.0,
+              "Visible": true,
+              "Width": 3.0,
+              "Name": "Tower 4 battle",
+              "Bindings": {
+                "Visible": {
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Tower04.Battle]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Visible"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Bold",
+              "FontSize": 14.0,
+              "Text": "",
+              "TextColor": "#FFECEEF1",
+              "HorizontalAlignment": 1,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 30.0,
+              "Left": 646.0,
+              "Top": 243.0,
+              "Visible": true,
+              "Width": 34.0,
+              "Name": "Tower 4 pos",
+              "Bindings": {
+                "Text": {
+                  "FormatString": "",
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Tower04.Pos]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Text"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "SemiBold",
+              "FontSize": 14.0,
+              "Text": "",
+              "TextColor": "#FFECEEF1",
+              "HorizontalAlignment": 0,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 30.0,
+              "Left": 686.0,
+              "Top": 243.0,
+              "Visible": true,
+              "Width": 160.0,
+              "Name": "Tower 4 name",
+              "Bindings": {
+                "Text": {
+                  "FormatString": "",
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Tower04.Name]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Text"
+                },
+                "TextColor": {
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Tower04.NameColor]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "TextColor"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.RectangleItem, SimHub.Plugins",
+              "IsRectangleItem": true,
+              "BackgroundColor": "#FFB38CFF",
+              "Height": 8.0,
+              "Left": 848.0,
+              "Top": 254.0,
+              "Visible": true,
+              "Width": 8.0,
+              "Name": "Tower 4 fastest",
+              "Bindings": {
+                "Visible": {
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Tower04.Fastest]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Visible"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Normal",
+              "FontSize": 13.0,
+              "Text": "",
+              "TextColor": "#FF8B939E",
+              "HorizontalAlignment": 2,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 30.0,
+              "Left": 858.0,
+              "Top": 243.0,
+              "Visible": true,
+              "Width": 72.0,
+              "Name": "Tower 4 gap",
+              "Bindings": {
+                "Text": {
+                  "FormatString": "",
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Tower04.Gap]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Text"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.RectangleItem, SimHub.Plugins",
+              "IsRectangleItem": true,
+              "BackgroundColor": "#FF1A1D22",
+              "Height": 30.0,
+              "Left": 640.0,
+              "Top": 276.0,
+              "Visible": true,
+              "Width": 296.0,
+              "Name": "Tower 5 row",
+              "Bindings": {
+                "BackgroundColor": {
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Tower05.RowColor]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "BackgroundColor"
+                },
+                "Visible": {
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Tower05.Show]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Visible"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.RectangleItem, SimHub.Plugins",
+              "IsRectangleItem": true,
+              "BackgroundColor": "#FFF5A524",
+              "Height": 30.0,
+              "Left": 640.0,
+              "Top": 276.0,
+              "Visible": true,
+              "Width": 3.0,
+              "Name": "Tower 5 battle",
+              "Bindings": {
+                "Visible": {
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Tower05.Battle]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Visible"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Bold",
+              "FontSize": 14.0,
+              "Text": "",
+              "TextColor": "#FFECEEF1",
+              "HorizontalAlignment": 1,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 30.0,
+              "Left": 646.0,
+              "Top": 276.0,
+              "Visible": true,
+              "Width": 34.0,
+              "Name": "Tower 5 pos",
+              "Bindings": {
+                "Text": {
+                  "FormatString": "",
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Tower05.Pos]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Text"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "SemiBold",
+              "FontSize": 14.0,
+              "Text": "",
+              "TextColor": "#FFECEEF1",
+              "HorizontalAlignment": 0,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 30.0,
+              "Left": 686.0,
+              "Top": 276.0,
+              "Visible": true,
+              "Width": 160.0,
+              "Name": "Tower 5 name",
+              "Bindings": {
+                "Text": {
+                  "FormatString": "",
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Tower05.Name]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Text"
+                },
+                "TextColor": {
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Tower05.NameColor]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "TextColor"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.RectangleItem, SimHub.Plugins",
+              "IsRectangleItem": true,
+              "BackgroundColor": "#FFB38CFF",
+              "Height": 8.0,
+              "Left": 848.0,
+              "Top": 287.0,
+              "Visible": true,
+              "Width": 8.0,
+              "Name": "Tower 5 fastest",
+              "Bindings": {
+                "Visible": {
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Tower05.Fastest]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Visible"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Normal",
+              "FontSize": 13.0,
+              "Text": "",
+              "TextColor": "#FF8B939E",
+              "HorizontalAlignment": 2,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 30.0,
+              "Left": 858.0,
+              "Top": 276.0,
+              "Visible": true,
+              "Width": 72.0,
+              "Name": "Tower 5 gap",
+              "Bindings": {
+                "Text": {
+                  "FormatString": "",
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Tower05.Gap]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Text"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.RectangleItem, SimHub.Plugins",
+              "IsRectangleItem": true,
+              "BackgroundColor": "#FF1A1D22",
+              "Height": 30.0,
+              "Left": 640.0,
+              "Top": 309.0,
+              "Visible": true,
+              "Width": 296.0,
+              "Name": "Tower 6 row",
+              "Bindings": {
+                "BackgroundColor": {
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Tower06.RowColor]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "BackgroundColor"
+                },
+                "Visible": {
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Tower06.Show]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Visible"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.RectangleItem, SimHub.Plugins",
+              "IsRectangleItem": true,
+              "BackgroundColor": "#FFF5A524",
+              "Height": 30.0,
+              "Left": 640.0,
+              "Top": 309.0,
+              "Visible": true,
+              "Width": 3.0,
+              "Name": "Tower 6 battle",
+              "Bindings": {
+                "Visible": {
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Tower06.Battle]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Visible"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Bold",
+              "FontSize": 14.0,
+              "Text": "",
+              "TextColor": "#FFECEEF1",
+              "HorizontalAlignment": 1,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 30.0,
+              "Left": 646.0,
+              "Top": 309.0,
+              "Visible": true,
+              "Width": 34.0,
+              "Name": "Tower 6 pos",
+              "Bindings": {
+                "Text": {
+                  "FormatString": "",
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Tower06.Pos]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Text"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "SemiBold",
+              "FontSize": 14.0,
+              "Text": "",
+              "TextColor": "#FFECEEF1",
+              "HorizontalAlignment": 0,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 30.0,
+              "Left": 686.0,
+              "Top": 309.0,
+              "Visible": true,
+              "Width": 160.0,
+              "Name": "Tower 6 name",
+              "Bindings": {
+                "Text": {
+                  "FormatString": "",
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Tower06.Name]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Text"
+                },
+                "TextColor": {
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Tower06.NameColor]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "TextColor"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.RectangleItem, SimHub.Plugins",
+              "IsRectangleItem": true,
+              "BackgroundColor": "#FFB38CFF",
+              "Height": 8.0,
+              "Left": 848.0,
+              "Top": 320.0,
+              "Visible": true,
+              "Width": 8.0,
+              "Name": "Tower 6 fastest",
+              "Bindings": {
+                "Visible": {
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Tower06.Fastest]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Visible"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Normal",
+              "FontSize": 13.0,
+              "Text": "",
+              "TextColor": "#FF8B939E",
+              "HorizontalAlignment": 2,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 30.0,
+              "Left": 858.0,
+              "Top": 309.0,
+              "Visible": true,
+              "Width": 72.0,
+              "Name": "Tower 6 gap",
+              "Bindings": {
+                "Text": {
+                  "FormatString": "",
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Tower06.Gap]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Text"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.RectangleItem, SimHub.Plugins",
+              "IsRectangleItem": true,
+              "BackgroundColor": "#FF1A1D22",
+              "Height": 30.0,
+              "Left": 640.0,
+              "Top": 342.0,
+              "Visible": true,
+              "Width": 296.0,
+              "Name": "Tower 7 row",
+              "Bindings": {
+                "BackgroundColor": {
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Tower07.RowColor]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "BackgroundColor"
+                },
+                "Visible": {
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Tower07.Show]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Visible"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.RectangleItem, SimHub.Plugins",
+              "IsRectangleItem": true,
+              "BackgroundColor": "#FFF5A524",
+              "Height": 30.0,
+              "Left": 640.0,
+              "Top": 342.0,
+              "Visible": true,
+              "Width": 3.0,
+              "Name": "Tower 7 battle",
+              "Bindings": {
+                "Visible": {
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Tower07.Battle]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Visible"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Bold",
+              "FontSize": 14.0,
+              "Text": "",
+              "TextColor": "#FFECEEF1",
+              "HorizontalAlignment": 1,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 30.0,
+              "Left": 646.0,
+              "Top": 342.0,
+              "Visible": true,
+              "Width": 34.0,
+              "Name": "Tower 7 pos",
+              "Bindings": {
+                "Text": {
+                  "FormatString": "",
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Tower07.Pos]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Text"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "SemiBold",
+              "FontSize": 14.0,
+              "Text": "",
+              "TextColor": "#FFECEEF1",
+              "HorizontalAlignment": 0,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 30.0,
+              "Left": 686.0,
+              "Top": 342.0,
+              "Visible": true,
+              "Width": 160.0,
+              "Name": "Tower 7 name",
+              "Bindings": {
+                "Text": {
+                  "FormatString": "",
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Tower07.Name]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Text"
+                },
+                "TextColor": {
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Tower07.NameColor]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "TextColor"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.RectangleItem, SimHub.Plugins",
+              "IsRectangleItem": true,
+              "BackgroundColor": "#FFB38CFF",
+              "Height": 8.0,
+              "Left": 848.0,
+              "Top": 353.0,
+              "Visible": true,
+              "Width": 8.0,
+              "Name": "Tower 7 fastest",
+              "Bindings": {
+                "Visible": {
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Tower07.Fastest]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Visible"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Normal",
+              "FontSize": 13.0,
+              "Text": "",
+              "TextColor": "#FF8B939E",
+              "HorizontalAlignment": 2,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 30.0,
+              "Left": 858.0,
+              "Top": 342.0,
+              "Visible": true,
+              "Width": 72.0,
+              "Name": "Tower 7 gap",
+              "Bindings": {
+                "Text": {
+                  "FormatString": "",
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Tower07.Gap]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Text"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.RectangleItem, SimHub.Plugins",
+              "IsRectangleItem": true,
+              "BackgroundColor": "#FF1A1D22",
+              "Height": 30.0,
+              "Left": 640.0,
+              "Top": 375.0,
+              "Visible": true,
+              "Width": 296.0,
+              "Name": "Tower 8 row",
+              "Bindings": {
+                "BackgroundColor": {
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Tower08.RowColor]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "BackgroundColor"
+                },
+                "Visible": {
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Tower08.Show]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Visible"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.RectangleItem, SimHub.Plugins",
+              "IsRectangleItem": true,
+              "BackgroundColor": "#FFF5A524",
+              "Height": 30.0,
+              "Left": 640.0,
+              "Top": 375.0,
+              "Visible": true,
+              "Width": 3.0,
+              "Name": "Tower 8 battle",
+              "Bindings": {
+                "Visible": {
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Tower08.Battle]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Visible"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Bold",
+              "FontSize": 14.0,
+              "Text": "",
+              "TextColor": "#FFECEEF1",
+              "HorizontalAlignment": 1,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 30.0,
+              "Left": 646.0,
+              "Top": 375.0,
+              "Visible": true,
+              "Width": 34.0,
+              "Name": "Tower 8 pos",
+              "Bindings": {
+                "Text": {
+                  "FormatString": "",
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Tower08.Pos]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Text"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "SemiBold",
+              "FontSize": 14.0,
+              "Text": "",
+              "TextColor": "#FFECEEF1",
+              "HorizontalAlignment": 0,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 30.0,
+              "Left": 686.0,
+              "Top": 375.0,
+              "Visible": true,
+              "Width": 160.0,
+              "Name": "Tower 8 name",
+              "Bindings": {
+                "Text": {
+                  "FormatString": "",
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Tower08.Name]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Text"
+                },
+                "TextColor": {
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Tower08.NameColor]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "TextColor"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.RectangleItem, SimHub.Plugins",
+              "IsRectangleItem": true,
+              "BackgroundColor": "#FFB38CFF",
+              "Height": 8.0,
+              "Left": 848.0,
+              "Top": 386.0,
+              "Visible": true,
+              "Width": 8.0,
+              "Name": "Tower 8 fastest",
+              "Bindings": {
+                "Visible": {
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Tower08.Fastest]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Visible"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Normal",
+              "FontSize": 13.0,
+              "Text": "",
+              "TextColor": "#FF8B939E",
+              "HorizontalAlignment": 2,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 30.0,
+              "Left": 858.0,
+              "Top": 375.0,
+              "Visible": true,
+              "Width": 72.0,
+              "Name": "Tower 8 gap",
+              "Bindings": {
+                "Text": {
+                  "FormatString": "",
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Tower08.Gap]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Text"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.RectangleItem, SimHub.Plugins",
+              "IsRectangleItem": true,
+              "BackgroundColor": "#FF1A1D22",
+              "Height": 30.0,
+              "Left": 640.0,
+              "Top": 408.0,
+              "Visible": true,
+              "Width": 296.0,
+              "Name": "Tower 9 row",
+              "Bindings": {
+                "BackgroundColor": {
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Tower09.RowColor]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "BackgroundColor"
+                },
+                "Visible": {
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Tower09.Show]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Visible"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.RectangleItem, SimHub.Plugins",
+              "IsRectangleItem": true,
+              "BackgroundColor": "#FFF5A524",
+              "Height": 30.0,
+              "Left": 640.0,
+              "Top": 408.0,
+              "Visible": true,
+              "Width": 3.0,
+              "Name": "Tower 9 battle",
+              "Bindings": {
+                "Visible": {
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Tower09.Battle]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Visible"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Bold",
+              "FontSize": 14.0,
+              "Text": "",
+              "TextColor": "#FFECEEF1",
+              "HorizontalAlignment": 1,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 30.0,
+              "Left": 646.0,
+              "Top": 408.0,
+              "Visible": true,
+              "Width": 34.0,
+              "Name": "Tower 9 pos",
+              "Bindings": {
+                "Text": {
+                  "FormatString": "",
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Tower09.Pos]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Text"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "SemiBold",
+              "FontSize": 14.0,
+              "Text": "",
+              "TextColor": "#FFECEEF1",
+              "HorizontalAlignment": 0,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 30.0,
+              "Left": 686.0,
+              "Top": 408.0,
+              "Visible": true,
+              "Width": 160.0,
+              "Name": "Tower 9 name",
+              "Bindings": {
+                "Text": {
+                  "FormatString": "",
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Tower09.Name]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Text"
+                },
+                "TextColor": {
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Tower09.NameColor]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "TextColor"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.RectangleItem, SimHub.Plugins",
+              "IsRectangleItem": true,
+              "BackgroundColor": "#FFB38CFF",
+              "Height": 8.0,
+              "Left": 848.0,
+              "Top": 419.0,
+              "Visible": true,
+              "Width": 8.0,
+              "Name": "Tower 9 fastest",
+              "Bindings": {
+                "Visible": {
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Tower09.Fastest]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Visible"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Normal",
+              "FontSize": 13.0,
+              "Text": "",
+              "TextColor": "#FF8B939E",
+              "HorizontalAlignment": 2,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 30.0,
+              "Left": 858.0,
+              "Top": 408.0,
+              "Visible": true,
+              "Width": 72.0,
+              "Name": "Tower 9 gap",
+              "Bindings": {
+                "Text": {
+                  "FormatString": "",
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Tower09.Gap]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Text"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.RectangleItem, SimHub.Plugins",
+              "IsRectangleItem": true,
+              "BackgroundColor": "#FF1A1D22",
+              "Height": 30.0,
+              "Left": 640.0,
+              "Top": 441.0,
+              "Visible": true,
+              "Width": 296.0,
+              "Name": "Tower 10 row",
+              "Bindings": {
+                "BackgroundColor": {
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Tower10.RowColor]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "BackgroundColor"
+                },
+                "Visible": {
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Tower10.Show]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Visible"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.RectangleItem, SimHub.Plugins",
+              "IsRectangleItem": true,
+              "BackgroundColor": "#FFF5A524",
+              "Height": 30.0,
+              "Left": 640.0,
+              "Top": 441.0,
+              "Visible": true,
+              "Width": 3.0,
+              "Name": "Tower 10 battle",
+              "Bindings": {
+                "Visible": {
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Tower10.Battle]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Visible"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Bold",
+              "FontSize": 14.0,
+              "Text": "",
+              "TextColor": "#FFECEEF1",
+              "HorizontalAlignment": 1,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 30.0,
+              "Left": 646.0,
+              "Top": 441.0,
+              "Visible": true,
+              "Width": 34.0,
+              "Name": "Tower 10 pos",
+              "Bindings": {
+                "Text": {
+                  "FormatString": "",
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Tower10.Pos]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Text"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "SemiBold",
+              "FontSize": 14.0,
+              "Text": "",
+              "TextColor": "#FFECEEF1",
+              "HorizontalAlignment": 0,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 30.0,
+              "Left": 686.0,
+              "Top": 441.0,
+              "Visible": true,
+              "Width": 160.0,
+              "Name": "Tower 10 name",
+              "Bindings": {
+                "Text": {
+                  "FormatString": "",
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Tower10.Name]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Text"
+                },
+                "TextColor": {
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Tower10.NameColor]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "TextColor"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.RectangleItem, SimHub.Plugins",
+              "IsRectangleItem": true,
+              "BackgroundColor": "#FFB38CFF",
+              "Height": 8.0,
+              "Left": 848.0,
+              "Top": 452.0,
+              "Visible": true,
+              "Width": 8.0,
+              "Name": "Tower 10 fastest",
+              "Bindings": {
+                "Visible": {
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Tower10.Fastest]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Visible"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Normal",
+              "FontSize": 13.0,
+              "Text": "",
+              "TextColor": "#FF8B939E",
+              "HorizontalAlignment": 2,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 30.0,
+              "Left": 858.0,
+              "Top": 441.0,
+              "Visible": true,
+              "Width": 72.0,
+              "Name": "Tower 10 gap",
+              "Bindings": {
+                "Text": {
+                  "FormatString": "",
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Tower10.Gap]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Text"
+                }
+              }
+            }
+          ],
+          "Group": false,
+          "Visible": true,
+          "Name": "Running order"
+        },
+        {
+          "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.Layer, SimHub.Plugins",
+          "Top": 0.0,
+          "Left": 0.0,
+          "Height": 540.0,
+          "Width": 960.0,
+          "BackgroundColor": "#00000000",
+          "Childrens": [
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.RectangleItem, SimHub.Plugins",
+              "IsRectangleItem": true,
+              "BackgroundColor": "#FF131519",
+              "Height": 58.0,
+              "Left": 0.0,
+              "Top": 482.0,
+              "Visible": true,
+              "Width": 960.0,
+              "Name": "Footer"
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Bold",
+              "FontSize": 28.0,
+              "Text": "",
+              "TextColor": "#FFE5484D",
+              "HorizontalAlignment": 0,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 50.0,
+              "Left": 16.0,
+              "Top": 486.0,
+              "Visible": true,
+              "Width": 74.0,
+              "Name": "Me pos",
+              "Bindings": {
+                "Text": {
+                  "FormatString": "",
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Me.PosText]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Text"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "SemiBold",
+              "FontSize": 11.0,
+              "Text": "AHEAD",
+              "TextColor": "#FF8B939E",
+              "HorizontalAlignment": 0,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 24.0,
+              "Left": 96.0,
+              "Top": 488.0,
+              "Visible": true,
+              "Width": 60.0,
+              "Name": "Me ahead label"
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "SemiBold",
+              "FontSize": 14.0,
+              "Text": "",
+              "TextColor": "#FFECEEF1",
+              "HorizontalAlignment": 0,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 24.0,
+              "Left": 156.0,
+              "Top": 488.0,
+              "Visible": true,
+              "Width": 200.0,
+              "Name": "Me ahead",
+              "Bindings": {
+                "Text": {
+                  "FormatString": "",
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Me.Ahead]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Text"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Normal",
+              "FontSize": 14.0,
+              "Text": "",
+              "TextColor": "#FFECEEF1",
+              "HorizontalAlignment": 2,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 24.0,
+              "Left": 360.0,
+              "Top": 488.0,
+              "Visible": true,
+              "Width": 100.0,
+              "Name": "Me gap ahead",
+              "Bindings": {
+                "Text": {
+                  "FormatString": "",
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Me.GapAhead]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Text"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "SemiBold",
+              "FontSize": 11.0,
+              "Text": "BEHIND",
+              "TextColor": "#FF8B939E",
+              "HorizontalAlignment": 0,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 24.0,
+              "Left": 96.0,
+              "Top": 512.0,
+              "Visible": true,
+              "Width": 60.0,
+              "Name": "Me behind label"
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "SemiBold",
+              "FontSize": 14.0,
+              "Text": "",
+              "TextColor": "#FFECEEF1",
+              "HorizontalAlignment": 0,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 24.0,
+              "Left": 156.0,
+              "Top": 512.0,
+              "Visible": true,
+              "Width": 200.0,
+              "Name": "Me behind",
+              "Bindings": {
+                "Text": {
+                  "FormatString": "",
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Me.Behind]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Text"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Normal",
+              "FontSize": 14.0,
+              "Text": "",
+              "TextColor": "#FFECEEF1",
+              "HorizontalAlignment": 2,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 24.0,
+              "Left": 360.0,
+              "Top": 512.0,
+              "Visible": true,
+              "Width": 100.0,
+              "Name": "Me gap behind",
+              "Bindings": {
+                "Text": {
+                  "FormatString": "",
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Me.GapBehind]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Text"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "SemiBold",
+              "FontSize": 11.0,
+              "Text": "SKIP",
+              "TextColor": "#FF8B939E",
+              "HorizontalAlignment": 1,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 18.0,
+              "Left": 476.0,
+              "Top": 486.0,
+              "Visible": true,
+              "Width": 90.0,
+              "Name": "Key Skip label"
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Bold",
+              "FontSize": 14.0,
+              "Text": "",
+              "TextColor": "#FFECEEF1",
+              "HorizontalAlignment": 1,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 26.0,
+              "Left": 476.0,
+              "Top": 504.0,
+              "Visible": true,
+              "Width": 90.0,
+              "Name": "Key Skip",
+              "Bindings": {
+                "Text": {
+                  "FormatString": "",
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Key.Skip]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Text"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "SemiBold",
+              "FontSize": 11.0,
+              "Text": "ON AIR",
+              "TextColor": "#FF8B939E",
+              "HorizontalAlignment": 1,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 18.0,
+              "Left": 570.0,
+              "Top": 486.0,
+              "Visible": true,
+              "Width": 90.0,
+              "Name": "Key Air label"
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Bold",
+              "FontSize": 14.0,
+              "Text": "",
+              "TextColor": "#FFECEEF1",
+              "HorizontalAlignment": 1,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 26.0,
+              "Left": 570.0,
+              "Top": 504.0,
+              "Visible": true,
+              "Width": 90.0,
+              "Name": "Key Air",
+              "Bindings": {
+                "Text": {
+                  "FormatString": "",
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Key.Air]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Text"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "SemiBold",
+              "FontSize": 11.0,
+              "Text": "ABOUT ME",
+              "TextColor": "#FF8B939E",
+              "HorizontalAlignment": 1,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 18.0,
+              "Left": 664.0,
+              "Top": 486.0,
+              "Visible": true,
+              "Width": 90.0,
+              "Name": "Key Me label"
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Bold",
+              "FontSize": 14.0,
+              "Text": "",
+              "TextColor": "#FFECEEF1",
+              "HorizontalAlignment": 1,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 26.0,
+              "Left": 664.0,
+              "Top": 504.0,
+              "Visible": true,
+              "Width": 90.0,
+              "Name": "Key Me",
+              "Bindings": {
+                "Text": {
+                  "FormatString": "",
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Key.Me]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Text"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "SemiBold",
+              "FontSize": 11.0,
+              "Text": "MODE",
+              "TextColor": "#FF8B939E",
+              "HorizontalAlignment": 1,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 18.0,
+              "Left": 758.0,
+              "Top": 486.0,
+              "Visible": true,
+              "Width": 90.0,
+              "Name": "Key Mode label"
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Bold",
+              "FontSize": 14.0,
+              "Text": "",
+              "TextColor": "#FFECEEF1",
+              "HorizontalAlignment": 1,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 26.0,
+              "Left": 758.0,
+              "Top": 504.0,
+              "Visible": true,
+              "Width": 90.0,
+              "Name": "Key Mode",
+              "Bindings": {
+                "Text": {
+                  "FormatString": "",
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Key.Mode]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Text"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "SemiBold",
+              "FontSize": 11.0,
+              "Text": "NASCAR",
+              "TextColor": "#FF8B939E",
+              "HorizontalAlignment": 1,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 18.0,
+              "Left": 852.0,
+              "Top": 486.0,
+              "Visible": true,
+              "Width": 90.0,
+              "Name": "Key Nascar label"
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Bold",
+              "FontSize": 14.0,
+              "Text": "",
+              "TextColor": "#FFECEEF1",
+              "HorizontalAlignment": 1,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 26.0,
+              "Left": 852.0,
+              "Top": 504.0,
+              "Visible": true,
+              "Width": 90.0,
+              "Name": "Key Nascar",
+              "Bindings": {
+                "Text": {
+                  "FormatString": "",
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Key.Nascar]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Text"
+                }
+              }
+            }
+          ],
+          "Group": false,
+          "Visible": true,
+          "Name": "Your race and buttons"
+        },
+        {
+          "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.Layer, SimHub.Plugins",
+          "Top": 0.0,
+          "Left": 0.0,
+          "Height": 540.0,
+          "Width": 960.0,
+          "BackgroundColor": "#00000000",
+          "Childrens": [
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.RectangleItem, SimHub.Plugins",
+              "IsRectangleItem": true,
+              "BackgroundColor": "#F20B0C0F",
+              "Height": 540.0,
+              "Left": 0.0,
+              "Top": 0.0,
+              "Visible": true,
+              "Width": 960.0,
+              "Name": "Booth nc bg"
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.RectangleItem, SimHub.Plugins",
+              "IsRectangleItem": true,
+              "BackgroundColor": "#FFE5484D",
+              "Height": 4.0,
+              "Left": 330.0,
+              "Top": 190.0,
+              "Visible": true,
+              "Width": 300.0,
+              "Name": "Booth nc bar"
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Bold",
+              "FontSize": 28.0,
+              "Text": "SIMCAST ISN'T CONNECTED",
+              "TextColor": "#FFECEEF1",
+              "HorizontalAlignment": 1,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 44.0,
+              "Left": 40.0,
+              "Top": 205.0,
+              "Visible": true,
+              "Width": 880.0,
+              "Name": "Booth nc title"
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Normal",
+              "FontSize": 16.0,
+              "Text": "Start SimCast on this PC: the booth shows here as soon as it's running.",
+              "TextColor": "#FFECEEF1",
+              "HorizontalAlignment": 1,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 28.0,
+              "Left": 40.0,
+              "Top": 255.0,
+              "Visible": true,
+              "Width": 880.0,
+              "Name": "Booth nc line 1"
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Normal",
+              "FontSize": 14.0,
+              "Text": "Check that SimHub's SimCast plugin is on, and SimCast's Settings > Stream > SimHub.",
+              "TextColor": "#FF8B939E",
+              "HorizontalAlignment": 1,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 28.0,
+              "Left": 40.0,
+              "Top": 285.0,
+              "Visible": true,
+              "Width": 880.0,
+              "Name": "Booth nc line 2"
+            }
+          ],
+          "Group": false,
+          "Visible": true,
+          "Name": "Booth not connected",
+          "Bindings": {
+            "Visible": {
+              "Formula": {
+                "Expression": "if(isnull([SimCastPlugin.Connected], false), false, true)"
+              },
+              "Mode": 2,
+              "TargetPropertyName": "Visible"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "Name": "Transcript",
+      "InGameScreen": true,
+      "IdleScreen": true,
+      "PitScreen": false,
+      "ScreenId": "6419469c-7fe3-5053-a897-23a79d153647",
+      "AllowOverlays": true,
+      "IsForegroundLayer": false,
+      "IsOverlayLayer": false,
+      "OverlayTriggerExpression": {
+        "Expression": ""
+      },
+      "ScreenEnabledExpression": {
+        "Expression": ""
+      },
+      "OverlayMaxDuration": 0,
+      "OverlayMinDuration": 0,
+      "IsBackgroundLayer": false,
+      "BackgroundColor": "#FF0B0C0F",
+      "Items": [
+        {
+          "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.Layer, SimHub.Plugins",
+          "Top": 0.0,
+          "Left": 0.0,
+          "Height": 108.0,
+          "Width": 960.0,
+          "BackgroundColor": "#00000000",
+          "Childrens": [
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.RectangleItem, SimHub.Plugins",
+              "IsRectangleItem": true,
+              "BackgroundColor": "#FF131519",
+              "Height": 52.0,
+              "Left": 0.0,
+              "Top": 0.0,
+              "Visible": true,
+              "Width": 960.0,
+              "Name": "Transcript header bg"
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.RectangleItem, SimHub.Plugins",
+              "IsRectangleItem": true,
+              "BackgroundColor": "#FF22262C",
+              "Height": 32.0,
+              "Left": 16.0,
+              "Top": 10.0,
+              "Visible": true,
+              "Width": 118.0,
+              "Name": "Transcript tally",
+              "Bindings": {
+                "BackgroundColor": {
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.AirColor]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "BackgroundColor"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Bold",
+              "FontSize": 17.0,
+              "Text": "OFF AIR",
+              "TextColor": "#FFECEEF1",
+              "HorizontalAlignment": 1,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 32.0,
+              "Left": 16.0,
+              "Top": 10.0,
+              "Visible": true,
+              "Width": 118.0,
+              "Name": "Transcript tally text",
+              "Bindings": {
+                "Text": {
+                  "FormatString": "",
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.AirText]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Text"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.RectangleItem, SimHub.Plugins",
+              "IsRectangleItem": true,
+              "BackgroundColor": "#FFE5484D",
+              "Height": 8.0,
+              "Left": 144.0,
+              "Top": 22.0,
+              "Visible": true,
+              "Width": 8.0,
+              "Name": "Transcript speaking dot",
+              "Bindings": {
+                "Visible": {
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Speaking]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Visible"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "SemiBold",
+              "FontSize": 14.0,
+              "Text": "SIMCAST",
+              "TextColor": "#FF8B939E",
+              "HorizontalAlignment": 0,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 32.0,
+              "Left": 160.0,
+              "Top": 10.0,
+              "Visible": true,
+              "Width": 96.0,
+              "Name": "Transcript brand"
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "SemiBold",
+              "FontSize": 13.0,
+              "Text": "Stream",
+              "TextColor": "#FFECEEF1",
+              "HorizontalAlignment": 1,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#FF22262C",
+              "Height": 26.0,
+              "Left": 260.0,
+              "Top": 13.0,
+              "Visible": true,
+              "Width": 96.0,
+              "Name": "Transcript drive mode",
+              "Bindings": {
+                "Text": {
+                  "FormatString": "",
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.DriveMode]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Text"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "SemiBold",
+              "FontSize": 13.0,
+              "Text": "Whole field",
+              "TextColor": "#FFECEEF1",
+              "HorizontalAlignment": 1,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#FF22262C",
+              "Height": 26.0,
+              "Left": 364.0,
+              "Top": 13.0,
+              "Visible": true,
+              "Width": 150.0,
+              "Name": "Transcript coverage",
+              "Bindings": {
+                "Text": {
+                  "FormatString": "",
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Coverage]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Text"
+                },
+                "Visible": {
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Live]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Visible"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Bold",
+              "FontSize": 13.0,
+              "Text": "NASCAR",
+              "TextColor": "#FF0B0C0F",
+              "HorizontalAlignment": 1,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#FFF5A524",
+              "Height": 26.0,
+              "Left": 522.0,
+              "Top": 13.0,
+              "Visible": true,
+              "Width": 84.0,
+              "Name": "Transcript nascar",
+              "Bindings": {
+                "Visible": {
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Nascar]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Visible"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Normal",
+              "FontSize": 13.0,
+              "Text": "Stock lines",
+              "TextColor": "#FF8B939E",
+              "HorizontalAlignment": 2,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 32.0,
+              "Left": 616.0,
+              "Top": 10.0,
+              "Visible": true,
+              "Width": 328.0,
+              "Name": "Transcript ai",
+              "Bindings": {
+                "Text": {
+                  "FormatString": "",
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.AI]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Text"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Bold",
+              "FontSize": 19.0,
+              "Text": "",
+              "TextColor": "#FFECEEF1",
+              "HorizontalAlignment": 0,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 26.0,
+              "Left": 16.0,
+              "Top": 58.0,
+              "Visible": true,
+              "Width": 440.0,
+              "Name": "Transcript title",
+              "Bindings": {
+                "Text": {
+                  "FormatString": "",
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Title]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Text"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Normal",
+              "FontSize": 13.0,
+              "Text": "",
+              "TextColor": "#FF8B939E",
+              "HorizontalAlignment": 0,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 20.0,
+              "Left": 16.0,
+              "Top": 84.0,
+              "Visible": true,
+              "Width": 440.0,
+              "Name": "Transcript subtitle",
+              "Bindings": {
+                "Text": {
+                  "FormatString": "",
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Subtitle]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Text"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Bold",
+              "FontSize": 22.0,
+              "Text": "",
+              "TextColor": "#FFECEEF1",
+              "HorizontalAlignment": 1,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 42.0,
+              "Left": 460.0,
+              "Top": 60.0,
+              "Visible": true,
+              "Width": 210.0,
+              "Name": "Transcript lap",
+              "Bindings": {
+                "Text": {
+                  "FormatString": "",
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.LapText]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Text"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Bold",
+              "FontSize": 15.0,
+              "Text": "",
+              "TextColor": "#FF0B0C0F",
+              "HorizontalAlignment": 1,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 34.0,
+              "Left": 680.0,
+              "Top": 64.0,
+              "Visible": true,
+              "Width": 264.0,
+              "Name": "Transcript flag",
+              "Bindings": {
+                "Text": {
+                  "FormatString": "",
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.FlagText]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Text"
+                },
+                "BackgroundColor": {
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.FlagColor]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "BackgroundColor"
+                }
+              }
+            }
+          ],
+          "Group": false,
+          "Visible": true,
+          "Name": "Transcript header"
+        },
+        {
+          "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.Layer, SimHub.Plugins",
+          "Top": 0.0,
+          "Left": 0.0,
+          "Height": 540.0,
+          "Width": 960.0,
+          "BackgroundColor": "#00000000",
+          "Childrens": [
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.RectangleItem, SimHub.Plugins",
+              "IsRectangleItem": true,
+              "BackgroundColor": "#FF131519",
+              "Height": 412.0,
+              "Left": 16.0,
+              "Top": 112.0,
+              "Visible": true,
+              "Width": 928.0,
+              "Name": "Transcript panel"
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.RectangleItem, SimHub.Plugins",
+              "IsRectangleItem": true,
+              "BackgroundColor": "#FFF5A524",
+              "Height": 92.0,
+              "Left": 16.0,
+              "Top": 112.0,
+              "Visible": true,
+              "Width": 6.0,
+              "Name": "Transcript now bar",
+              "Bindings": {
+                "BackgroundColor": {
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Line.Color]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "BackgroundColor"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Bold",
+              "FontSize": 14.0,
+              "Text": "",
+              "TextColor": "#FFF5A524",
+              "HorizontalAlignment": 0,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 26.0,
+              "Left": 38.0,
+              "Top": 118.0,
+              "Visible": true,
+              "Width": 300.0,
+              "Name": "Transcript now speaker",
+              "Bindings": {
+                "Text": {
+                  "FormatString": "",
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Line.Speaker]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Text"
+                },
+                "TextColor": {
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Line.Color]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "TextColor"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Normal",
+              "FontSize": 18.0,
+              "Text": "",
+              "TextColor": "#FFECEEF1",
+              "HorizontalAlignment": 0,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 28.0,
+              "Left": 38.0,
+              "Top": 144.0,
+              "Visible": true,
+              "Width": 880.0,
+              "Name": "Transcript now row 1",
+              "Bindings": {
+                "Text": {
+                  "FormatString": "",
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Line.Row1]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Text"
+                },
+                "TextColor": {
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Line.TextColor]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "TextColor"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Normal",
+              "FontSize": 18.0,
+              "Text": "",
+              "TextColor": "#FFECEEF1",
+              "HorizontalAlignment": 0,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 28.0,
+              "Left": 38.0,
+              "Top": 172.0,
+              "Visible": true,
+              "Width": 880.0,
+              "Name": "Transcript now row 2",
+              "Bindings": {
+                "Text": {
+                  "FormatString": "",
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Line.Row2]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Text"
+                },
+                "TextColor": {
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Line.TextColor]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "TextColor"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.RectangleItem, SimHub.Plugins",
+              "IsRectangleItem": true,
+              "BackgroundColor": "#FF23272D",
+              "Height": 1.0,
+              "Left": 32.0,
+              "Top": 210.0,
+              "Visible": true,
+              "Width": 896.0,
+              "Name": "Transcript 1 rule"
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Bold",
+              "FontSize": 13.0,
+              "Text": "",
+              "TextColor": "#FF8B939E",
+              "HorizontalAlignment": 0,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 40.0,
+              "Left": 32.0,
+              "Top": 214.0,
+              "Visible": true,
+              "Width": 120.0,
+              "Name": "Transcript 1 speaker",
+              "Bindings": {
+                "Text": {
+                  "FormatString": "",
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.History1.Speaker]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Text"
+                },
+                "TextColor": {
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.History1.Color]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "TextColor"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Normal",
+              "FontSize": 15.0,
+              "Text": "",
+              "TextColor": "#FFC3C8CF",
+              "HorizontalAlignment": 0,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 40.0,
+              "Left": 156.0,
+              "Top": 214.0,
+              "Visible": true,
+              "Width": 772.0,
+              "Name": "Transcript 1 text",
+              "Bindings": {
+                "Text": {
+                  "FormatString": "",
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.History1.Text]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Text"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.RectangleItem, SimHub.Plugins",
+              "IsRectangleItem": true,
+              "BackgroundColor": "#FF23272D",
+              "Height": 1.0,
+              "Left": 32.0,
+              "Top": 260.0,
+              "Visible": true,
+              "Width": 896.0,
+              "Name": "Transcript 2 rule"
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Bold",
+              "FontSize": 13.0,
+              "Text": "",
+              "TextColor": "#FF8B939E",
+              "HorizontalAlignment": 0,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 40.0,
+              "Left": 32.0,
+              "Top": 264.0,
+              "Visible": true,
+              "Width": 120.0,
+              "Name": "Transcript 2 speaker",
+              "Bindings": {
+                "Text": {
+                  "FormatString": "",
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.History2.Speaker]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Text"
+                },
+                "TextColor": {
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.History2.Color]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "TextColor"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Normal",
+              "FontSize": 15.0,
+              "Text": "",
+              "TextColor": "#FFC3C8CF",
+              "HorizontalAlignment": 0,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 40.0,
+              "Left": 156.0,
+              "Top": 264.0,
+              "Visible": true,
+              "Width": 772.0,
+              "Name": "Transcript 2 text",
+              "Bindings": {
+                "Text": {
+                  "FormatString": "",
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.History2.Text]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Text"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.RectangleItem, SimHub.Plugins",
+              "IsRectangleItem": true,
+              "BackgroundColor": "#FF23272D",
+              "Height": 1.0,
+              "Left": 32.0,
+              "Top": 310.0,
+              "Visible": true,
+              "Width": 896.0,
+              "Name": "Transcript 3 rule"
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Bold",
+              "FontSize": 13.0,
+              "Text": "",
+              "TextColor": "#FF8B939E",
+              "HorizontalAlignment": 0,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 40.0,
+              "Left": 32.0,
+              "Top": 314.0,
+              "Visible": true,
+              "Width": 120.0,
+              "Name": "Transcript 3 speaker",
+              "Bindings": {
+                "Text": {
+                  "FormatString": "",
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.History3.Speaker]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Text"
+                },
+                "TextColor": {
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.History3.Color]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "TextColor"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Normal",
+              "FontSize": 15.0,
+              "Text": "",
+              "TextColor": "#FFC3C8CF",
+              "HorizontalAlignment": 0,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 40.0,
+              "Left": 156.0,
+              "Top": 314.0,
+              "Visible": true,
+              "Width": 772.0,
+              "Name": "Transcript 3 text",
+              "Bindings": {
+                "Text": {
+                  "FormatString": "",
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.History3.Text]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Text"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.RectangleItem, SimHub.Plugins",
+              "IsRectangleItem": true,
+              "BackgroundColor": "#FF23272D",
+              "Height": 1.0,
+              "Left": 32.0,
+              "Top": 360.0,
+              "Visible": true,
+              "Width": 896.0,
+              "Name": "Transcript 4 rule"
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Bold",
+              "FontSize": 13.0,
+              "Text": "",
+              "TextColor": "#FF8B939E",
+              "HorizontalAlignment": 0,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 40.0,
+              "Left": 32.0,
+              "Top": 364.0,
+              "Visible": true,
+              "Width": 120.0,
+              "Name": "Transcript 4 speaker",
+              "Bindings": {
+                "Text": {
+                  "FormatString": "",
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.History4.Speaker]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Text"
+                },
+                "TextColor": {
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.History4.Color]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "TextColor"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Normal",
+              "FontSize": 15.0,
+              "Text": "",
+              "TextColor": "#FFC3C8CF",
+              "HorizontalAlignment": 0,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 40.0,
+              "Left": 156.0,
+              "Top": 364.0,
+              "Visible": true,
+              "Width": 772.0,
+              "Name": "Transcript 4 text",
+              "Bindings": {
+                "Text": {
+                  "FormatString": "",
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.History4.Text]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Text"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.RectangleItem, SimHub.Plugins",
+              "IsRectangleItem": true,
+              "BackgroundColor": "#FF23272D",
+              "Height": 1.0,
+              "Left": 32.0,
+              "Top": 410.0,
+              "Visible": true,
+              "Width": 896.0,
+              "Name": "Transcript 5 rule"
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Bold",
+              "FontSize": 13.0,
+              "Text": "",
+              "TextColor": "#FF8B939E",
+              "HorizontalAlignment": 0,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 40.0,
+              "Left": 32.0,
+              "Top": 414.0,
+              "Visible": true,
+              "Width": 120.0,
+              "Name": "Transcript 5 speaker",
+              "Bindings": {
+                "Text": {
+                  "FormatString": "",
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.History5.Speaker]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Text"
+                },
+                "TextColor": {
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.History5.Color]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "TextColor"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Normal",
+              "FontSize": 15.0,
+              "Text": "",
+              "TextColor": "#FFC3C8CF",
+              "HorizontalAlignment": 0,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 40.0,
+              "Left": 156.0,
+              "Top": 414.0,
+              "Visible": true,
+              "Width": 772.0,
+              "Name": "Transcript 5 text",
+              "Bindings": {
+                "Text": {
+                  "FormatString": "",
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.History5.Text]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Text"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.RectangleItem, SimHub.Plugins",
+              "IsRectangleItem": true,
+              "BackgroundColor": "#FF23272D",
+              "Height": 1.0,
+              "Left": 32.0,
+              "Top": 460.0,
+              "Visible": true,
+              "Width": 896.0,
+              "Name": "Transcript 6 rule"
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Bold",
+              "FontSize": 13.0,
+              "Text": "",
+              "TextColor": "#FF8B939E",
+              "HorizontalAlignment": 0,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 40.0,
+              "Left": 32.0,
+              "Top": 464.0,
+              "Visible": true,
+              "Width": 120.0,
+              "Name": "Transcript 6 speaker",
+              "Bindings": {
+                "Text": {
+                  "FormatString": "",
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.History6.Speaker]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Text"
+                },
+                "TextColor": {
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.History6.Color]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "TextColor"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Normal",
+              "FontSize": 15.0,
+              "Text": "",
+              "TextColor": "#FFC3C8CF",
+              "HorizontalAlignment": 0,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 40.0,
+              "Left": 156.0,
+              "Top": 464.0,
+              "Visible": true,
+              "Width": 772.0,
+              "Name": "Transcript 6 text",
+              "Bindings": {
+                "Text": {
+                  "FormatString": "",
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.History6.Text]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Text"
+                }
+              }
+            }
+          ],
+          "Group": false,
+          "Visible": true,
+          "Name": "Conversation"
+        },
+        {
+          "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.Layer, SimHub.Plugins",
+          "Top": 0.0,
+          "Left": 0.0,
+          "Height": 540.0,
+          "Width": 960.0,
+          "BackgroundColor": "#00000000",
+          "Childrens": [
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.RectangleItem, SimHub.Plugins",
+              "IsRectangleItem": true,
+              "BackgroundColor": "#F20B0C0F",
+              "Height": 540.0,
+              "Left": 0.0,
+              "Top": 0.0,
+              "Visible": true,
+              "Width": 960.0,
+              "Name": "Transcript nc bg"
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.RectangleItem, SimHub.Plugins",
+              "IsRectangleItem": true,
+              "BackgroundColor": "#FFE5484D",
+              "Height": 4.0,
+              "Left": 330.0,
+              "Top": 190.0,
+              "Visible": true,
+              "Width": 300.0,
+              "Name": "Transcript nc bar"
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Bold",
+              "FontSize": 28.0,
+              "Text": "SIMCAST ISN'T CONNECTED",
+              "TextColor": "#FFECEEF1",
+              "HorizontalAlignment": 1,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 44.0,
+              "Left": 40.0,
+              "Top": 205.0,
+              "Visible": true,
+              "Width": 880.0,
+              "Name": "Transcript nc title"
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Normal",
+              "FontSize": 16.0,
+              "Text": "Start SimCast on this PC: the booth shows here as soon as it's running.",
+              "TextColor": "#FFECEEF1",
+              "HorizontalAlignment": 1,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 28.0,
+              "Left": 40.0,
+              "Top": 255.0,
+              "Visible": true,
+              "Width": 880.0,
+              "Name": "Transcript nc line 1"
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Normal",
+              "FontSize": 14.0,
+              "Text": "Check that SimHub's SimCast plugin is on, and SimCast's Settings > Stream > SimHub.",
+              "TextColor": "#FF8B939E",
+              "HorizontalAlignment": 1,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 28.0,
+              "Left": 40.0,
+              "Top": 285.0,
+              "Visible": true,
+              "Width": 880.0,
+              "Name": "Transcript nc line 2"
+            }
+          ],
+          "Group": false,
+          "Visible": true,
+          "Name": "Transcript not connected",
+          "Bindings": {
+            "Visible": {
+              "Formula": {
+                "Expression": "if(isnull([SimCastPlugin.Connected], false), false, true)"
+              },
+              "Mode": 2,
+              "TargetPropertyName": "Visible"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "Name": "Controls",
+      "InGameScreen": true,
+      "IdleScreen": true,
+      "PitScreen": false,
+      "ScreenId": "d14a9ee2-25f1-5c94-bedb-40cc7e0c5b87",
+      "AllowOverlays": true,
+      "IsForegroundLayer": false,
+      "IsOverlayLayer": false,
+      "OverlayTriggerExpression": {
+        "Expression": ""
+      },
+      "ScreenEnabledExpression": {
+        "Expression": ""
+      },
+      "OverlayMaxDuration": 0,
+      "OverlayMinDuration": 0,
+      "IsBackgroundLayer": false,
+      "BackgroundColor": "#FF0B0C0F",
+      "Items": [
+        {
+          "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.Layer, SimHub.Plugins",
+          "Top": 0.0,
+          "Left": 0.0,
+          "Height": 108.0,
+          "Width": 960.0,
+          "BackgroundColor": "#00000000",
+          "Childrens": [
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.RectangleItem, SimHub.Plugins",
+              "IsRectangleItem": true,
+              "BackgroundColor": "#FF131519",
+              "Height": 52.0,
+              "Left": 0.0,
+              "Top": 0.0,
+              "Visible": true,
+              "Width": 960.0,
+              "Name": "Controls header bg"
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.RectangleItem, SimHub.Plugins",
+              "IsRectangleItem": true,
+              "BackgroundColor": "#FF22262C",
+              "Height": 32.0,
+              "Left": 16.0,
+              "Top": 10.0,
+              "Visible": true,
+              "Width": 118.0,
+              "Name": "Controls tally",
+              "Bindings": {
+                "BackgroundColor": {
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.AirColor]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "BackgroundColor"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Bold",
+              "FontSize": 17.0,
+              "Text": "OFF AIR",
+              "TextColor": "#FFECEEF1",
+              "HorizontalAlignment": 1,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 32.0,
+              "Left": 16.0,
+              "Top": 10.0,
+              "Visible": true,
+              "Width": 118.0,
+              "Name": "Controls tally text",
+              "Bindings": {
+                "Text": {
+                  "FormatString": "",
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.AirText]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Text"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.RectangleItem, SimHub.Plugins",
+              "IsRectangleItem": true,
+              "BackgroundColor": "#FFE5484D",
+              "Height": 8.0,
+              "Left": 144.0,
+              "Top": 22.0,
+              "Visible": true,
+              "Width": 8.0,
+              "Name": "Controls speaking dot",
+              "Bindings": {
+                "Visible": {
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Speaking]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Visible"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "SemiBold",
+              "FontSize": 14.0,
+              "Text": "SIMCAST",
+              "TextColor": "#FF8B939E",
+              "HorizontalAlignment": 0,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 32.0,
+              "Left": 160.0,
+              "Top": 10.0,
+              "Visible": true,
+              "Width": 96.0,
+              "Name": "Controls brand"
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "SemiBold",
+              "FontSize": 13.0,
+              "Text": "Stream",
+              "TextColor": "#FFECEEF1",
+              "HorizontalAlignment": 1,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#FF22262C",
+              "Height": 26.0,
+              "Left": 260.0,
+              "Top": 13.0,
+              "Visible": true,
+              "Width": 96.0,
+              "Name": "Controls drive mode",
+              "Bindings": {
+                "Text": {
+                  "FormatString": "",
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.DriveMode]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Text"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "SemiBold",
+              "FontSize": 13.0,
+              "Text": "Whole field",
+              "TextColor": "#FFECEEF1",
+              "HorizontalAlignment": 1,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#FF22262C",
+              "Height": 26.0,
+              "Left": 364.0,
+              "Top": 13.0,
+              "Visible": true,
+              "Width": 150.0,
+              "Name": "Controls coverage",
+              "Bindings": {
+                "Text": {
+                  "FormatString": "",
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Coverage]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Text"
+                },
+                "Visible": {
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Live]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Visible"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Bold",
+              "FontSize": 13.0,
+              "Text": "NASCAR",
+              "TextColor": "#FF0B0C0F",
+              "HorizontalAlignment": 1,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#FFF5A524",
+              "Height": 26.0,
+              "Left": 522.0,
+              "Top": 13.0,
+              "Visible": true,
+              "Width": 84.0,
+              "Name": "Controls nascar",
+              "Bindings": {
+                "Visible": {
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Nascar]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Visible"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Normal",
+              "FontSize": 13.0,
+              "Text": "Stock lines",
+              "TextColor": "#FF8B939E",
+              "HorizontalAlignment": 2,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 32.0,
+              "Left": 616.0,
+              "Top": 10.0,
+              "Visible": true,
+              "Width": 328.0,
+              "Name": "Controls ai",
+              "Bindings": {
+                "Text": {
+                  "FormatString": "",
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.AI]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Text"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Bold",
+              "FontSize": 19.0,
+              "Text": "",
+              "TextColor": "#FFECEEF1",
+              "HorizontalAlignment": 0,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 26.0,
+              "Left": 16.0,
+              "Top": 58.0,
+              "Visible": true,
+              "Width": 440.0,
+              "Name": "Controls title",
+              "Bindings": {
+                "Text": {
+                  "FormatString": "",
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Title]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Text"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Normal",
+              "FontSize": 13.0,
+              "Text": "",
+              "TextColor": "#FF8B939E",
+              "HorizontalAlignment": 0,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 20.0,
+              "Left": 16.0,
+              "Top": 84.0,
+              "Visible": true,
+              "Width": 440.0,
+              "Name": "Controls subtitle",
+              "Bindings": {
+                "Text": {
+                  "FormatString": "",
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Subtitle]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Text"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Bold",
+              "FontSize": 22.0,
+              "Text": "",
+              "TextColor": "#FFECEEF1",
+              "HorizontalAlignment": 1,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 42.0,
+              "Left": 460.0,
+              "Top": 60.0,
+              "Visible": true,
+              "Width": 210.0,
+              "Name": "Controls lap",
+              "Bindings": {
+                "Text": {
+                  "FormatString": "",
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.LapText]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Text"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Bold",
+              "FontSize": 15.0,
+              "Text": "",
+              "TextColor": "#FF0B0C0F",
+              "HorizontalAlignment": 1,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 34.0,
+              "Left": 680.0,
+              "Top": 64.0,
+              "Visible": true,
+              "Width": 264.0,
+              "Name": "Controls flag",
+              "Bindings": {
+                "Text": {
+                  "FormatString": "",
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.FlagText]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Text"
+                },
+                "BackgroundColor": {
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.FlagColor]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "BackgroundColor"
+                }
+              }
+            }
+          ],
+          "Group": false,
+          "Visible": true,
+          "Name": "Controls header"
+        },
+        {
+          "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.Layer, SimHub.Plugins",
+          "Top": 0.0,
+          "Left": 0.0,
+          "Height": 540.0,
+          "Width": 960.0,
+          "BackgroundColor": "#00000000",
+          "Childrens": [
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.RectangleItem, SimHub.Plugins",
+              "IsRectangleItem": true,
+              "BackgroundColor": "#FF131519",
+              "Height": 412.0,
+              "Left": 16.0,
+              "Top": 112.0,
+              "Visible": true,
+              "Width": 928.0,
+              "Name": "Controls panel"
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Bold",
+              "FontSize": 11.0,
+              "Text": "BUTTON",
+              "TextColor": "#FF8B939E",
+              "HorizontalAlignment": 0,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 26.0,
+              "Left": 32.0,
+              "Top": 118.0,
+              "Visible": true,
+              "Width": 260.0,
+              "Name": "Controls head 1"
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Bold",
+              "FontSize": 11.0,
+              "Text": "SIMCAST HOTKEY",
+              "TextColor": "#FF8B939E",
+              "HorizontalAlignment": 0,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 26.0,
+              "Left": 300.0,
+              "Top": 118.0,
+              "Visible": true,
+              "Width": 130.0,
+              "Name": "Controls head 2"
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Bold",
+              "FontSize": 11.0,
+              "Text": "SIMHUB ACTION",
+              "TextColor": "#FF8B939E",
+              "HorizontalAlignment": 0,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 26.0,
+              "Left": 440.0,
+              "Top": 118.0,
+              "Visible": true,
+              "Width": 250.0,
+              "Name": "Controls head 3"
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.RectangleItem, SimHub.Plugins",
+              "IsRectangleItem": true,
+              "BackgroundColor": "#FF23272D",
+              "Height": 1.0,
+              "Left": 32.0,
+              "Top": 146.0,
+              "Visible": true,
+              "Width": 896.0,
+              "Name": "Controls 1 rule"
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "SemiBold",
+              "FontSize": 17.0,
+              "Text": "Skip this line",
+              "TextColor": "#FFECEEF1",
+              "HorizontalAlignment": 0,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 30.0,
+              "Left": 32.0,
+              "Top": 150.0,
+              "Visible": true,
+              "Width": 260.0,
+              "Name": "Controls 1 label"
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Normal",
+              "FontSize": 12.0,
+              "Text": "Stops the line being said",
+              "TextColor": "#FF8B939E",
+              "HorizontalAlignment": 0,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 22.0,
+              "Left": 32.0,
+              "Top": 178.0,
+              "Visible": true,
+              "Width": 400.0,
+              "Name": "Controls 1 what"
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Bold",
+              "FontSize": 16.0,
+              "Text": "",
+              "TextColor": "#FFECEEF1",
+              "HorizontalAlignment": 0,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 30.0,
+              "Left": 300.0,
+              "Top": 150.0,
+              "Visible": true,
+              "Width": 130.0,
+              "Name": "Controls 1 key",
+              "Bindings": {
+                "Text": {
+                  "FormatString": "",
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Key.Skip]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Text"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "SemiBold",
+              "FontSize": 15.0,
+              "Text": "SimCastPlugin.SkipLine",
+              "TextColor": "#FFF5A524",
+              "HorizontalAlignment": 0,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 30.0,
+              "Left": 440.0,
+              "Top": 150.0,
+              "Visible": true,
+              "Width": 480.0,
+              "Name": "Controls 1 action"
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.RectangleItem, SimHub.Plugins",
+              "IsRectangleItem": true,
+              "BackgroundColor": "#FF23272D",
+              "Height": 1.0,
+              "Left": 32.0,
+              "Top": 208.0,
+              "Visible": true,
+              "Width": 896.0,
+              "Name": "Controls 2 rule"
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "SemiBold",
+              "FontSize": 17.0,
+              "Text": "Booth on / off air",
+              "TextColor": "#FFECEEF1",
+              "HorizontalAlignment": 0,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 30.0,
+              "Left": 32.0,
+              "Top": 212.0,
+              "Visible": true,
+              "Width": 260.0,
+              "Name": "Controls 2 label"
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Normal",
+              "FontSize": 12.0,
+              "Text": "Takes the booth off air, and back on",
+              "TextColor": "#FF8B939E",
+              "HorizontalAlignment": 0,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 22.0,
+              "Left": 32.0,
+              "Top": 240.0,
+              "Visible": true,
+              "Width": 400.0,
+              "Name": "Controls 2 what"
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Bold",
+              "FontSize": 16.0,
+              "Text": "",
+              "TextColor": "#FFECEEF1",
+              "HorizontalAlignment": 0,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 30.0,
+              "Left": 300.0,
+              "Top": 212.0,
+              "Visible": true,
+              "Width": 130.0,
+              "Name": "Controls 2 key",
+              "Bindings": {
+                "Text": {
+                  "FormatString": "",
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Key.Air]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Text"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "SemiBold",
+              "FontSize": 15.0,
+              "Text": "SimCastPlugin.ToggleOnAir",
+              "TextColor": "#FFF5A524",
+              "HorizontalAlignment": 0,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 30.0,
+              "Left": 440.0,
+              "Top": 212.0,
+              "Visible": true,
+              "Width": 480.0,
+              "Name": "Controls 2 action"
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.RectangleItem, SimHub.Plugins",
+              "IsRectangleItem": true,
+              "BackgroundColor": "#FF23272D",
+              "Height": 1.0,
+              "Left": 32.0,
+              "Top": 270.0,
+              "Visible": true,
+              "Width": 896.0,
+              "Name": "Controls 3 rule"
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "SemiBold",
+              "FontSize": 17.0,
+              "Text": "Talk about me",
+              "TextColor": "#FFECEEF1",
+              "HorizontalAlignment": 0,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 30.0,
+              "Left": 32.0,
+              "Top": 274.0,
+              "Visible": true,
+              "Width": 260.0,
+              "Name": "Controls 3 label"
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Normal",
+              "FontSize": 12.0,
+              "Text": "The booth turns to your race, now",
+              "TextColor": "#FF8B939E",
+              "HorizontalAlignment": 0,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 22.0,
+              "Left": 32.0,
+              "Top": 302.0,
+              "Visible": true,
+              "Width": 400.0,
+              "Name": "Controls 3 what"
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Bold",
+              "FontSize": 16.0,
+              "Text": "",
+              "TextColor": "#FFECEEF1",
+              "HorizontalAlignment": 0,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 30.0,
+              "Left": 300.0,
+              "Top": 274.0,
+              "Visible": true,
+              "Width": 130.0,
+              "Name": "Controls 3 key",
+              "Bindings": {
+                "Text": {
+                  "FormatString": "",
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Key.Me]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Text"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "SemiBold",
+              "FontSize": 15.0,
+              "Text": "SimCastPlugin.TalkAboutMe",
+              "TextColor": "#FFF5A524",
+              "HorizontalAlignment": 0,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 30.0,
+              "Left": 440.0,
+              "Top": 274.0,
+              "Visible": true,
+              "Width": 480.0,
+              "Name": "Controls 3 action"
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.RectangleItem, SimHub.Plugins",
+              "IsRectangleItem": true,
+              "BackgroundColor": "#FF23272D",
+              "Height": 1.0,
+              "Left": 32.0,
+              "Top": 332.0,
+              "Visible": true,
+              "Width": 896.0,
+              "Name": "Controls 4 rule"
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "SemiBold",
+              "FontSize": 17.0,
+              "Text": "Driving / Stream",
+              "TextColor": "#FFECEEF1",
+              "HorizontalAlignment": 0,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 30.0,
+              "Left": 32.0,
+              "Top": 336.0,
+              "Visible": true,
+              "Width": 260.0,
+              "Name": "Controls 4 label"
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Normal",
+              "FontSize": 12.0,
+              "Text": "Driving: quiet while you're busy",
+              "TextColor": "#FF8B939E",
+              "HorizontalAlignment": 0,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 22.0,
+              "Left": 32.0,
+              "Top": 364.0,
+              "Visible": true,
+              "Width": 400.0,
+              "Name": "Controls 4 what"
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Bold",
+              "FontSize": 16.0,
+              "Text": "",
+              "TextColor": "#FFECEEF1",
+              "HorizontalAlignment": 0,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 30.0,
+              "Left": 300.0,
+              "Top": 336.0,
+              "Visible": true,
+              "Width": 130.0,
+              "Name": "Controls 4 key",
+              "Bindings": {
+                "Text": {
+                  "FormatString": "",
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Key.Mode]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Text"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "SemiBold",
+              "FontSize": 15.0,
+              "Text": "SimCastPlugin.ToggleDriveMode",
+              "TextColor": "#FFF5A524",
+              "HorizontalAlignment": 0,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 30.0,
+              "Left": 440.0,
+              "Top": 336.0,
+              "Visible": true,
+              "Width": 480.0,
+              "Name": "Controls 4 action"
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.RectangleItem, SimHub.Plugins",
+              "IsRectangleItem": true,
+              "BackgroundColor": "#FF23272D",
+              "Height": 1.0,
+              "Left": 32.0,
+              "Top": 394.0,
+              "Visible": true,
+              "Width": 896.0,
+              "Name": "Controls 5 rule"
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "SemiBold",
+              "FontSize": 17.0,
+              "Text": "NASCAR on / off",
+              "TextColor": "#FFECEEF1",
+              "HorizontalAlignment": 0,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 30.0,
+              "Left": 32.0,
+              "Top": 398.0,
+              "Visible": true,
+              "Width": 260.0,
+              "Name": "Controls 5 label"
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Normal",
+              "FontSize": 12.0,
+              "Text": "For this race, whatever Settings says",
+              "TextColor": "#FF8B939E",
+              "HorizontalAlignment": 0,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 22.0,
+              "Left": 32.0,
+              "Top": 426.0,
+              "Visible": true,
+              "Width": 400.0,
+              "Name": "Controls 5 what"
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Bold",
+              "FontSize": 16.0,
+              "Text": "",
+              "TextColor": "#FFECEEF1",
+              "HorizontalAlignment": 0,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 30.0,
+              "Left": 300.0,
+              "Top": 398.0,
+              "Visible": true,
+              "Width": 130.0,
+              "Name": "Controls 5 key",
+              "Bindings": {
+                "Text": {
+                  "FormatString": "",
+                  "Formula": {
+                    "Expression": "[SimCastPlugin.Key.Nascar]"
+                  },
+                  "Mode": 2,
+                  "TargetPropertyName": "Text"
+                }
+              }
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "SemiBold",
+              "FontSize": 15.0,
+              "Text": "SimCastPlugin.ToggleNascar",
+              "TextColor": "#FFF5A524",
+              "HorizontalAlignment": 0,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 30.0,
+              "Left": 440.0,
+              "Top": 398.0,
+              "Visible": true,
+              "Width": 480.0,
+              "Name": "Controls 5 action"
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Normal",
+              "FontSize": 13.0,
+              "Text": "Bind the actions in SimHub: Controls and events > add a mapping, pick the action, press a button on your wheel or button box.",
+              "TextColor": "#FF8B939E",
+              "HorizontalAlignment": 0,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 22.0,
+              "Left": 32.0,
+              "Top": 466.0,
+              "Visible": true,
+              "Width": 896.0,
+              "Name": "Controls note 1"
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Normal",
+              "FontSize": 13.0,
+              "Text": "SimCast's own hotkeys are in SimCast's Settings > Sims. Both work at once.",
+              "TextColor": "#FF8B939E",
+              "HorizontalAlignment": 0,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 22.0,
+              "Left": 32.0,
+              "Top": 490.0,
+              "Visible": true,
+              "Width": 896.0,
+              "Name": "Controls note 2"
+            }
+          ],
+          "Group": false,
+          "Visible": true,
+          "Name": "Buttons"
+        },
+        {
+          "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.Layer, SimHub.Plugins",
+          "Top": 0.0,
+          "Left": 0.0,
+          "Height": 540.0,
+          "Width": 960.0,
+          "BackgroundColor": "#00000000",
+          "Childrens": [
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.RectangleItem, SimHub.Plugins",
+              "IsRectangleItem": true,
+              "BackgroundColor": "#F20B0C0F",
+              "Height": 540.0,
+              "Left": 0.0,
+              "Top": 0.0,
+              "Visible": true,
+              "Width": 960.0,
+              "Name": "Controls nc bg"
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.RectangleItem, SimHub.Plugins",
+              "IsRectangleItem": true,
+              "BackgroundColor": "#FFE5484D",
+              "Height": 4.0,
+              "Left": 330.0,
+              "Top": 190.0,
+              "Visible": true,
+              "Width": 300.0,
+              "Name": "Controls nc bar"
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Bold",
+              "FontSize": 28.0,
+              "Text": "SIMCAST ISN'T CONNECTED",
+              "TextColor": "#FFECEEF1",
+              "HorizontalAlignment": 1,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 44.0,
+              "Left": 40.0,
+              "Top": 205.0,
+              "Visible": true,
+              "Width": 880.0,
+              "Name": "Controls nc title"
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Normal",
+              "FontSize": 16.0,
+              "Text": "Start SimCast on this PC: the booth shows here as soon as it's running.",
+              "TextColor": "#FFECEEF1",
+              "HorizontalAlignment": 1,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 28.0,
+              "Left": 40.0,
+              "Top": 255.0,
+              "Visible": true,
+              "Width": 880.0,
+              "Name": "Controls nc line 1"
+            },
+            {
+              "$type": "SimHub.Plugins.OutputPlugins.GraphicalDash.Models.TextItem, SimHub.Plugins",
+              "IsTextItem": true,
+              "Font": "Segoe UI",
+              "FontWeight": "Normal",
+              "FontSize": 14.0,
+              "Text": "Check that SimHub's SimCast plugin is on, and SimCast's Settings > Stream > SimHub.",
+              "TextColor": "#FF8B939E",
+              "HorizontalAlignment": 1,
+              "VerticalAlignment": 1,
+              "BackgroundColor": "#00000000",
+              "Height": 28.0,
+              "Left": 40.0,
+              "Top": 285.0,
+              "Visible": true,
+              "Width": 880.0,
+              "Name": "Controls nc line 2"
+            }
+          ],
+          "Group": false,
+          "Visible": true,
+          "Name": "Controls not connected",
+          "Bindings": {
+            "Visible": {
+              "Formula": {
+                "Expression": "if(isnull([SimCastPlugin.Connected], false), false, true)"
+              },
+              "Mode": 2,
+              "TargetPropertyName": "Visible"
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "SnapToGrid": false,
+  "HideLabels": false,
+  "ShowForeground": true,
+  "ForegroundOpacity": 100.0,
+  "ShowBackground": true,
+  "BackgroundOpacity": 100.0,
+  "ShowBoundingRectangles": false,
+  "GridSize": 10,
+  "Images": [],
+  "Metadata": {
+    "Title": "SimCast Booth",
+    "Author": "SimCast",
+    "Description": "SimCast's commentary booth: who's talking and what they're saying, on air or off, the booth's running order and your buttons. Needs SimCast and its SimHub plugin.",
+    "ScreenCount": 3.0,
+    "InGameScreensIndexs": [
+      0,
+      1,
+      2
+    ],
+    "IdleScreensIndexs": [
+      0,
+      1,
+      2
+    ],
+    "MainPreviewIndex": 0,
+    "IsOverlay": false,
+    "Width": 960.0,
+    "Height": 540.0,
+    "OverlaySizeWarning": false,
+    "MetadataVersion": 2.0,
+    "EnableOnDashboardMessaging": true,
+    "PitScreensIndexs": []
+  },
+  "ShowOnScreenControls": true,
+  "IsOverlay": false,
+  "EnableClickThroughOverlay": true,
+  "EnableOnDashboardMessaging": true
+}

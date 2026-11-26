@@ -23,7 +23,7 @@ from . import nascar, persona, providers, sims
 from .assist import ASSIST_CHOICES, assist_label
 
 APP_NAME = "SimCast"
-APP_VERSION = "1.19"
+APP_VERSION = "1.20"
 APP_DIR = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), "SimCast")
 CONFIG_PATH = os.path.join(APP_DIR, "config.json")
 LOG_PATH = os.path.join(APP_DIR, "simcast.log")
@@ -61,6 +61,7 @@ DEFAULTS = {
     "ai_convo": "auto", "drive_mode": "stream", "race_sponsor": "", "race_name": "",
     "history": True, "history_spoilers": "after",
     "memory": True, "roster_file": "", "obs_captions": False, "obs_port": 8686, "twitch_channel": "",
+    "simhub_link": True, "simhub_port": 8687,
     "twitch_chat": True, "twitch_only_booth": False, "twitch_moderate": True,
     "ai_assist": "auto", "recap_ai": True, "season_stories": True,
     "recap": True, "recap_offset": 0, "ai_rates": "", "hotkey_skip": "", "hotkey_mute": "", "hotkey_me": "", "hotkey_mode": "", "hotkey_nascar": "", "my_sponsors": "", "driver_sponsors": "", "invent_sponsors": True,
@@ -168,6 +169,7 @@ class SimCast:
         self.lines: deque = deque(maxlen=200)
         self.line_seq = 0                                  # numbers the lines, for the OBS captions page
         self.captions_server = None
+        self.simhub_link = None                            # simhub.py: the booth on a SimHub dashboard
         self.chat = None
         self.events_seen = 0
         self.stages = StageStore(os.path.join(APP_DIR, "stages.json") if save else None)
@@ -237,7 +239,8 @@ class SimCast:
             if self.save_enabled:
                 save_config(self.cfg)
         if self.captions_server is not None or self.chat is not None or any(
-                k in (changes or {}) for k in ("obs_captions", "obs_port", "twitch_channel", "twitch_chat")):
+                k in (changes or {}) for k in ("obs_captions", "obs_port", "twitch_channel", "twitch_chat",
+                                               "simhub_link", "simhub_port")):
             try:
                 self.sync_stream()
             except Exception as e:
@@ -377,9 +380,22 @@ class SimCast:
 
     # -------------------------------------------------------------- streaming: OBS captions, Twitch chat
     def sync_stream(self):
-        """Start or stop the OBS captions page and the Twitch chat reader to match the settings."""
-        from . import assist, stream
+        """Start or stop the OBS captions page, the SimHub link and the Twitch chat reader to match the settings."""
+        from . import assist, simhub, stream
         cfg = self.config()
+        try:
+            hub_port = int(cfg.get("simhub_port") or simhub.PORT)
+        except (TypeError, ValueError):
+            hub_port = simhub.PORT
+        want_hub = bool(cfg.get("simhub_link", True))
+        hub = self.simhub_link
+        if hub is not None and (not want_hub or hub.port != hub_port):
+            hub.stop()
+            self.simhub_link = hub = None
+        if want_hub and hub is None:
+            hub = simhub.SimHubLink(self.state, self.config, self.hotkey, port=hub_port, log=self.log)
+            if hub.start():
+                self.simhub_link = hub
         want = bool(cfg.get("obs_captions"))
         srv = self.captions_server
         if srv is not None and (not want or srv.port != int(cfg.get("obs_port") or 8686)):
@@ -597,6 +613,7 @@ class SimCast:
             "demo": self.demo is not None, "nascar": self.nascar_on(), "settings": public, "errors": list(self.errors),
             "voice_note": getattr(self.audio, "engine_note", ""),
             "simcoach": bool(getattr(self.audio, "link", None) and self.audio.link.connected()),
+            "simhub": bool(self.simhub_link is not None and self.simhub_link.connected()),
             "sims": [{"key": s.key, "name": s.name, "status": s.status, "ok": s.ok, "where": s.where}
                      for s in self.sims if s.found],
         }

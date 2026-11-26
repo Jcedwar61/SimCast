@@ -3,3 +3,5 @@ __pycache__/
 *.log
 *.tmp
 dist/
+simhub/plugin/**/bin/
+simhub/plugin/**/obj/

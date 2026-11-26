@@ -1057,6 +1057,18 @@ class SettingsWindow:
                          "transcript, with timestamps from lights out (plus the offset). In Recaps next to the "
                          "settings. With an AI key, a written race report and what you need to post the video are "
                          "added a minute later (not for demo races).")
+        hub = ttk.Frame(f, style="Card.TFrame")
+        self.entry(hub, "simhub_port", cfg, width=8).pack(side="left")
+        hub_on = bool(cast.state().get("simhub"))
+        ttk.Label(hub, text="   SimHub is reading the booth" if hub_on else "   SimHub isn't reading it yet",
+                  style="Card.TLabel", foreground=P["green"] if hub_on else P["mut"]).pack(side="left")
+        self.row(f, 12, "SimHub", self.check(f, "simhub_link", "Share the booth with SimHub's SimCast plugin", cfg))
+        self.row(f, 13, "Port", hub, sticky="w")
+        self.note(f, 14, "With the SimCast plugin in SimHub, the SimCast Booth dashboard shows who's talking and what "
+                         "they're saying, the booth's timing tower, on air or off, Driving or Stream, and NASCAR, and "
+                         "SimHub can bind the five booth actions (skip, on/off air, talk about me, Driving/Stream, "
+                         "NASCAR) to any button it knows. Only programs on this PC can reach it. The Guide has the "
+                         "set-up (Streaming and captions > SimHub).")
 
         # ---------------------------------------------------------------- About
         f = page("About")
@@ -1330,7 +1342,7 @@ class SettingsWindow:
             out[f"{p}_model"] = providers.AUTO if val.startswith("Automatic") else val
         val = self.tts_box.get()
         out["openai_tts_model"] = providers.AUTO if val.startswith("Automatic") else val
-        for k in ("demo_laps", "f1_port", "forza_port", "obs_port", "recap_offset"):
+        for k in ("demo_laps", "f1_port", "forza_port", "obs_port", "simhub_port", "recap_offset"):
             try:
                 out[k] = int(out.get(k) or DEFAULTS[k])
             except ValueError:

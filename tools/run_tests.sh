@@ -22,6 +22,7 @@ run "syntax (pyflakes)" bash -c "'$PY' -c 'import pyflakes' || { echo 'Error: py
 run "demo race (--test)" bash -c "APPDATA=\$(mktemp -d) '$PY' '$REPO/sim_cast.py' --test --laps 4 >/dev/null"
 run "test_simcast" "$PY" test_simcast.py
 run "test_history" "$PY" test_history.py
+run "test_simhub" "$PY" test_simhub.py
 if [ "$GUI" = 1 ]; then
   if command -v xvfb-run >/dev/null && [ -z "${DISPLAY:-}" ]; then run "gui_test_simcast" xvfb-run -a -s "-screen 0 1400x950x24" "$PY" gui_test_simcast.py
   else run "gui_test_simcast" "$PY" gui_test_simcast.py; fi
