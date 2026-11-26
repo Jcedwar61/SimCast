@@ -174,6 +174,15 @@ Add a Window Capture of "SimCast captions" (or of the SimCast window for the tim
 
 ## Commentary audio on stream
 SimCast plays on the device picked in Settings > Voices > Play on. Add that device (or an application audio capture of SimCast) to OBS to put the booth on your stream.
+
+## SimHub
+The SimCast Booth dashboard puts the booth on any SimHub screen: a phone or tablet, a USB display, a second monitor or an overlay. It shows ON AIR or OFF AIR, who's talking and what they're saying, the lap and the flag, the booth's running order, your place and the gaps either side, and your hotkeys. A Transcript screen has the conversation so far, and a Controls screen the buttons.
+- Download SimCast-SimHub.zip from SimCast's latest release, close SimHub, unzip it and run Install-SimCastForSimHub.ps1 (right-click > Run with PowerShell). It puts the SimCast plugin and the dashboard into SimHub.
+- Start SimHub and say yes when it asks to enable the "SimCast" plugin. Then Dash Studio > SimCast Booth.
+- Settings > Stream > SimHub is on by default (port 8687). It says when SimHub is reading the booth.
+- The buttons: in SimHub, Controls and events > add a mapping, pick SimCastPlugin.SkipLine, ToggleOnAir, TalkAboutMe, ToggleDriveMode or ToggleNascar, and press a button on your wheel or button box. They do what SimCast's hotkeys do.
+- Your own dashboards can use every value too: [SimCastPlugin.Line.Text], [SimCastPlugin.OnAir] and the rest (SimHub's property list, search "SimCast").
+Only programs on this PC can reach it, and only SimHub's plugin can press the buttons.
 """),
     ("Linux and Steam Deck (Wine/Proton)", """
 ## How it works
