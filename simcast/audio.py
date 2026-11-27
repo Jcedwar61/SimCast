@@ -247,6 +247,9 @@ class SimAudio(BaseAudio):
         self.current_priority = 0
 
 
+TMP_KEEP = 300                                       # voice files kept in the temp folder
+
+
 class BroadcastAudio(BaseAudio):
     """Real speech through pygame (the same player SimCoach uses)."""
 
@@ -259,8 +262,9 @@ class BroadcastAudio(BaseAudio):
         self.pool = ThreadPoolExecutor(max_workers=3, thread_name_prefix="tts")
         self._tmp = tempfile.mkdtemp(prefix="simcast_")
         atexit.register(shutil.rmtree, self._tmp, True)
-        self._cache: dict = {}
         self._gen = 0                                    # bumped by interrupt(): anything older is dropped
+        self._pending: list = []                         # (gen, future) of lines not yet played
+        self._played = 0
         self._playing = False
         self._queued = 0
         self._lock = threading.Lock()
@@ -282,7 +286,11 @@ class BroadcastAudio(BaseAudio):
             self._queued += len(lines)
             self.current_priority = max(self.current_priority, priority) if self._playing else priority
         for ln in lines:
-            self.q.put((gen, ln, priority, self.pool.submit(self._synth, ln)))
+            fut = self.pool.submit(self._synth, ln)
+            with self._lock:
+                self._pending = [pf for pf in self._pending if not pf[1].done()]
+                self._pending.append((gen, fut))
+            self.q.put((gen, ln, priority, fut))
 
     def speaking(self, now=None):
         with self._lock:
@@ -298,6 +306,10 @@ class BroadcastAudio(BaseAudio):
         with self._lock:
             self._gen += 1
             self._queued = 0
+            # lines that won't be played: their voices needn't be made, so the cut-in's comes first
+            for _g, fut in self._pending:
+                fut.cancel()
+            self._pending = []
         try:
             import pygame
             if self._mixer and pygame.mixer.get_init():
@@ -551,6 +563,9 @@ class BroadcastAudio(BaseAudio):
         prev_who = None
         while True:
             gen, ln, prio, fut = self.q.get()
+            if gen != self._gen:                         # cut off before its turn: don't wait for its voice
+                fut.cancel()
+                continue
             try:
                 path = fut.result(timeout=15)
             except Exception:
@@ -591,6 +606,23 @@ class BroadcastAudio(BaseAudio):
                 with self._lock:
                     self._playing = False
                 self.last_end = time.monotonic()
+                self._played += 1
+                if self._played % 50 == 0:
+                    self._prune_tmp()
+
+    def _prune_tmp(self, keep=TMP_KEEP):
+        """Keep the newest voice files (a line said again is played from its file), delete the rest: a long race
+        says thousands of lines."""
+        try:
+            files = [os.path.join(self._tmp, n) for n in os.listdir(self._tmp)]
+            files.sort(key=lambda f: os.path.getmtime(f), reverse=True)
+            for f in files[keep:]:
+                try:
+                    os.remove(f)
+                except OSError:
+                    pass
+        except OSError:
+            pass
 
     def _wait(self, secs, gen):
         end = time.monotonic() + secs

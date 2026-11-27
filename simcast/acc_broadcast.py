@@ -165,6 +165,10 @@ class ACCBroadcast:
                 self.handle(data)
             except Exception as e:                      # a malformed packet never stops the client
                 self.error = f"{type(e).__name__}: {e}"
+        try:
+            self.sock.close()
+        except OSError:
+            pass
 
     def _request(self, kind):
         if self.conn_id is not None and self.sock is not None:

@@ -14,7 +14,6 @@ import math
 
 BINS = 200                 # slices of the lap
 READY_SAMPLES = 12         # cars through a slice before its average line is trusted
-CAR_LENGTH = 5.2           # metres
 ALONGSIDE_LAT = 1.8        # metres apart across the track: two lanes, not nose to tail
 ALONGSIDE_LONG = 5.5       # metres apart along the track: overlapping, side by side
 

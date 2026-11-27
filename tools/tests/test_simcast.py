@@ -126,6 +126,67 @@ while t < 5 + 61 * 3 + 10:
     t += 1 / 20
 check("final_lap" in tr2_ev and "winner" in tr2_ev and "player_finish" in tr2_ev, "final lap, winner, player's finish")
 
+
+def timed_run(minutes=3.0):
+    """A timed race (no lap count): the sims stop reporting the clock at zero, as every reader does."""
+    trt = RaceTracker(log=lambda m: None)
+    out, t = [], 0.0
+    while t < minutes * 60 + 140:
+        f = frame(pass_scn(t), t, race_laps=0)
+        tl = minutes * 60 - t
+        f.time_left = tl if tl > 0 else None
+        out += [e.kind for e in trt.update(f, t)]
+        t += 1 / 20
+    return trt, out
+
+
+trt, tev = timed_run()
+check("final_lap" in tev and "winner" in tev and "player_finish" in tev and trt.finished and trt.winner == 1,
+      f"timed race won by someone else: final lap, winner and finish ({[k for k in tev if k in ('final_lap', 'winner')]})")
+check(tev.count("final_lap") == 1, "timed race: the final lap is called once")
+
+
+def swap_scn(t):
+    cars = pass_scn(t)
+    if t > 130:
+        cars[0]["name"] = "Alex Second"                 # a driver swap: the same car, a new driver
+    return cars
+
+
+tr, evs = run(swap_scn, 150)
+c0 = tr.cars[0]
+check(c0.name == "Alex Second" and c0.call == "Second" and c0.grid is not None and c0.laps_timed,
+      "driver swap: the car keeps its history under the new driver's name")
+
+
+def slot_scn(t):
+    cars = pass_scn(t)
+    if t > 80:
+        cars[0]["name"], cars[0]["dist"] = "New Person", 0.2   # someone else takes over the slot, elsewhere
+    return cars
+
+
+tr, evs = run(slot_scn, 90)
+check(tr.cars[0].name == "New Person" and not tr.cars[0].laps_timed, "a new car in an old slot starts afresh")
+
+trl = RaceTracker(log=lambda m: None)
+f0 = frame(pass_scn(0.0), 0.0)
+f0.sim_events = [{"type": "lights_out"}]
+lev = [e.kind for e in trl.update(f0, 0.0)]
+check(trl.started and "start" in lev, "lights out on the very first frame isn't undone by the intro")
+
+trs = RaceTracker(log=lambda m: None)
+sc_kinds, t = [], 0.0
+while t < 60:
+    fl = "sc" if 20 <= t < 30 or 40 <= t < 50 else None
+    f = frame(pass_scn(t), t, flag=fl)
+    if abs(t - 20) < 1e-6:
+        f.sim_events = [{"type": "safety_car", "phase": "deployed", "kind": "sc"}]
+    sc_kinds += [e.kind for e in trs.update(f, t)]
+    t = round(t + 0.1, 1)
+check(sc_kinds.count("caution") == 2 and sc_kinds.count("green") == 2,
+      f"a second caution from the flag alone is called after a safety car ({sc_kinds.count('caution')} cautions)")
+
 # ---------------------------------------------------------------- whole demo race through the booth
 cast = headless_run(laps=6, seed=5, log=lambda m: None)
 spoken = [ln for _, ln in cast.audio.spoken]
@@ -611,6 +672,45 @@ check(acc_ensure(accdocs, log=lambda m: None), "ACC: broadcasting switched on wh
 acc_port, acc_pw = read_config(accdocs)
 check(acc_port == 9000 and acc_pw not in ("", "asd") and len(acc_pw) >= 12,
       "ACC: switched on with a random password, not the well-known default")
+bc.handle(bytes([5]) + struct.pack("<i", 7) + s_("Monza") + struct.pack("<ii", 3, 5793))
+check(bc.track == {"name": "Monza", "meters": 5793}, "ACC: the track from the broadcasting API")
+try:
+    bc.handle(bytes([3]) + struct.pack("<HH", 3, 0))        # cut short: the client's loop catches it
+    short_ok = False
+except struct.error:
+    short_ok = True
+check(short_ok and bc.state[3]["laps"] == 3, "ACC: a truncated packet changes nothing")
+check(sc._cstr("Räikkönen".encode("cp1252") + bytes(4), 0, 20) == "Räikkönen" and
+      sc._cstr("Räikkönen".encode() + bytes(4), 0, 20) == "Räikkönen", "sim names: UTF-8, or Windows' code page")
+
+# ---------------------------------------------------------------- lanes (the groove, side by side)
+import math  # noqa: E402
+from simcast import lanes  # noqa: E402
+lm = lanes.LaneMap()
+R = 300.0
+for lap_ in range(lanes.READY_SAMPLES + 2):
+    for i in range(lanes.BINS):
+        a = 2 * math.pi * (i + 0.5) / lanes.BINS
+        lm.feed((i + 0.5) / lanes.BINS, R * math.cos(a), R * math.sin(a))
+a = 2 * math.pi * 0.25
+hi = lm.lateral(0.25, (R + 3) * math.cos(a), (R + 3) * math.sin(a))
+lo = lm.lateral(0.25, (R - 3) * math.cos(a), (R - 3) * math.sin(a))
+check(hi is not None and lo is not None and abs(hi - 3) < 0.5 and abs(lo + 3) < 0.5,
+      f"lanes: metres from the groove, + towards the outside ({hi}, {lo})")
+check(lanes.lane_word(lo, hi) == "low" and lanes.lane_word(hi, lo) == "high" and lanes.lane_word(0.5, 0.0) is None,
+      "lanes: low, high, or the same lane")
+check(lanes.LaneMap().lateral(0.5, 1.0, 1.0) is None, "lanes: nothing said until the groove is learned")
+
+# ---------------------------------------------------------------- the booth's memory: saves from two threads
+import threading  # noqa: E402
+from simcast import memory as memory_mod  # noqa: E402
+mpath = os.path.join(tempfile.mkdtemp(), "memory.json")
+mem = memory_mod.Memory(mpath, log=lambda m: None)
+ths = [threading.Thread(target=lambda: [mem.save() for _ in range(30)]) for _ in range(4)]
+[th.start() for th in ths]
+[th.join() for th in ths]
+check(json.load(open(mpath)) is not None and not [f for f in os.listdir(os.path.dirname(mpath)) if f.endswith(".tmp")],
+      "memory: saves from several threads leave one whole file and no temp files")
 
 # ---------------------------------------------------------------- game setup
 from simcast import gamesetup  # noqa: E402
@@ -1240,6 +1340,14 @@ ents = roster_mod.parse(open(rpath, encoding="utf-8-sig").read())
 check(ents["luca moretti"]["number"] == "12" and ents["luca moretti"]["sponsors"] == ["Acme Oil", "Bolt Energy"] and
       ents["sam carter"]["gender"] == "f" and ents["sam carter"]["number"] == "7",
       "roster: a semicolon spreadsheet with its own headings is read")
+rpath2 = os.path.join(rdir, "excel.csv")
+with open(rpath2, "wb") as fh:                       # Excel's plain CSV: Windows' code page, a car-model column
+    fh.write("Driver,Car,Number\nSergio Pérez,Porsche 911 GT3 R,11\nKimi Räikkönen,BMW M4 GT3,7\n".encode("cp1252"))
+ents2 = roster_mod.parse(roster_mod.read_text(rpath2))
+check("sergio pérez" in ents2 and ents2["sergio pérez"]["number"] == "11" and ents2["kimi räikkönen"]["number"] == "7",
+      f"roster: an ANSI CSV keeps its accents, and a Car column of car models isn't the number ({list(ents2)})")
+ents3 = roster_mod.parse("Driver,Car\nAna Silva,#88\nBen Okoro,7\n")
+check(ents3["ana silva"]["number"] == "88", "roster: a Car column of numbers is still the number")
 rc = headless_run(laps=3, seed=7, cfg=dict(roster_file=rpath, booth_tone="loose"), log=lambda m: None)
 rw = rc.director.writer
 byname = {c.name: c for c in rc.tracker.cars.values()}
