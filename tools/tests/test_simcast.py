@@ -126,6 +126,67 @@ while t < 5 + 61 * 3 + 10:
     t += 1 / 20
 check("final_lap" in tr2_ev and "winner" in tr2_ev and "player_finish" in tr2_ev, "final lap, winner, player's finish")
 
+
+def timed_run(minutes=3.0):
+    """A timed race (no lap count): the sims stop reporting the clock at zero, as every reader does."""
+    trt = RaceTracker(log=lambda m: None)
+    out, t = [], 0.0
+    while t < minutes * 60 + 140:
+        f = frame(pass_scn(t), t, race_laps=0)
+        tl = minutes * 60 - t
+        f.time_left = tl if tl > 0 else None
+        out += [e.kind for e in trt.update(f, t)]
+        t += 1 / 20
+    return trt, out
+
+
+trt, tev = timed_run()
+check("final_lap" in tev and "winner" in tev and "player_finish" in tev and trt.finished and trt.winner == 1,
+      f"timed race won by someone else: final lap, winner and finish ({[k for k in tev if k in ('final_lap', 'winner')]})")
+check(tev.count("final_lap") == 1, "timed race: the final lap is called once")
+
+
+def swap_scn(t):
+    cars = pass_scn(t)
+    if t > 130:
+        cars[0]["name"] = "Alex Second"                 # a driver swap: the same car, a new driver
+    return cars
+
+
+tr, evs = run(swap_scn, 150)
+c0 = tr.cars[0]
+check(c0.name == "Alex Second" and c0.call == "Second" and c0.grid is not None and c0.laps_timed,
+      "driver swap: the car keeps its history under the new driver's name")
+
+
+def slot_scn(t):
+    cars = pass_scn(t)
+    if t > 80:
+        cars[0]["name"], cars[0]["dist"] = "New Person", 0.2   # someone else takes over the slot, elsewhere
+    return cars
+
+
+tr, evs = run(slot_scn, 90)
+check(tr.cars[0].name == "New Person" and not tr.cars[0].laps_timed, "a new car in an old slot starts afresh")
+
+trl = RaceTracker(log=lambda m: None)
+f0 = frame(pass_scn(0.0), 0.0)
+f0.sim_events = [{"type": "lights_out"}]
+lev = [e.kind for e in trl.update(f0, 0.0)]
+check(trl.started and "start" in lev, "lights out on the very first frame isn't undone by the intro")
+
+trs = RaceTracker(log=lambda m: None)
+sc_kinds, t = [], 0.0
+while t < 60:
+    fl = "sc" if 20 <= t < 30 or 40 <= t < 50 else None
+    f = frame(pass_scn(t), t, flag=fl)
+    if abs(t - 20) < 1e-6:
+        f.sim_events = [{"type": "safety_car", "phase": "deployed", "kind": "sc"}]
+    sc_kinds += [e.kind for e in trs.update(f, t)]
+    t = round(t + 0.1, 1)
+check(sc_kinds.count("caution") == 2 and sc_kinds.count("green") == 2,
+      f"a second caution from the flag alone is called after a safety car ({sc_kinds.count('caution')} cautions)")
+
 # ---------------------------------------------------------------- whole demo race through the booth
 cast = headless_run(laps=6, seed=5, log=lambda m: None)
 spoken = [ln for _, ln in cast.audio.spoken]
