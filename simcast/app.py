@@ -483,6 +483,8 @@ class SimCast:
     def run(self, stop):
         """Read the demo or the first sim that's running, LOOP_HZ times a second, until stop is set."""
         active = None
+        lost = (None, -1e9)                     # a sim reader that failed and when: back soon, it's the same race
+        RECONNECT_KEEP = 30.0                   # seconds
         next_check = 0.0
         dt = 1.0 / LOOP_HZ
         last = time.monotonic()
@@ -492,8 +494,9 @@ class SimCast:
             step, last = now - last, now
             try:
                 if self.demo is not None:
-                    if active is not None:
-                        active, self.readers = None, None
+                    if active is not None or self.readers is not None:
+                        active = None
+                        self._close_readers()
                     fr = self.demo.read(min(step, 0.25))
                     self.feed(fr, now)
                     if self.demo is not None and self.demo.finished and self.director.wrapped and \
@@ -510,15 +513,21 @@ class SimCast:
                             hint = None if other else self._safe(lambda: sims.waiting_hint(self.cfg))
                             self.status = f"{other[0]} isn't supported" if other else (hint or "Waiting for a sim...")
                         if active is not None:
-                            self.log(f"Connected to {active.name}")
                             self.source = active.name
                             self.status = f"Live: {active.name}"
-                            self.last_frame_t = None
-                            self.tracker.reset()
-                            self.director.reset()
+                            if lost[0] == active.name and now - lost[1] < RECONNECT_KEEP:
+                                # a reader hiccup: the same race carries on (a new session or track still
+                                # starts afresh in the tracker)
+                                self.log(f"Back on {active.name}")
+                            else:
+                                self.log(f"Connected to {active.name}")
+                                self.last_frame_t = None
+                                self.tracker.reset()
+                                self.director.reset()
                     if active is not None:
                         if not self._safe(active.connected):
                             self.log(f"{active.name} closed")
+                            lost = (None, -1e9)          # the sim closed or left the session: a new race next
                             active, self.source, self.status = None, None, "Waiting for a sim..."
                         else:
                             fr = active.read()
@@ -530,11 +539,14 @@ class SimCast:
                 self.tick(now)
             except Exception as e:
                 self._error("Loop", e)
+                if active is not None:
+                    lost = (active.name, time.monotonic())
                 active = None
                 stop.wait(1.0)
             rem = dt - (time.monotonic() - now)
             if rem > 0:
                 stop.wait(rem)
+        self._close_readers()
 
     def scan_sims(self, setup=False):
         """Find the supported sims installed here; with setup, switch on what they need (only for those)."""
@@ -550,6 +562,12 @@ class SimCast:
         except Exception as e:
             self._error("Finding sims", e)
         return self.sims
+
+    def _close_readers(self):
+        """Let go of every sim reader (their shared memory, UDP ports and threads); found again when needed."""
+        for r in self.readers or ():
+            self._safe(r.close)
+        self.readers = None
 
     @staticmethod
     def _safe(fn):

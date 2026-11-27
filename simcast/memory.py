@@ -61,10 +61,11 @@ class Memory:
     def save(self):
         try:
             os.makedirs(os.path.dirname(self.path) or ".", exist_ok=True)
-            tmp = self.path + ".tmp"
-            with self.lock, open(tmp, "w", encoding="utf-8") as fh:
-                json.dump(self.data, fh, indent=1)
-            os.replace(tmp, self.path)
+            with self.lock:                      # one save at a time, each from its own temp file
+                tmp = f"{self.path}.{os.getpid()}.{threading.get_ident()}.tmp"
+                with open(tmp, "w", encoding="utf-8") as fh:
+                    json.dump(self.data, fh, indent=1)
+                os.replace(tmp, self.path)
         except Exception as e:
             self.log(f"Couldn't save the booth's memory: {e}")
 

@@ -663,6 +663,45 @@ check([e["name"] for e in fe] == ["Ana Silva", "Ben Okoro"] and fe[1]["in_pit"] 
       and fe[0]["last"] == 102.0 and bc.session["type"] == "race", f"ACC: the grid from the broadcasting API ({fe})")
 check(bc.events() == [{"type": "accident", "car": 5}], "ACC: the game's accident event")
 check(read_config(tempfile.mkdtemp()) == (9000, "asd"), "ACC: default port and password when there's no file")
+bc.handle(bytes([5]) + struct.pack("<i", 7) + s_("Monza") + struct.pack("<ii", 3, 5793))
+check(bc.track == {"name": "Monza", "meters": 5793}, "ACC: the track from the broadcasting API")
+try:
+    bc.handle(bytes([3]) + struct.pack("<HH", 3, 0))        # cut short: the client's loop catches it
+    short_ok = False
+except struct.error:
+    short_ok = True
+check(short_ok and bc.state[3]["laps"] == 3, "ACC: a truncated packet changes nothing")
+check(sc._cstr("Räikkönen".encode("cp1252") + bytes(4), 0, 20) == "Räikkönen" and
+      sc._cstr("Räikkönen".encode() + bytes(4), 0, 20) == "Räikkönen", "sim names: UTF-8, or Windows' code page")
+
+# ---------------------------------------------------------------- lanes (the groove, side by side)
+import math  # noqa: E402
+from simcast import lanes  # noqa: E402
+lm = lanes.LaneMap()
+R = 300.0
+for lap_ in range(lanes.READY_SAMPLES + 2):
+    for i in range(lanes.BINS):
+        a = 2 * math.pi * (i + 0.5) / lanes.BINS
+        lm.feed((i + 0.5) / lanes.BINS, R * math.cos(a), R * math.sin(a))
+a = 2 * math.pi * 0.25
+hi = lm.lateral(0.25, (R + 3) * math.cos(a), (R + 3) * math.sin(a))
+lo = lm.lateral(0.25, (R - 3) * math.cos(a), (R - 3) * math.sin(a))
+check(hi is not None and lo is not None and abs(hi - 3) < 0.5 and abs(lo + 3) < 0.5,
+      f"lanes: metres from the groove, + towards the outside ({hi}, {lo})")
+check(lanes.lane_word(lo, hi) == "low" and lanes.lane_word(hi, lo) == "high" and lanes.lane_word(0.5, 0.0) is None,
+      "lanes: low, high, or the same lane")
+check(lanes.LaneMap().lateral(0.5, 1.0, 1.0) is None, "lanes: nothing said until the groove is learned")
+
+# ---------------------------------------------------------------- the booth's memory: saves from two threads
+import threading  # noqa: E402
+from simcast import memory as memory_mod  # noqa: E402
+mpath = os.path.join(tempfile.mkdtemp(), "memory.json")
+mem = memory_mod.Memory(mpath, log=lambda m: None)
+ths = [threading.Thread(target=lambda: [mem.save() for _ in range(30)]) for _ in range(4)]
+[th.start() for th in ths]
+[th.join() for th in ths]
+check(json.load(open(mpath)) is not None and not [f for f in os.listdir(os.path.dirname(mpath)) if f.endswith(".tmp")],
+      "memory: saves from several threads leave one whole file and no temp files")
 
 # ---------------------------------------------------------------- game setup
 from simcast import gamesetup  # noqa: E402
@@ -1292,6 +1331,14 @@ ents = roster_mod.parse(open(rpath, encoding="utf-8-sig").read())
 check(ents["luca moretti"]["number"] == "12" and ents["luca moretti"]["sponsors"] == ["Acme Oil", "Bolt Energy"] and
       ents["sam carter"]["gender"] == "f" and ents["sam carter"]["number"] == "7",
       "roster: a semicolon spreadsheet with its own headings is read")
+rpath2 = os.path.join(rdir, "excel.csv")
+with open(rpath2, "wb") as fh:                       # Excel's plain CSV: Windows' code page, a car-model column
+    fh.write("Driver,Car,Number\nSergio Pérez,Porsche 911 GT3 R,11\nKimi Räikkönen,BMW M4 GT3,7\n".encode("cp1252"))
+ents2 = roster_mod.parse(roster_mod.read_text(rpath2))
+check("sergio pérez" in ents2 and ents2["sergio pérez"]["number"] == "11" and ents2["kimi räikkönen"]["number"] == "7",
+      f"roster: an ANSI CSV keeps its accents, and a Car column of car models isn't the number ({list(ents2)})")
+ents3 = roster_mod.parse("Driver,Car\nAna Silva,#88\nBen Okoro,7\n")
+check(ents3["ana silva"]["number"] == "88", "roster: a Car column of numbers is still the number")
 rc = headless_run(laps=3, seed=7, cfg=dict(roster_file=rpath, booth_tone="loose"), log=lambda m: None)
 rw = rc.director.writer
 byname = {c.name: c for c in rc.tracker.cars.values()}

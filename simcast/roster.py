@@ -16,7 +16,7 @@ import re
 
 HEADINGS = {
     "name": ("driver", "name", "driver name", "full name"),
-    "number": ("number", "no", "no.", "#", "car", "car number", "num"),
+    "number": ("number", "no", "no.", "#", "car", "car number", "car no", "car no.", "car #", "num"),
     "team": ("team", "team name", "entrant"),
     "pronouns": ("pronouns", "pronoun", "gender"),
     "sponsors": ("sponsors", "sponsor", "backers"),
@@ -62,6 +62,15 @@ def parse(text):
     cols = [_col(h) for h in rows[0]]
     if "name" not in cols:
         return {}
+    for i, h in enumerate(rows[0]):
+        # 'Car' is the number in some sheets and the car itself ('Porsche 911 GT3 R') in others: a number column
+        # holds numbers, so one that's mostly words is the car, and another column can be the number
+        if cols[i] == "number" and key(h).strip(":") == "car":
+            vals = [r[i].strip() for r in rows[1:] if i < len(r) and r[i].strip()]
+            if vals and sum(bool(re.fullmatch(r"#?\s*\d{1,4}[A-Za-z]?", v)) for v in vals) < len(vals) / 2:
+                cols[i] = None
+    if cols.count("number") > 1:                  # 'Car' and 'Number' both: the number is the one that says so
+        cols = [None if c == "number" and key(h).strip(":") == "car" else c for c, h in zip(cols, rows[0])]
     out = {}
     for row in rows[1:]:
         d = {c: (row[i].strip() if i < len(row) else "") for i, c in enumerate(cols) if c}
@@ -76,6 +85,16 @@ def parse(text):
             "say": d.get("say", ""),
         }
     return out
+
+
+def read_text(path):
+    """A spreadsheet saved as CSV: UTF-8 (with or without Excel's BOM), or Windows' own 'ANSI' (cp1252), which is
+    what Excel's plain 'CSV' still saves, so 'Pérez' comes out as Pérez either way."""
+    raw = open(path, "rb").read()
+    try:
+        return raw.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        return raw.decode("cp1252", "replace")
 
 
 class Roster:
@@ -95,8 +114,7 @@ class Roster:
             return {}
         if path != self._path or mt != self._mtime:
             try:
-                with open(path, encoding="utf-8-sig", errors="replace") as fh:
-                    self._data = parse(fh.read())
+                self._data = parse(read_text(path))
             except Exception as e:
                 self.log(f"Roster unreadable ({e})")
                 self._data = {}
