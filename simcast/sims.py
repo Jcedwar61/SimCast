@@ -258,6 +258,10 @@ class ACReader(Reader):
         if getattr(self, "cspw", None) is not None:
             self.cspw.close()
             self.cspw = None
+        bc = getattr(self, "_acc_bc", None)
+        if bc is not None:                           # ACC's broadcasting client: started again on the next ACC frame
+            bc.stop()
+            self._acc_bc = None
 
     def connected(self) -> bool:
         if self._game() is None:
@@ -271,7 +275,7 @@ class ACReader(Reader):
                         x.close()
                 return False
             self.m = parts
-        return _i(self.m[1][0:12], 4) in (2, 3)
+        return _i(self.m[1][0:12], 4) in (1, 2, 3)      # replay, live, paused: still in the session (read() waits)
 
     def read(self) -> Optional[Frame]:
         p, g, s = self.m[0][0:800], self.m[1][0:1600], self.m[2][0:1200]
@@ -594,7 +598,11 @@ class ACReader(Reader):
 
 
 def _cstr(buf, off, n):
-    return bytes(buf[off:off + n]).split(b"\x00")[0].decode("utf-8", "ignore").strip()
+    raw = bytes(buf[off:off + n]).split(b"\x00")[0]
+    try:
+        return raw.decode("utf-8").strip()
+    except UnicodeDecodeError:                   # not UTF-8: Windows' own code page, so 'Räikkönen' keeps its letters
+        return raw.decode("cp1252", "ignore").strip()
 
 
 class SharedMem:
@@ -1498,7 +1506,8 @@ def _r3e_field(b, n, me, tlen):
         if plc <= 0:
             continue
         car = raceroom_car(_i(b, ob + 72))
-        out.append(field_entry(_i(b, ob + 92) or k, _cstr(b, ob, 64), car, plc, _i(b, ob + 164),
+        sid = _i(b, ob + 92)
+        out.append(field_entry(sid if sid >= 0 else 1000 + k, _cstr(b, ob, 64), car, plc, _i(b, ob + 164),
                                _f(b, ob + 140) / tlen, _i(b, ob + 224) > 0, _f(b, ob + 196), _f(b, ob + 208),
                                {1: "finished", 2: "dnf", 5: "dsq"}.get(_i(b, ob + 128)), _i(b, ob + 228),
                                player=plc == me, speed=_f(b, ob + 252) * 3.6, cls=raceroom_class(car)))

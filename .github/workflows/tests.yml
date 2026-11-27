@@ -1,0 +1,33 @@
+# Runs SimCast's tests (tools/run_tests.sh --gui: pyflakes, the --test demo race, test_simcast, test_history,
+# test_simhub, the release notes and the real window under Xvfb) on every pull request and push to main, and from the
+# Release workflow before anything is published.
+name: Tests
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - name: Python 3.12 with Tk, pyflakes and Xvfb
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q python3-tk python3-pyflakes xvfb
+      - name: tools/run_tests.sh --gui
+        env:
+          PYTHON: /usr/bin/python3
+        run: tools/run_tests.sh --gui

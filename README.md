@@ -24,6 +24,25 @@ each other: while SimCoach's coach or crew speaks, the booth drops under them an
 * **Linux / Steam Deck:** [install-simcast-wine.sh](install-simcast-wine.sh) installs SimCast into the sim's
   own Proton prefix (see below).
 
+### What's new in 1.21
+* **Timed races get their finish.** In a race against the clock (most ACC races, timed iRacing and Assetto Corsa
+  races) the booth now calls the last lap and the winner whoever wins it, with the podium, the wrap-up and the recap.
+  Before, they only came when you won it yourself.
+* **A replay no longer restarts the race.** Watching a replay in Assetto Corsa or ACC, or a moment's hiccup reading
+  a sim, used to make the booth start the race over; it now picks up where it was.
+* **Team and endurance races:** a driver swap keeps the car's grid slot, pit stops and best lap. Rival names saved
+  by Excel keep their accents (Pérez, Räikkönen), and a cut-in no longer waits for the voices of the lines it cuts.
+* **Your API keys are encrypted** in SimCast's settings, for your Windows account only (keys saved by an older
+  SimCast are encrypted the next time you save).
+* **Safer Twitch chat:** a viewer can't slip instructions into the booth by quoting its own prompt, the booth's
+  answers to chat go through the same moderation check before they're said, and while that check can't run, chat
+  waits rather than going through unchecked.
+* **Safer setup:** SimCast fetches one fixed, checksum-checked version of uv and of every Python package, and the
+  Linux/Steam Deck script installs the latest release, checked against its published checksum. The setup wizard is
+  now built from source by GitHub for each release. When SimCast switches on ACC's broadcasting, it uses a password
+  of its own, not ACC's well-known default.
+* A Historic Roster file SimCast can't make sense of is ignored instead of breaking the window.
+
 ### What's new in 1.20
 * **SimCast on your SimHub dashboards.** The new **SimCast Booth** dashboard puts the booth on any SimHub screen
   (a phone or tablet, a USB display, a second monitor or an overlay): ON AIR or OFF AIR, who's talking and what
@@ -390,22 +409,26 @@ simcast/history.py           the real race behind a Historic Roster race (%APPDA
 simcast/update.py            the update check and the checksum-verified installer download
 simcast/link.py              the SimCoach link (the booth drops under the coach)
 simcast/demo.py              a fictional 12-car race for the tests
-simcast/licenses/            SimCast's MIT licence and third-party notices
+simcast/licenses/            SimCast's licence (PolyForm Noncommercial) and third-party notices
 tools/launcher/              SimCast.exe (Go): build_launcher.sh
 installer-source/            SimCast-Setup.exe (NSIS, 64-bit): tools/installer/build_installer.sh
 simhub/plugin/               the SimCast plugin for SimHub (C#, .NET Framework 4.8): dotnet build -c Release
 simhub/dashboard/            the SimCast Booth dashboard: tools/simhub/build_simhub.py writes it (and the plugin's
                              property list) from simcast/simhub.py; --preview draws it
 ```
-Tests: `tools/run_tests.sh` (add `--gui` for the real window under Xvfb);
+Tests: `tools/run_tests.sh` (add `--gui` for the real window under Xvfb; the Tests workflow runs that on every pull
+request);
 `tools/installer/wine_check.sh` installs, runs and uninstalls SimCast under Wine.
 
 Build: `tools/launcher/build_launcher.sh` (Go and go-winres), then `tools/installer/build_installer.sh` (NSIS and
-7-Zip). On Windows, `tools/installer/nsis64.ps1` fetches a 64-bit NSIS (the setup and the winget package are x86-only)
+7-Zip). Neither SimCast.exe nor SimCast-Setup.exe is kept in git: the *Build Windows binaries* workflow builds both
+from source for the release and for the Windows installer test. The launcher fetches one pinned uv, checksum-checked;
+the Python packages are locked with hashes in `sim_cast.py.lock` (after changing the dependencies in `sim_cast.py`:
+`uv lock --script sim_cast.py`). On Windows, `tools/installer/nsis64.ps1` fetches a 64-bit NSIS (the setup and the winget package are x86-only)
 and prints the folder for PATH.
 
-Releasing: set `APP_VERSION` in `simcast/app.py`, add a "What's new" section here, run the tests, build the
-launcher and the installer, merge to main, then publish a GitHub release tagged `vX.Y` on main with
-**SimCast-Setup.exe** attached under exactly that name (the Release workflow also builds and attaches
-**SimCast-SimHub.zip**): installed copies' update check and SimCoach's setup wizard
+Releasing: set `APP_VERSION` in `simcast/app.py`, run `tools/simhub/build_simhub.py` (it stamps the version into
+the SimHub plugin), add a "What's new" section here, merge to main, then run the Release workflow on main. It runs
+the tests, builds SimCast.exe, SimCast-Setup.exe and **SimCast-SimHub.zip** from main's source and publishes a
+release tagged `vX.Y` with **SimCast-Setup.exe** attached under exactly that name: installed copies' update check and SimCoach's setup wizard
 both look for it, and both check the download against the SHA-256 GitHub shows for the asset.

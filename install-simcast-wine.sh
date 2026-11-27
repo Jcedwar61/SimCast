@@ -23,7 +23,7 @@ declare -A GAME_NAMES=(
   [rf2]="rFactor 2" [ams2]="Automobilista 2" [raceroom]="RaceRoom" [iracing]="iRacing" [f1-25]="F1 25"
   [eawrc]="EA SPORTS WRC" [dr2]="DiRT Rally 2.0"
 )
-SETUP_URL="https://github.com/Jcedwar61/SimCast/raw/main/SimCast-Setup.exe"
+RELEASE_API="https://api.github.com/repos/Jcedwar61/SimCast/releases/latest"
 HERE="$(cd "$(dirname "$0")" && pwd)"
 
 say() { printf '%s\n' "$*"; }
@@ -95,8 +95,20 @@ if [ -z "$SETUP" ]; then
     SETUP="$HERE/SimCast-Setup.exe"
   else
     SETUP="$(mktemp -d)/SimCast-Setup.exe"
+    # The latest release's wizard, checked against the SHA-256 GitHub lists for it (as SimCast's own updater does)
+    command -v python3 >/dev/null || die "python3 is needed to read the release (or pass --setup PATH)"
+    read -r SETUP_URL SETUP_SHA < <(curl -fsSL --retry 3 -H "User-Agent: SimCast-wine" "$RELEASE_API" | python3 -c '
+import json, sys
+rel = json.load(sys.stdin)
+a = next((a for a in rel.get("assets", []) if a.get("name") == "SimCast-Setup.exe"), None)
+print(a["browser_download_url"], (a.get("digest") or "").split(":")[-1]) if a else None
+') || true
+    [ -n "${SETUP_URL:-}" ] && [[ "${SETUP_SHA:-}" =~ ^[0-9a-fA-F]{64}$ ]] \
+      || die "couldn't find the latest release's SimCast-Setup.exe and its checksum (pass --setup PATH)"
     say "Downloading SimCast-Setup.exe ..."
     curl -fL --retry 3 -o "$SETUP" "$SETUP_URL" || die "couldn't download $SETUP_URL (pass --setup PATH)"
+    echo "${SETUP_SHA,,}  $SETUP" | sha256sum -c --status - \
+      || { rm -f "$SETUP"; die "the download doesn't match the release's published checksum, so it wasn't run"; }
   fi
 fi
 [ -f "$SETUP" ] || die "$SETUP not found"

@@ -94,6 +94,8 @@ class CaptionServer:
                 self.wfile.write(b)
 
             def do_GET(self):
+                if not local_host(self.headers.get("Host")):
+                    return self.send_error(403)    # a web page that rebinds its name to 127.0.0.1 gets nothing
                 if self.path.startswith("/lines"):
                     m = re.search(r"since=(-?\d+)", self.path)
                     since = int(m.group(1)) if m else -1
@@ -127,6 +129,14 @@ class CaptionServer:
             except Exception:
                 pass
             self.httpd = None
+
+
+def local_host(host) -> bool:
+    """Was the request addressed to this PC by name (Host header)? A web page that rebinds its own name to 127.0.0.1
+    (DNS rebinding) still sends its own name, so it's turned away."""
+    h = str(host or "").strip().lower()
+    h = h.rsplit(":", 1)[0] if h.count(":") == 1 or h.startswith("[") else h
+    return h in ("127.0.0.1", "localhost", "[::1]", "")
 
 
 # ----------------------------------------------------------------------------------------------- Twitch chat

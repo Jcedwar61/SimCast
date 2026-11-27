@@ -40,8 +40,23 @@ def fold(s) -> str:
 def _int(x) -> Optional[int]:
     try:
         return int(x) if x is not None else None
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         return None
+
+
+def _str(x) -> Optional[str]:
+    """A text value from the file, stripped; None when it's missing, empty or not text-like (a list, a dict)."""
+    if x is None or isinstance(x, (dict, list, bool)):
+        return None
+    return str(x).strip() or None
+
+
+def _dict(x) -> dict:
+    return x if isinstance(x, dict) else {}
+
+
+def _list(x) -> list:
+    return x if isinstance(x, list) else []
 
 
 def _parse_utc(s) -> Optional[float]:
@@ -56,15 +71,15 @@ class RealCar:
 
     def __init__(self, d: dict, racing=True):
         self.index = _int(d.get("car_index")) if racing else None
-        self.driver = str(d.get("driver") or "").strip()
-        self.team = (d.get("team") or "").strip() or None
-        self.number = (str(d.get("number")).strip() or None) if d.get("number") is not None else None
-        self.car = (d.get("car") or "").strip() or None
-        self.cls = (d.get("class") or "").strip() or None
-        self.stand_in_for = (d.get("stand_in_for") or "").strip() or None
+        self.driver = _str(d.get("driver")) or ""
+        self.team = _str(d.get("team"))
+        self.number = _str(d.get("number"))
+        self.car = _str(d.get("car"))
+        self.cls = _str(d.get("class"))
+        self.stand_in_for = _str(d.get("stand_in_for"))
         self.grid = _int(d.get("real_grid"))
         self.pos = _int(d.get("real_pos"))
-        self.status = (d.get("real_status") or "").strip() or None
+        self.status = _str(d.get("real_status"))
         self.laps = _int(d.get("real_laps"))
         self.racing = racing
 
@@ -87,30 +102,30 @@ class RealCar:
 
 class RaceContext:
     def __init__(self, d: dict):
-        ac, ev = d.get("ac") or {}, d.get("event") or {}
-        self.track = str(ac.get("track") or "").strip()
-        self.layout = str(ac.get("layout") or "").strip()
+        ac, ev = _dict(d.get("ac")), _dict(d.get("event"))
+        self.track = _str(ac.get("track")) or ""
+        self.layout = _str(ac.get("layout")) or ""
         self.race_laps = _int(ac.get("race_laps"))
         self.watch = bool(ac.get("watch"))
-        self.name = str(ev.get("name") or "").strip()
-        self.series = (ev.get("series") or "").strip() or None
+        self.name = _str(ev.get("name")) or ""
+        self.series = _str(ev.get("series"))
         self.year = _int(ev.get("year"))
         self.date = None
         try:
             self.date = date.fromisoformat(str(ev.get("date"))[:10]) if ev.get("date") else None
-        except ValueError:
+        except (TypeError, ValueError):
             pass
-        self.circuit = (ev.get("circuit") or "").strip() or None
+        self.circuit = _str(ev.get("circuit"))
         self.real_laps = _int(ev.get("real_laps"))
         self.multiclass = bool(ev.get("multiclass"))
         rc = d.get("real_conditions") or None
-        self.conditions = ((rc.get("summary") or "").strip() or None) if isinstance(rc, dict) else None
-        pl = d.get("player") or {}
+        self.conditions = _str(rc.get("summary")) if isinstance(rc, dict) else None
+        pl = _dict(d.get("player"))
         self.player_index = _int(pl.get("car_index"))
-        self.seat_driver = (pl.get("seat_driver") or "").strip() or None
-        self.grid = [RealCar(c) for c in d.get("grid") or [] if isinstance(c, dict) and c.get("driver")]
-        self.not_racing = [RealCar(c, racing=False) for c in d.get("not_racing") or []
-                           if isinstance(c, dict) and c.get("driver")]
+        self.seat_driver = _str(pl.get("seat_driver"))
+        self.grid = [RealCar(c) for c in _list(d.get("grid")) if isinstance(c, dict) and _str(c.get("driver"))]
+        self.not_racing = [RealCar(c, racing=False) for c in _list(d.get("not_racing"))
+                           if isinstance(c, dict) and _str(c.get("driver"))]
         self._by_index = {c.index: c for c in self.grid if c.index is not None}
         self._by_name = {fold(c.driver): c for c in self.grid}
 
@@ -151,7 +166,12 @@ class RaceContext:
         age = (now if now is not None else time.time()) - written if written is not None else None
         if age is None or age > MAX_AGE_S or age < -600:
             return None                                   # an old race (or a clock far off): not this one
-        return cls(d)
+        try:
+            return cls(d)
+        except Exception as e:                            # a file SimCast can't make sense of is no race at all
+            if log:
+                log(f"Historic Roster race context unusable: {e}")
+            return None
 
     def matches(self, track, folder="", layout="") -> bool:
         """Is this the session Historic Roster set up? By the AC track folder and layout when SimCast has them (both

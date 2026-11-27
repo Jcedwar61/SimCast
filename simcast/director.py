@@ -42,6 +42,8 @@ class Director:
         self._keys: dict = {}
         self.followups: deque = deque()                      # (lines, made, priority)
         self.ai_filler = None                                # (lines, made)
+        self._replies: deque = deque()                       # the AI booth's answers, from its thread, for tick()
+        self._race_gen = 0                                   # bumped by reset(): an answer for an older race is dropped
         self.transcript: deque = deque(maxlen=60)            # (who, text) for the AI's memory
         self.recent_events: deque = deque(maxlen=20)
         self.wrapped = False
@@ -192,6 +194,8 @@ class Director:
         self._keys.clear()
         self.followups.clear()
         self.ai_filler = None
+        self._race_gen += 1
+        self._replies.clear()
         self.convo_left, self.convo_t, self.convo_n = 0, -1e9, 0
         self._filler_asked = -1e9
         self.wrapped = False
@@ -275,6 +279,7 @@ class Director:
 
     # -------------------------------------------------------------- the loop
     def tick(self, now):
+        self._take_replies()
         if not self.on_air:
             self.pending.clear()
             return
@@ -439,23 +444,32 @@ class Director:
     def clock_ok(b):
         return b.clock() >= b.disabled_until                 # a second provider that keeps failing steps aside
 
-    def _ask(self, task, priority, now, filler=False, answer=LEAD, max_tokens=420):
+    def _ask(self, task, priority, now, filler=False, answer=LEAD, max_tokens=420, screen_fn=None):
         booth = self._talk_booth() if filler else self.booth
         if booth is None or not booth.ready():
             return False
-        made = now
+        made, gen = now, self._race_gen
 
-        def done(lines, info):
+        def done(lines, info):                               # on the AI booth's thread: tick() takes it from here
+            self._replies.append((gen, filler, lines, made, priority))
+        try:
+            kw = {"screen_fn": screen_fn} if screen_fn is not None else {}
+            return booth.request(task, self._brief(), done, opener=answer, max_tokens=max_tokens,
+                                 purpose="convo" if filler else "react", **kw)
+        except Exception as e:
+            self.log(f"AI booth: {e}")
+            return False
+
+    def _take_replies(self):
+        """The AI booth's answers that came in since the last tick, on the loop's thread (under the app's lock)."""
+        while self._replies:
+            gen, filler, lines, made, priority = self._replies.popleft()
+            if gen != self._race_gen:
+                continue                                     # asked in a race that's over
             if filler:
                 self.ai_filler = (lines, made)
             else:
                 self.followups.append((lines, made, priority))
-        try:
-            return booth.request(task, self._brief(), done, opener=answer, max_tokens=max_tokens,
-                                 purpose="convo" if filler else "react")
-        except Exception as e:
-            self.log(f"AI booth: {e}")
-            return False
 
     def _ask_reaction(self, e, last, now):
         """The AI booth carries the call on: whoever did not say the last line reacts to it, so the analyst's
@@ -482,7 +496,8 @@ class Director:
             msgs = self.chat.fresh() if self.writer.chance(odds) else []
             if msgs:
                 task, opener = ai_mod.chat_task(self.writer, self.chat.take(3))
-                if self._ask(task, 20, now, filler=True, answer=opener):
+                if self._ask(task, 20, now, filler=True, answer=opener,
+                             screen_fn=getattr(self.chat, "allow_fn", None)):
                     self._filler_asked = now
                     self.convo_t, self.convo_left, self.convo_n = now, 1, 0
                     return

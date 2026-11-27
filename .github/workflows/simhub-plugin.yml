@@ -21,15 +21,15 @@ jobs:
       run:
         shell: powershell
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: "3.12"
       - name: The plugin's keys and the dashboard match simcast/simhub.py
         run: |
           python tools/simhub/build_simhub.py --check
           if ($LASTEXITCODE) { exit 1 }
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
         with:
           dotnet-version: "8.0.x"
       - name: Build SimCastPlugin.dll
@@ -80,7 +80,7 @@ jobs:
           if (-not (Test-Path "$fake\SimCastPlugin.dll")) { 'The plugin was not copied'; exit 1 }
           if (-not (Test-Path "$fake\DashTemplates\SimCast Booth\SimCast Booth.djson")) { 'The dashboard was not copied'; exit 1 }
           'Installed into the stand-in SimHub folder'
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: SimCast-SimHub
           path: SimCast-SimHub.zip

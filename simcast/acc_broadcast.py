@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import os
+import secrets
 import socket
 import struct
 import threading
@@ -51,7 +52,9 @@ def ensure_config(documents, log=print):
     try:
         if os.path.exists(path):
             os.replace(path, path + ".simcast-backup")
-        d = {"updListenerPort": 9000, "connectionPassword": pw or "asd", "commandPassword": ""}
+        # ACC listens on every network the PC is on, so not its well-known default password: a random one, which
+        # SimCast reads back from this file like any other (a password already there is kept)
+        d = {"updListenerPort": 9000, "connectionPassword": pw or secrets.token_urlsafe(12), "commandPassword": ""}
         with open(path, "wb") as fh:
             fh.write(json.dumps(d, indent=2).encode("utf-16"))
         log("ACC: switched on its broadcasting port (9000). Restart ACC once so it picks it up.")
@@ -162,6 +165,10 @@ class ACCBroadcast:
                 self.handle(data)
             except Exception as e:                      # a malformed packet never stops the client
                 self.error = f"{type(e).__name__}: {e}"
+        try:
+            self.sock.close()
+        except OSError:
+            pass
 
     def _request(self, kind):
         if self.conn_id is not None and self.sock is not None:

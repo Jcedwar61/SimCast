@@ -54,6 +54,25 @@ def write(d, path=None):
     return path
 
 
+# ---------------------------------------------------------------- a malformed file never breaks the window
+bad = context()
+bad["ac"]["layout"] = 5
+bad["event"]["series"] = ["F1"]
+bad["event"]["date"] = 20060910
+bad["player"] = []
+bad["grid"][1]["team"] = 7
+bad["grid"][2]["car"] = {"x": 1}
+bad["grid"][3]["real_grid"] = float("inf")
+bad["grid"].append({"driver": 42})
+bad["grid"].append("not a car")
+bad["not_racing"] = {"driver": "x"}
+ctx = RaceContext.read(write(bad))
+check(ctx is not None and ctx.grid[1].team == "7" and ctx.grid[2].car is None, "malformed: odd values coerced")
+check(ctx is not None and ctx.series is None and ctx.player_index is None and ctx.not_racing == [],
+      "malformed: wrong-typed sections ignored")
+for key, val in (("ac", []), ("event", "2006"), ("grid", {"a": 1})):
+    check(RaceContext.read(write({**context(), key: val})) is not None, f"malformed: a file with a bad {key} still reads")
+
 # ---------------------------------------------------------------- loading and matching
 write(context())
 check(RaceContext.load("AC", "ks_monza66") is not None, "load: AC on the same track")

@@ -60,18 +60,21 @@ try {
                 Say "SimCoach $($rel.tag_name) has no setup wizard with a checksum to install from; get it from github.com/Jcedwar61/SimCoach."
                 exit 2
             }
-            $exe = Join-Path $env:TEMP 'SimCoach-Setup.exe'
+            # a folder of its own, made fresh: nothing else can swap the file between the check and running it
+            $dir = Join-Path $env:TEMP ('SimCoach-Setup-' + [guid]::NewGuid().ToString('N'))
+            New-Item -ItemType Directory -Path $dir -Force | Out-Null
+            $exe = Join-Path $dir 'SimCoach-Setup.exe'
             Say "Downloading SimCoach $($rel.tag_name) ..."
             Invoke-WebRequest -UseBasicParsing -Uri $asset.browser_download_url -OutFile $exe
             $got = (Get-FileHash -Algorithm SHA256 -Path $exe).Hash
             if ($got -ne $want.ToUpper()) {
-                Remove-Item $exe -Force -ErrorAction SilentlyContinue
+                Remove-Item $dir -Recurse -Force -ErrorAction SilentlyContinue
                 Say 'The SimCoach download did not match its published checksum, so it was not run.'
                 exit 2
             }
             Say 'Installing SimCoach with its speech recognition (about 1 GB; Python and packages shared with SimCast) ...'
             $p = Start-Process -FilePath $exe -ArgumentList '/S' -Wait -PassThru
-            Remove-Item $exe -Force -ErrorAction SilentlyContinue
+            Remove-Item $dir -Recurse -Force -ErrorAction SilentlyContinue
             if ($p.ExitCode -eq 0 -and (Test-Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\SimCoach')) {
                 Say "SimCoach $($rel.tag_name) is installed."
                 exit 0

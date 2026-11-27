@@ -19,11 +19,11 @@ from .race import RaceTracker
 from .nascar import NascarTracker
 from .solo import RallyTracker, SoloTracker, StageStore
 from . import ai as ai_mod
-from . import nascar, persona, providers, sims
+from . import keystore, nascar, persona, providers, sims
 from .assist import ASSIST_CHOICES, assist_label
 
 APP_NAME = "SimCast"
-APP_VERSION = "1.20"
+APP_VERSION = "1.21"
 APP_DIR = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), "SimCast")
 CONFIG_PATH = os.path.join(APP_DIR, "config.json")
 LOG_PATH = os.path.join(APP_DIR, "simcast.log")
@@ -54,7 +54,7 @@ DEFAULTS = {
     "openai_api_key": "", "gemini_api_key": "", "deepseek_api_key": "", "elevenlabs_api_key": "",
     "openai_model": "auto", "gemini_model": "auto", "deepseek_model": "auto", "openai_tts_model": "auto",
     "f1_port": 20777, "dr2_port": 20779, "forza_port": 5300, "udp_share_simhub": True, "game_setup": True, "guide_seen": False,
-    "demo_laps": 8, "captions": False, "captions_pos": None, "window": None,
+    "captions": False, "captions_pos": None, "window": None,
     "check_updates": True, "update_skip": "",
     "nascar": "auto", "nascar_stages": "", "nascar_voices": True,
     "booth_tone": "broadcast", "swearing": False, "banter": "normal", "driver_pronouns": "auto",
@@ -90,7 +90,6 @@ CHOICES = {"tts": ("on", "off"), "chatter": ("quiet", "normal", "chatty"),
            "drive_mode": ("stream", "driver"), "nascar": nascar.CHOICES,
            "history_spoilers": ("after", "always", "never")}
 SECRET_KEYS = ("openai_api_key", "gemini_api_key", "deepseek_api_key", "elevenlabs_api_key")
-ROLE_LABEL = {"lead": "lead", "analyst": "analyst", "pit": "pit lane"}
 
 
 def load_config(path=None):
@@ -101,6 +100,8 @@ def load_config(path=None):
             d = json.load(fh)
         if isinstance(d, dict):
             cfg.update({k: v for k, v in d.items() if k in DEFAULTS})
+            for k in SECRET_KEYS:                          # stored encrypted for this Windows account (keystore.py)
+                cfg[k] = keystore.unprotect(cfg.get(k))
     except FileNotFoundError:
         pass
     except Exception as e:
@@ -122,10 +123,6 @@ def clean_config(cfg):
         cfg["speech_rate"] = max(-30, min(30, int(cfg.get("speech_rate", 0))))
     except (TypeError, ValueError):
         cfg["speech_rate"] = 0
-    try:
-        cfg["demo_laps"] = max(2, min(30, int(cfg.get("demo_laps", 8))))
-    except (TypeError, ValueError):
-        cfg["demo_laps"] = 8
     for k in ("lead_name", "analyst_name", "pit_name", "driver_name"):
         cfg[k] = " ".join(str(cfg.get(k) or "").split())[:40]
     for k in ("race_sponsor", "my_sponsors", "race_name"):
@@ -154,7 +151,8 @@ def save_config(cfg, path=None):
         os.makedirs(os.path.dirname(path), exist_ok=True)
         tmp = path + ".tmp"
         with open(tmp, "w", encoding="utf-8") as fh:
-            json.dump({k: cfg.get(k) for k in DEFAULTS}, fh, indent=2)
+            json.dump({k: keystore.protect(cfg.get(k)) if k in SECRET_KEYS else cfg.get(k) for k in DEFAULTS},
+                      fh, indent=2)
         os.replace(tmp, path)
     except Exception as e:
         print(f"Couldn't save settings: {e}")
@@ -458,7 +456,7 @@ class SimCast:
     def start_demo(self, laps=None):
         with self.lock:
             cfg = self.config()
-            self.demo = DemoRace(laps=laps or cfg.get("demo_laps", 8), seed=int(time.time()) % 1000,
+            self.demo = DemoRace(laps=laps or 8, seed=int(time.time()) % 1000,
                                  player_name=cfg.get("driver_name") or "")
             self.mode = "nascar" if (cfg.get("nascar") == "on" if self.nascar_race is None else self.nascar_race) \
                 else "field"
@@ -483,6 +481,8 @@ class SimCast:
     def run(self, stop):
         """Read the demo or the first sim that's running, LOOP_HZ times a second, until stop is set."""
         active = None
+        lost = (None, -1e9)                     # a sim reader that failed and when: back soon, it's the same race
+        RECONNECT_KEEP = 30.0                   # seconds
         next_check = 0.0
         dt = 1.0 / LOOP_HZ
         last = time.monotonic()
@@ -492,8 +492,9 @@ class SimCast:
             step, last = now - last, now
             try:
                 if self.demo is not None:
-                    if active is not None:
-                        active, self.readers = None, None
+                    if active is not None or self.readers is not None:
+                        active = None
+                        self._close_readers()
                     fr = self.demo.read(min(step, 0.25))
                     self.feed(fr, now)
                     if self.demo is not None and self.demo.finished and self.director.wrapped and \
@@ -510,15 +511,21 @@ class SimCast:
                             hint = None if other else self._safe(lambda: sims.waiting_hint(self.cfg))
                             self.status = f"{other[0]} isn't supported" if other else (hint or "Waiting for a sim...")
                         if active is not None:
-                            self.log(f"Connected to {active.name}")
                             self.source = active.name
                             self.status = f"Live: {active.name}"
-                            self.last_frame_t = None
-                            self.tracker.reset()
-                            self.director.reset()
+                            if lost[0] == active.name and now - lost[1] < RECONNECT_KEEP:
+                                # a reader hiccup: the same race carries on (a new session or track still
+                                # starts afresh in the tracker)
+                                self.log(f"Back on {active.name}")
+                            else:
+                                self.log(f"Connected to {active.name}")
+                                self.last_frame_t = None
+                                self.tracker.reset()
+                                self.director.reset()
                     if active is not None:
                         if not self._safe(active.connected):
                             self.log(f"{active.name} closed")
+                            lost = (None, -1e9)          # the sim closed or left the session: a new race next
                             active, self.source, self.status = None, None, "Waiting for a sim..."
                         else:
                             fr = active.read()
@@ -530,11 +537,14 @@ class SimCast:
                 self.tick(now)
             except Exception as e:
                 self._error("Loop", e)
+                if active is not None:
+                    lost = (active.name, time.monotonic())
                 active = None
                 stop.wait(1.0)
             rem = dt - (time.monotonic() - now)
             if rem > 0:
                 stop.wait(rem)
+        self._close_readers()
 
     def scan_sims(self, setup=False):
         """Find the supported sims installed here; with setup, switch on what they need (only for those)."""
@@ -550,6 +560,12 @@ class SimCast:
         except Exception as e:
             self._error("Finding sims", e)
         return self.sims
+
+    def _close_readers(self):
+        """Let go of every sim reader (their shared memory, UDP ports and threads); found again when needed."""
+        for r in self.readers or ():
+            self._safe(r.close)
+        self.readers = None
 
     @staticmethod
     def _safe(fn):

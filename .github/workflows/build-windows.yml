@@ -1,0 +1,49 @@
+# Builds SimCast.exe (the Go launcher, tools/launcher) and SimCast-Setup.exe (the NSIS setup wizard,
+# installer-source) from the source in this commit, and uploads both as the "SimCast-Windows" artifact.
+# build_installer.sh checks every file inside the wizard against the repo byte for byte. Neither binary is kept in
+# git: the Release workflow publishes what this builds, and the Windows installer test runs it.
+name: Build Windows binaries
+
+on:
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      ref:
+        description: "The commit, branch or tag to build (default: the one that triggered the caller)"
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ inputs.ref }}
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version: "1.24"
+          cache: false
+      - name: Tools (go-winres, NSIS, 7-Zip)
+        run: |
+          go install github.com/tc-hib/go-winres@v0.3.3
+          sudo apt-get update -q
+          sudo apt-get install -y -q nsis p7zip-full
+      - name: SimCast.exe
+        run: tools/launcher/build_launcher.sh
+      - name: SimCast-Setup.exe
+        run: tools/installer/build_installer.sh
+      - name: Checksums
+        run: sha256sum SimCast.exe SimCast-Setup.exe | tee SHA256SUMS.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: SimCast-Windows
+          path: |
+            SimCast.exe
+            SimCast-Setup.exe
+            SHA256SUMS.txt
+          if-no-files-found: error

@@ -24,6 +24,7 @@ BATTLE_END_GAP = 1.8
 STOPPED_KMH = 25.0
 STOPPED_HOLD = 2.5
 MOMENT_LOSS = 3.0            # seconds lost over a few loops compared to the lap before: a spin or a trip off
+LAPS_KEPT = 200              # lap times kept per car (only the last few are ever read)
 MISSING_HOLD = 8.0           # a car gone from the field this long during a race has retired (or left)
 CAUTION_FLAGS = {"fcy", "sc", "vsc"}
 
@@ -216,8 +217,10 @@ class RaceTracker:
             cid = e["id"]
             seen.add(cid)
             c = self.cars.get(cid)
-            if c is None or c.name != e["name"]:
+            if c is None or (c.name != e["name"] and not self._same_car(c, e)):
                 c = self.cars[cid] = Car(cid, e, now)
+            elif c.name != e["name"]:
+                c.name, c.call = e["name"], call_name(e["name"])     # a driver swap: same car, new driver
             c.seen, c.gone = now, False
             c.player = bool(e.get("player"))
             if c.player:
@@ -235,6 +238,17 @@ class RaceTracker:
                 if self.session == "race" and self.started and not c.finished and not self.finished:
                     ev.append(Event("retired", now, 75 if c.position <= 3 or c.player else 55, (c.id,),
                                     {"why": "gone", "pos": c.position}, ttl=30, key=f"ret{c.id}"))
+
+    @staticmethod
+    def _same_car(c, e):
+        """A new name on a car id we know: a driver swap in a team or endurance race (the same car, where it was), or
+        another car taking over the slot (a new one)."""
+        if e.get("car") and c.car and e.get("car") != c.car:
+            return False
+        if c.dist is None:
+            return True
+        raw = (e.get("laps") or 0) + (e.get("pct") or 0.0)
+        return min(abs(raw - c.dist), abs(raw - 1 - c.dist), abs(raw + 1 - c.dist)) < 0.5
 
     def _move(self, c, e, now, dt):
         raw = (e.get("laps") or 0) + (e.get("pct") or 0.0)
@@ -428,6 +442,7 @@ class RaceTracker:
         first_racing_lap = self.session == "race" and laps <= 1
         if not pit_lap and not first_racing_lap:
             c.laps_timed.append(lap_time)
+            del c.laps_timed[:-LAPS_KEPT]
         improved = c.best is None or lap_time < c.best - 1e-3
         if sim_best is not None and (c.best is None or sim_best < c.best):
             c.best = sim_best
@@ -489,7 +504,7 @@ class RaceTracker:
         if not self._intro_done:
             self._intro_done = True
             joined = (leader is not None and leader.laps >= 1) or (med > 40 and max((c.laps for c in cars), default=0) > 0)
-            self.started = joined
+            self.started = self.started or joined               # the sim may have said lights out this frame
             self.order = self._sort()
             self._gaps()
             ev.append(Event("intro", now, 70, (), {"joined": joined, "cars": len(cars)}, ttl=90, key="intro"))
@@ -580,8 +595,6 @@ class RaceTracker:
             ev.append(Event("overtake", now, prio, (cid,) + tuple(victims),
                             {"pos": pos, "lead": lead, "multi": len(vs) > 1, "battle_len": self._battle_len(vs[0], a, now),
                              "gap_before": gap_before, "lane": lane_word(a.lat, vs[0].lat) if vs else None}, ttl=10, key=f"ovt{cid}>{victims[0]}@{int(now)}"))
-            for v in victims:
-                self._sim_keys.pop(f"ovtk{cid}>{v}", None)
 
     def _battle_len(self, ahead, behind, now):
         b = self.battles.get((ahead.id, behind.id))
@@ -613,6 +626,7 @@ class RaceTracker:
             if fl and not self._sim_keys.get("sc_dep"):
                 ev.append(Event("caution", now, 88, (), {"kind": fl}, ttl=15, key=f"caution{int(now)}"))
             elif prev and not fl:
+                self._sim_keys.pop("sc_dep", None)          # the next caution is told from the flag again
                 ev.append(Event("green", now, 86, (), {"was": prev}, ttl=10, key=f"green{int(now)}"))
 
     def _incidents(self, now, ev):
@@ -708,6 +722,8 @@ class RaceTracker:
                         self._stretch_told = b.laps
                         ev.append(Event("stretch", now, 46, (a.id, b.id), {"gap": b.interval, "per_lap": -gain / 2},
                                         ttl=25, key=f"str{b.laps}"))
+        if len(self._pair_hist) > 4 * len(self.cars) + 40:
+            self._prune_pairs()
         for key in list(self.battles):
             bt = self.battles[key]
             if key not in live and now - bt["last_close"] > 8.0:
@@ -718,6 +734,19 @@ class RaceTracker:
                 if self.pos_of(a.id) and self.pos_of(b.id) and self.pos_of(a.id) < self.pos_of(b.id):
                     ev.append(Event("battle_over", now, 30 if not (a.player or b.player) else 55, (a.id, b.id),
                                     {"gap": b.interval}, ttl=15, key=f"bo{key}{int(now)}"))
+
+    def _prune_pairs(self):
+        """Forget the lap-by-lap intervals of pairs that haven't been nose to tail for a few laps (the closing check
+        only reads the last three laps of a pair, and a long race meets thousands of pairs)."""
+        for key in list(self._pair_hist):
+            b = self.cars.get(key[1])
+            hist = self._pair_hist[key]
+            if b is None or b.gone or not hist or hist[-1][0] < b.laps - 3:
+                del self._pair_hist[key]
+        for key in list(self._closing_told):
+            b = self.cars.get(key[1])
+            if key not in self._pair_hist and (b is None or b.laps - self._closing_told[key] >= 4):
+                del self._closing_told[key]
 
     def _milestones(self, f, now, prev_tl, ev):
         leader = self.cars.get(self.order[0]) if self.order else None
@@ -736,11 +765,14 @@ class RaceTracker:
                     ev.append(Event("halfway", now, 38, (leader.id,), {}, ttl=30, key="halfway"))
             if n == 1:
                 ev.append(Event("lap_one", now, 64, (leader.id,), {}, ttl=25, key="lapone"))
-            if self.time_left is not None and self.time_left <= 0 and "last" not in self._time_marks \
-                    and not self.race_laps:
-                self._time_marks.add("last")
-                self._last_lap_at = n
-                ev.append(Event("final_lap", now, 87, (leader.id,), {"timed": True}, ttl=25, key="finallap"))
+        # A timed race: when the clock runs out the leader finishes the lap they're on. The sims stop reporting the
+        # clock at zero (time_left goes to None), so it's the clock running out that says so, not a reading of 0.
+        expired = (self.time_left is not None and self.time_left <= 0) or \
+            (self.time_left is None and prev_tl is not None and prev_tl < 60)
+        if expired and not self.race_laps and "last" not in self._time_marks and leader.laps >= 1:
+            self._time_marks.add("last")
+            self._last_lap_at = leader.laps
+            ev.append(Event("final_lap", now, 87, (leader.id,), {"timed": True}, ttl=25, key="finallap"))
         tl = self.time_left
         if tl is not None and prev_tl is not None and not self.race_laps:
             for mark, label in ((600, "ten minutes"), (300, "five minutes"), (120, "two minutes")):

@@ -5,3 +5,10 @@ __pycache__/
 dist/
 simhub/plugin/**/bin/
 simhub/plugin/**/obj/
+
+# built by CI from source (build-windows.yml), never committed
+SimCast.exe
+SimCast-Setup.exe
+SHA256SUMS.txt
+.venv/
+.claude/worktrees/
