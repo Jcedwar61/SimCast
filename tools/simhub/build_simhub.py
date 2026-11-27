@@ -26,6 +26,22 @@ sys.path.insert(0, REPO)
 from simcast import simhub  # noqa: E402
 
 KEYS_CS = os.path.join(REPO, "simhub", "plugin", "SimCastPlugin", "Keys.g.cs")
+CSPROJ = os.path.join(REPO, "simhub", "plugin", "SimCastPlugin", "SimCastPlugin.csproj")
+
+
+def app_version() -> str:
+    with open(os.path.join(REPO, "simcast", "app.py"), encoding="utf-8") as fh:
+        m = re.search(r'^APP_VERSION = "([0-9.]+)"$', fh.read(), re.M)
+    parts = (m.group(1) if m else "0").split(".")
+    return ".".join((parts + ["0", "0"])[:3])
+
+
+def csproj() -> str:
+    """The plugin's project with its version set to SimCast's (1.21 -> 1.21.0), so the DLL says which SimCast it
+    came with."""
+    with open(CSPROJ, encoding="utf-8") as fh:
+        s = fh.read()
+    return re.sub(r"<Version>[^<]*</Version>", f"<Version>{app_version()}</Version>", s, count=1)
 DASH_NAME = "SimCast Booth"
 DASH = os.path.join(REPO, "simhub", "dashboard", DASH_NAME, DASH_NAME + ".djson")
 P = "SimCastPlugin."                    # the plugin's properties: its class name, a dot, the name
@@ -403,7 +419,7 @@ def main():
             print(f"too wide: {name}: {tw} > {w}: {s!r}")
         print(f"wrote {a.preview}")
         return 0
-    want = {KEYS_CS: keys_cs(), DASH: dash_json()}
+    want = {KEYS_CS: keys_cs(), DASH: dash_json(), CSPROJ: csproj()}
     if a.check:
         stale = [p for p, s in want.items() if not os.path.exists(p) or open(p, encoding="utf-8").read() != s]
         for p in stale:

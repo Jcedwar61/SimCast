@@ -15,6 +15,8 @@ package main
 
 import (
 	"archive/zip"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"net/http"
@@ -63,14 +65,25 @@ func findUV(name string) string {
 	return ""
 }
 
-// downloadUV fetches uv's official Windows release zip and unpacks uv.exe, uvw.exe and uvx.exe.
+// uv is pinned: one version, from its PyPI wheels (immutable files; the wheel is a zip with uv.exe, uvw.exe and
+// uvx.exe inside), checked against the SHA-256 PyPI lists for each. A new uv is a deliberate change here.
+const uvVersion = "0.13.10"
+
+var uvWheels = map[string][2]string{ // arch -> {url, sha256}
+	"x86_64": {"https://files.pythonhosted.org/packages/cf/e4/d0704c116ada58e8450890e2defaaf2f07e8d264cf94669210e0823fbcb2/uv-0.13.10-py3-none-win_amd64.whl",
+		"d87b9cf8165f2b3cc596e856b5bf794da9cfad6d1b110ca9d87eed42a15b3684"},
+	"aarch64": {"https://files.pythonhosted.org/packages/8c/d7/59a108985cfc5f1cb0afea1108ff5a0bc4994b405af0825fb3085f068de8/uv-0.13.10-py3-none-win_arm64.whl",
+		"8b0a15613aae9a3e1c134bb5ee706583af0addced7eb1add992f8b1b3e3a92a0"},
+}
+
+// downloadUV fetches the pinned uv for this PC, checks its SHA-256 and unpacks uv.exe, uvw.exe and uvx.exe.
 func downloadUV(log func(string)) error {
 	arch := "x86_64"
 	if runtime.GOARCH == "arm64" || strings.EqualFold(os.Getenv("PROCESSOR_ARCHITECTURE"), "ARM64") {
 		arch = "aarch64"
 	}
-	url := "https://github.com/astral-sh/uv/releases/latest/download/uv-" + arch + "-pc-windows-msvc.zip"
-	log("Downloading uv (the Python runner) from github.com/astral-sh/uv ...")
+	url, want := uvWheels[arch][0], uvWheels[arch][1]
+	log("Downloading uv " + uvVersion + " (the Python runner) from pypi.org ...")
 	client := &http.Client{Timeout: 5 * time.Minute}
 	resp, err := client.Get(url)
 	if err != nil {
@@ -85,11 +98,15 @@ func downloadUV(log func(string)) error {
 		return err
 	}
 	defer os.Remove(tmp.Name())
-	if _, err := io.Copy(tmp, resp.Body); err != nil {
+	h := sha256.New()
+	if _, err := io.Copy(io.MultiWriter(tmp, h), resp.Body); err != nil {
 		tmp.Close()
 		return err
 	}
 	tmp.Close()
+	if got := hex.EncodeToString(h.Sum(nil)); got != want {
+		return fmt.Errorf("uv's download doesn't match its checksum (got %s, expected %s)", got, want)
+	}
 	zr, err := zip.OpenReader(tmp.Name())
 	if err != nil {
 		return err

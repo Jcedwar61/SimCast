@@ -439,7 +439,7 @@ class Director:
     def clock_ok(b):
         return b.clock() >= b.disabled_until                 # a second provider that keeps failing steps aside
 
-    def _ask(self, task, priority, now, filler=False, answer=LEAD, max_tokens=420):
+    def _ask(self, task, priority, now, filler=False, answer=LEAD, max_tokens=420, screen_fn=None):
         booth = self._talk_booth() if filler else self.booth
         if booth is None or not booth.ready():
             return False
@@ -451,8 +451,9 @@ class Director:
             else:
                 self.followups.append((lines, made, priority))
         try:
+            kw = {"screen_fn": screen_fn} if screen_fn is not None else {}
             return booth.request(task, self._brief(), done, opener=answer, max_tokens=max_tokens,
-                                 purpose="convo" if filler else "react")
+                                 purpose="convo" if filler else "react", **kw)
         except Exception as e:
             self.log(f"AI booth: {e}")
             return False
@@ -482,7 +483,8 @@ class Director:
             msgs = self.chat.fresh() if self.writer.chance(odds) else []
             if msgs:
                 task, opener = ai_mod.chat_task(self.writer, self.chat.take(3))
-                if self._ask(task, 20, now, filler=True, answer=opener):
+                if self._ask(task, 20, now, filler=True, answer=opener,
+                             screen_fn=getattr(self.chat, "allow_fn", None)):
                     self._filler_asked = now
                     self.convo_t, self.convo_left, self.convo_n = now, 1, 0
                     return

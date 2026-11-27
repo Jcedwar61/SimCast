@@ -23,6 +23,7 @@ import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from . import hotkeys
+from .stream import local_host as _local_host
 
 PORT = 8687
 API = 1                                    # bumped if a value changes meaning; new values don't need it
@@ -206,12 +207,6 @@ def snapshot(st, cfg, now=None):
 class _Server(ThreadingHTTPServer):
     daemon_threads = True
     allow_reuse_address = sys.platform != "win32"      # on Windows it would let a second program take the port
-
-
-def _local_host(host):
-    h = _s(host).strip().lower()
-    h = h.rsplit(":", 1)[0] if h.count(":") == 1 or h.startswith("[") else h
-    return h in ("127.0.0.1", "localhost", "[::1]", "")
 
 
 class SimHubLink:

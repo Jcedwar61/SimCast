@@ -1,13 +1,13 @@
 # /// script
 # requires-python = ">=3.10,<3.13"
 # dependencies = [
-#   "numpy",
-#   "pygame>=2.5",
-#   "edge-tts>=6.1",
-#   "gTTS>=2.5",
-#   "kokoro-onnx>=0.4",
-#   "openai>=1.60",
-#   "psutil",
+#   "numpy>=1.24,<3",
+#   "pygame>=2.5,<3",
+#   "edge-tts>=6.1,<8",
+#   "gTTS>=2.5,<3",
+#   "kokoro-onnx>=0.4,<0.7",
+#   "openai>=1.60,<4",
+#   "psutil>=5.9,<8",
 #   "pywin32; sys_platform == 'win32'",
 # ]
 # ///

@@ -89,10 +89,10 @@ The MIT License text for the four projects above (with each project's own copyri
 edge-tts (the Microsoft neural voices) - GNU Lesser General Public License v3.0 (LGPL-3.0.txt, which builds
     on GPL-3.0.txt), https://github.com/rany2/edge-tts. Used unmodified, as a separate library.
 
-pygame (sound playback) - GNU Lesser General Public License v2.1, https://www.pygame.org. Used unmodified,
+pygame (sound playback) - GNU Lesser General Public License v2.1 (LGPL-2.1.txt), https://www.pygame.org. Used unmodified,
     as a separate library; its source is at https://github.com/pygame/pygame.
 
-openai (the Python client for OpenAI, Gemini and DeepSeek) - Apache License 2.0, Copyright OpenAI,
+openai (the Python client for OpenAI, Gemini and DeepSeek) - Apache License 2.0 (Apache-2.0.txt), Copyright OpenAI,
     https://github.com/openai/openai-python
 
 NumPy - BSD 3-Clause License, Copyright (c) 2005-2025 NumPy Developers, https://numpy.org
@@ -103,7 +103,7 @@ pywin32 - Python Software Foundation License, https://github.com/mhammond/pywin3
 3. Downloaded the first time you pick a Kokoro voice
 ----------------------------------------------------
 
-Kokoro-82M voice model and voices (kokoro-v1.0.int8.onnx, voices-v1.0.bin) - Apache License 2.0,
+Kokoro-82M voice model and voices (kokoro-v1.0.int8.onnx, voices-v1.0.bin) - Apache License 2.0 (Apache-2.0.txt),
 by hexgrad (https://huggingface.co/hexgrad/Kokoro-82M), converted to ONNX by thewh1teagle.
 
 

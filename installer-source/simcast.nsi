@@ -101,6 +101,7 @@ Section "SimCast" SecApp
 
   DetailPrint "Copying SimCast's files..."
   File "sim_cast.py"
+  File "sim_cast.py.lock"
   Delete "$INSTDIR\sim_coach.py"           ; SimCast 1.0 needed it; SimCast stands alone now
   File "SimCast.exe"
   File "SimCast.ico"
@@ -224,6 +225,7 @@ Section "Uninstall"
   Delete "$DESKTOP\SimCast.lnk"
   Delete "$SMPROGRAMS\SimCast.lnk"
   Delete "$INSTDIR\sim_cast.py"
+  Delete "$INSTDIR\sim_cast.py.lock"
   Delete "$INSTDIR\sim_coach.py"
   Delete "$INSTDIR\SimCast.exe"
   Delete "$INSTDIR\SimCast.ico"

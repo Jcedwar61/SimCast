@@ -24,7 +24,6 @@ ICO = os.path.join(os.path.dirname(HERE), "SimCast.ico")
 LICENSE_DIR = os.path.join(HERE, "licenses")
 
 WHO_COLOUR = {"lead": P["amber"], "analyst": P["blue"], "pit": P["rose"]}     # each voice's colour
-WHO_TINT = {"lead": P["amber_tint"], "analyst": P["blue_tint"], "pit": P["red_tint"]}
 CHATTER_LABELS = {"quiet": "Quiet", "normal": "Normal", "chatty": "Chatty"}
 FOCUS_LABELS = {"field": "Whole field", "balanced": "Balanced", "me": "Mostly me"}
 SPOILER_LABELS = {"after": "After the finish", "always": "Any time", "never": "Never"}
@@ -143,6 +142,7 @@ class SimCastWindow:
         self.update_bar = None
         self.update_status = tk.StringVar(value="")       # shown in Settings > About
         self._update_events = deque()              # from the checking / downloading threads to the window
+        self._calls = deque()                      # call_soon(): other threads' work for the Tk thread
         self._updating = False
         self.stop = threading.Event()
         self.loop = threading.Thread(target=cast.run, args=(self.stop,), daemon=True, name="simcast-loop")
@@ -583,7 +583,17 @@ class SimCastWindow:
             self._update_events.append(("found", info))
         threading.Thread(target=work, daemon=True, name="update-check").start()
 
+    def call_soon(self, fn):
+        """Run fn on the Tk thread at the next poll. Safe from any thread (Tk itself isn't)."""
+        self._calls.append(fn)
+
     def _update_drain(self):
+        while self._calls:
+            fn = self._calls.popleft()
+            try:
+                fn()
+            except Exception:
+                pass                                # e.g. the Settings window it was for has been closed
         while self._update_events:
             kind, val = self._update_events.popleft()
             if kind == "status":
@@ -1245,10 +1255,7 @@ class SettingsWindow:
                     var.set(binding)
                 shown.configure(text=hotkeys.describe(var.get()))
                 btn.configure(text="Set")
-            try:
-                self.win.after(0, apply)
-            except Exception:
-                pass
+            self.app.call_soon(apply)                      # got() runs on the hotkeys thread
 
         def learn():
             hk = getattr(self.app, "hotkeys", None)
@@ -1342,7 +1349,7 @@ class SettingsWindow:
             out[f"{p}_model"] = providers.AUTO if val.startswith("Automatic") else val
         val = self.tts_box.get()
         out["openai_tts_model"] = providers.AUTO if val.startswith("Automatic") else val
-        for k in ("demo_laps", "f1_port", "forza_port", "obs_port", "simhub_port", "recap_offset"):
+        for k in ("f1_port", "forza_port", "obs_port", "simhub_port", "recap_offset"):
             try:
                 out[k] = int(out.get(k) or DEFAULTS[k])
             except ValueError:
@@ -1370,10 +1377,7 @@ class SettingsWindow:
                     label.configure(text=text, foreground=P["green"] if ok else P["red"])
                 except Exception:
                     pass
-            try:
-                self.win.after(0, show)
-            except Exception:
-                pass
+            self.app.call_soon(show)
         threading.Thread(target=work, daemon=True, name="key-test").start()
 
     def test_voice(self, who):

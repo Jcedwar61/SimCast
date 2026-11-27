@@ -209,9 +209,10 @@ def write_storylines(cfg, memory, chat_fn=None, log=print):
 # ------------------------------------------------------------------------------------------------- chat safety
 class Moderator:
     """Twitch chat through OpenAI's moderation model before the booth sees it. allow(text) -> bool. Free with an
-    OpenAI key; without one (or with it switched off) everything passes to the booth's own rules. If the check
-    itself fails, the message passes too (the booth's prompt still refuses abuse), and after a few failures the
-    check rests for a couple of minutes."""
+    OpenAI key; without one (or with it switched off) everything passes to the booth's own rules. While the check is
+    on, a message it can't vouch for is held back: if the check itself fails, and for a couple of minutes after a
+    few failures in a row (it rests rather than hammering a broken key or network). The AI booth's replies to chat
+    go through the same check before they're said on air."""
 
     def __init__(self, cfg_fn, log=print, create_fn=None, clock=time.monotonic):
         self.cfg_fn, self.log, self.clock = cfg_fn, log, clock
@@ -232,8 +233,10 @@ class Moderator:
         return any(getattr(x, "flagged", False) for x in (r.results or []))
 
     def allow(self, text):
-        if not self.active() or self.clock() < self.rest_until:
+        if not self.active():
             return True
+        if self.clock() < self.rest_until:
+            return False                       # the check is resting after failures: hold chat back meanwhile
         try:
             flagged = self._flagged(providers.ai_key(self.cfg_fn(), "openai"), text)
             self.failures = 0
@@ -241,8 +244,8 @@ class Moderator:
             self.failures += 1
             if self.failures >= 3:
                 self.rest_until = self.clock() + 120.0
-                self.log(f"Chat check: {type(e).__name__}; resting it for two minutes")
-            return True
+                self.log(f"Chat check: {type(e).__name__}; chat is held back for two minutes")
+            return False
         if flagged:
             self.blocked += 1
         return not flagged

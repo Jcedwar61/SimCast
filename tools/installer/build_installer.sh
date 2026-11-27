@@ -12,7 +12,7 @@ WORK="$(mktemp -d)"; trap 'rm -rf "$WORK"' EXIT
 VERSION="$(sed -n 's/^APP_VERSION = "\(.*\)"$/\1/p' "$REPO/simcast/app.py")"
 [ -n "$VERSION" ] || { echo "APP_VERSION not found in simcast/app.py"; exit 1; }
 IFS=. read -r a b c d <<<"$VERSION"; VIVERSION="${a:-0}.${b:-0}.${c:-0}.${d:-0}"
-FILES=(sim_cast.py SimCast.exe SimCast.ico SimCast.bat)
+FILES=(sim_cast.py sim_cast.py.lock SimCast.exe SimCast.ico SimCast.bat)
 for f in "${FILES[@]}"; do
   [ -f "$REPO/$f" ] || { echo "Missing $f: build it with tools/launcher/build_launcher.sh"; exit 1; }
 done
